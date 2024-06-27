@@ -1,0 +1,42 @@
+{
+  "name": "s42-core",
+  "version": "1.0.0",
+	"description": "s42core is a Node.js library designed to facilitate rapid application development with features like clustering, event domains, Redis and MongoDB access, dependency management, and routing controllers. Built with TypeScript for simplicity and high performance.",
+	"main": "dist/index.js",
+  "types": "dist/index.d.ts",
+	"type": "module",
+	"module": "dist/index.js",
+	"bugs": {
+    "url": "https://github.com/stock42/s42core/issues"
+  },
+	"homepage": "https://s42core.com",
+  "author": {
+    "name": "César Casas",
+    "url": "https://www.linkedin.com/in/cesarcasas/"
+  },
+	"repository": {
+    "type": "git",
+    "url": "https://github.com/stock42/s42core"
+  },
+  "license": "ISC",
+	"scripts": {
+    "build": "rm -Rf ./dist && npx tsc --build"
+  },
+	"dependencies": {
+    "ioredis": "^5.4.1",
+    "mongodb": "^6.7.0"
+  },
+	"devDependencies": {
+    "@types/node": "^20.14.8",
+    "@typescript-eslint/eslint-plugin": "^7.13.0",
+    "@typescript-eslint/parser": "^7.13.0",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-prettier": "^5.1.3",
+    "eslint-plugin-react": "^7.34.2",
+    "prettier": "^3.3.2",
+		"typescript": "^5.5.2"
+  }
+}
