@@ -16,6 +16,8 @@
 	- [Documentation](#documentation)
 	- [Installation](#installation)
 		- [Example Implementation for listen Events](#example-implementation-for-listen-events)
+		- [Creating controllers](#creating-controllers)
+		- [Using controllers](#using-controllers)
 		- [Creating a Monorepo with Microservices](#creating-a-monorepo-with-microservices)
 
 **Author**: César Casas
@@ -147,6 +149,102 @@ export function listenEventsDomain(eventsDomain: EventsDomain) {
 }
 
 ```
+
+### Creating controllers
+```typescript
+import { Dependencies, type MongoClient, type EventsDomain, Controller } from 's42-core'
+import { z } from 'zod'
+
+const TypeUser = z.object({
+	firstName: z.string(),
+	lastName: z.string(),
+	email: z.string().email(),
+})
+
+export const userController = new Controller()
+	.setPath('/users/create')
+	.post()
+	.use(async (req, res, next) => {
+		console.info('This is a mws: ', req.query)
+		next()
+	})
+	.use(async (req, res) => {
+		const db = Dependencies.get<MongoClient>('db') as MongoClient
+		const eventsDomain = Dependencies.get<EventsDomain>('eventsDomain') as EventsDomain
+
+		try {
+			const data = req.body
+			TypeUser.parse(data)
+			await db.getCollection('users').insertOne({
+				...data,
+				remoteIp: req.realIp,
+				added: new Date(),
+				headers: req.headers,
+			})
+
+			eventsDomain.emitEvent('users.created', { ...data })
+			res.json({ ok: true })
+		} catch (error) {
+			res.jsonError({ ok: false, msg: error })
+		}
+	})
+
+```
+
+### Using controllers
+```typescript
+import { createServer } from 'node:http'
+
+import {
+	Shutdown,
+	Cluster,
+	Dependencies,
+	MongoClient,
+	RedisClient,
+	EventsDomain,
+	RouteControllers,
+} from 's42-core'
+
+import { userController, healthController } from './controllers'
+
+const port = process.env.PORT ?? 3000
+
+Cluster(
+	1,
+	async (pid, uuid) => {
+		console.info('initializing: ', pid, uuid)
+		const mongoClient = MongoClient.getInstance({
+			connectionString: String(process.env?.MONGO_URI),
+			database: String(process.env?.MONGO_DB),
+		})
+
+		await mongoClient.connect()
+		const redisClient = RedisClient.getInstance('localhost')
+
+		const eventsDomain = EventsDomain.getInstance(redisClient, uuid)
+
+		Dependencies.add<MongoClient>('db', mongoClient)
+		Dependencies.add<RedisClient>('redis', redisClient)
+		Dependencies.add<EventsDomain>('eventsDomain', eventsDomain)
+
+		const routerControllers = RouteControllers.getInstance([
+			userController,
+			healthController,
+		])
+		const server = createServer(routerControllers.getCallback())
+
+		server.listen(port, () => {
+			console.info(`ready on *:${port}`)
+		})
+		Shutdown([mongoClient.close, redisClient.close, eventsDomain.close])
+	},
+	() => {
+		console.info('Error trying start servers')
+	},
+)
+
+```
+
 
 ### Creating a Monorepo with Microservices
 
