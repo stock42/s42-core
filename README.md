@@ -1,5 +1,7 @@
-# s42-core
 
+![s42-core](./DOCUMENTATION/s42-core.png)
+
+# s42-core
 - [s42-core](#s42-core)
 	- [Overview](#overview)
 	- [Key Features](#key-features)
@@ -147,6 +149,8 @@ export function listenEventsDomain(eventsDomain: EventsDomain) {
 ```
 
 ### Creating a Monorepo with Microservices
+
+![s42-core monorepo](./DOCUMENTATION/ecosystem-using-s42-core.png)
 
 s42-core is designed to work seamlessly within a monorepo. Here's a basic structure for a monorepo that includes multiple microservices:
 ```text
