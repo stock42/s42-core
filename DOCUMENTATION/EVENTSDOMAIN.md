@@ -10,6 +10,8 @@
 		- [Graceful Shutdown](#graceful-shutdown)
 	- [Best Practices](#best-practices)
 	- [Usage Scenario](#usage-scenario)
+	- [Examples](#examples)
+		- [Listener and emit](#listener-and-emit)
 
 ## Overview
 
@@ -51,3 +53,44 @@ This setup ensures that every time a user is created, an event is emitted and th
 ---
 
 By following these practices and utilizing the `EventsDomain` class, you can effectively manage and emit domain events across your microservices, cells, or software components.
+
+## Examples
+### Listener and emit
+
+```typescript
+import { Shutdown, Cluster, EventsDomain, RedisClient } from 's42-core'
+
+type UsersCreated = {
+  email: string
+  firstName: string
+  lastName: string
+  lang: 'en' | 'es' | 'it' | 'fr'
+  template: string
+}
+
+Cluster(
+  1, // only one instance
+  async (pid, uuid) => {
+    console.info('initializing event user.created listener : ', pid, uuid)
+    const redisInstance = RedisClient.getInstance(process.env.REDIS_URI)
+    const eventsDomain = EventsDomain.getInstance(redisInstance, uuid)
+
+    eventsDomain.listenEvent<UsersCreated>(
+      `users.created`,
+      async (payload: UsersCreated) => {
+        try {
+          console.info('Email sent successfully:', payload)
+          eventsDomain.emitEvent('users.created.email.sent', { ok: true })
+        } catch (error) {
+          console.error('Error sending email:', error)
+        }
+      },
+    )
+
+    Shutdown([eventsDomain.close, redisInstance.close])
+  },
+  () => {
+    console.info('Error trying start servers')
+  },
+)
+```
