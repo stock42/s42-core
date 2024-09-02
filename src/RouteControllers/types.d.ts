@@ -7,7 +7,7 @@ export type RouteCheckResult = {
 }
 
 type TypeRoutesMapCache = {
-	[key: string]: (req: any, res: any) => void
+	[key: string]: (req: any, res: any, next?: (req: any, res: any) => void) => void
 }
 
 type TypeRequestInternalObject = {

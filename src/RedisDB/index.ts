@@ -40,6 +40,14 @@ export class RedisClient implements RedisInterface {
 		})
 	}
 
+	unsubscribe(channelName: string) {
+		try {
+			this.redisSub.unsubscribe(channelName)
+		} catch (err) {
+			throw new Error(`Error unsubscribe: ${channelName}`)
+		}
+	}
+
 	publish(channelName: string, payload: object) {
 		this.redisPub.publish(channelName, JSON.stringify(payload))
 	}

@@ -10,10 +10,17 @@ import {
 	type TypeResponseInternalObject,
 } from './types.d.js'
 
+type TypeRequest = IncomingMessage & {
+	[key: string]: unknown
+}
+
 export class RouteControllers {
 	private readonly localControllers: Controller[]
+	private Headers: { [key: string]: string } = {}
+	private Response: ServerResponse | null = null
 	private localServerHTTP: Server | null
 	private routesMapCache: TypeRoutesMapCache = {}
+	private localMWS = []
 	static instance: RouteControllers
 
 	constructor(controllers: Controller[]) {
@@ -41,9 +48,13 @@ export class RouteControllers {
 			throw new Error('Not Server setted')
 		}
 
-		this.localServerHTTP.listen(port, () => {
-			console.info(`Ready on *: ${port}`)
-		})
+		try {
+			this.localServerHTTP.listen(port, () => {
+				console.info(`Ready on *: ${port}`)
+			})
+		} catch (err) {
+			throw new Error(`Error listener: ${err}`)
+		}
 	}
 
 	private checkRoute(route: string): RouteCheckResult {
@@ -96,27 +107,46 @@ export class RouteControllers {
 		return result
 	}
 
-	private setHeaders(res: ServerResponse) {
-		res.setHeader('Surrogate-Control', 'no-store')
-		res.setHeader(
+	private setResponseHeaders() {
+		if (this.Response) {
+			Object.entries(this.Headers).forEach(([header, value]) => {
+				this.Response?.setHeader(header, value)
+			})
+		}
+	}
+
+	private setHeaders() {
+		this.addHeader('Surrogate-Control', 'no-store')
+		this.addHeader(
 			'Cache-Control',
 			'no-store, no-cache, must-revalidate, proxy-revalidate',
 		)
-		res.setHeader('Pragma', 'no-cache')
-		res.setHeader('Expires', '0')
-
-		res.setHeader('Access-Control-Allow-Origin', '*')
-		res.setHeader('Access-Control-Allow-Credentials', 'true')
-		res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE')
-		res.setHeader('Access-Control-Expose-Headers', 'Content-Length')
-		res.setHeader(
+		this.addHeader('Pragma', 'no-cache')
+		this.addHeader('Expires', '0')
+		this.addHeader('Access-Control-Allow-Origin', '*')
+		this.addHeader('Access-Control-Allow-Credentials', 'true')
+		this.addHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE')
+		this.addHeader('Access-Control-Expose-Headers', 'Content-Length')
+		this.addHeader(
 			'Access-Control-Allow-Headers',
 			'Accept, Authorization, Content-Type, X-Requested-With, Range, apikey, x-access-token',
 		)
-		res.setHeader(
+		this.addHeader(
 			'Content-Security-Policy',
 			"default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:;",
 		)
+	}
+
+	addHeader(header: string, value: string) {
+		this.Headers[header] = value
+	}
+
+	getHeadersToSend() {
+		return this.Headers
+	}
+
+	clearAllHeaders() {
+		this.Headers = {}
 	}
 
 	private async getJSONBody(req: IncomingMessage) {
@@ -193,20 +223,46 @@ export class RouteControllers {
 		res.end(message)
 	}
 
-	public getCallback(): TypeReturnCallback {
-		return async (req: IncomingMessage, res: ServerResponse) => {
-			const resultCheckPath = this.checkRoute(`${req.method}:${req.url}`)
-			if (resultCheckPath.exists) {
-				if (req.method === 'OPTIONS') {
-					return res.writeHead(200)
-				}
-				this.setHeaders(res)
-				const request = await this.getRequestObject(req)
-				const response = this.getResponseObject(res)
-				return this.routesMapCache[resultCheckPath.key](request, response)
-			}
+	public addGlobal(
+		callback: (
+			req: TypeRequest,
+			res: ServerResponse,
+			next?: (req: TypeRequest, res: ServerResponse) => void,
+		) => void,
+	) {
+		this.routesMapCache['*:*'] = callback
+	}
 
-			this.notFound(res)
+	public getCallback(): TypeReturnCallback {
+		return async (req: TypeRequest, res: ServerResponse) => {
+			this.Response = res
+
+			try {
+				const resultCheckPath = this.checkRoute(`${req.method}:${req.url}`)
+				if (resultCheckPath.exists) {
+					this.setHeaders()
+					this.setResponseHeaders()
+					if (req.method === 'OPTIONS') {
+						return res.writeHead(200)
+					}
+					const request = await this.getRequestObject(req)
+					const response = this.getResponseObject(res)
+					if (this.routesMapCache['*:*']) {
+						return this.routesMapCache['*:*'](
+							request,
+							response,
+							this.routesMapCache[resultCheckPath.key],
+						)
+					}
+
+					return this.routesMapCache[resultCheckPath.key](request, response)
+				}
+
+				return this.notFound(res)
+			} catch (err) {
+				console.info('Internal Route Controllers Error: ', err)
+				return this.serverError(res)
+			}
 		}
 	}
 

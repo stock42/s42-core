@@ -31,6 +31,14 @@ export class RedisClient {
             }
         });
     }
+    unsubscribe(channelName) {
+        try {
+            this.redisSub.unsubscribe(channelName);
+        }
+        catch (err) {
+            throw new Error(`Error unsubscribe: ${channelName}`);
+        }
+    }
     publish(channelName, payload) {
         this.redisPub.publish(channelName, JSON.stringify(payload));
     }

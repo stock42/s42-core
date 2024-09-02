@@ -53,6 +53,9 @@ Subscribes to a Redis channel and listens for messages. When a message is receiv
 - **channelName**: The name of the channel to subscribe to.
 - **callback**: The function to call when a message is received.
 
+### `unsubscribe(channelName: string)`: void
+Unsubscribe event name
+
 ### `publish(channelName: string, payload: object)`
 
 Publishes a message to a Redis channel.

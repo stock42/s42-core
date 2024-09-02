@@ -1,7 +1,7 @@
+
 # ROUTE CONTROLLERS
 
 - [ROUTE CONTROLLERS](#route-controllers)
-- [ROUTE\_CONTROLLERS](#route_controllers)
 	- [Overview](#overview)
 	- [Purpose](#purpose)
 	- [Key Features](#key-features)
@@ -9,27 +9,31 @@
 		- [Header Management](#header-management)
 		- [JSON Body Parsing](#json-body-parsing)
 		- [Query Parameter Parsing](#query-parameter-parsing)
+		- [Middleware Support](#middleware-support)
 		- [Flexible Integration](#flexible-integration)
 	- [Methods](#methods)
 		- [`processAllControllers()`](#processallcontrollers)
 		- [`setServer(server: Server)`](#setserverserver-server)
 		- [`listen(port: number)`](#listenport-number)
 		- [`checkRoute(route: string): RouteCheckResult`](#checkrouteroute-string-routecheckresult)
+		- [`addHeader(header: string, value: string)`](#addheaderheader-string-value-string)
+		- [`setHeaders()`](#setheaders)
+		- [`getHeadersToSend(): { [key: string]: string }`](#getheaderstosend--key-string-string-)
+		- [`setResponseHeaders()`](#setresponseheaders)
+		- [`clearAllHeaders()`](#clearallheaders)
 		- [`getQueryParams(url: string): { [key: string]: string }`](#getqueryparamsurl-string--key-string-string-)
 		- [`getRequestObject(req: IncomingMessage): Promise<TypeRequestInternalObject>`](#getrequestobjectreq-incomingmessage-promisetyperequestinternalobject)
 		- [`getResponseObject(res: ServerResponse): TypeResponseInternalObject`](#getresponseobjectres-serverresponse-typeresponseinternalobject)
 		- [`notFound(res: ServerResponse, message?: string)`](#notfoundres-serverresponse-message-string)
 		- [`serverError(res: ServerResponse, message?: string)`](#servererrorres-serverresponse-message-string)
+		- [`addGlobal(callback: (req: TypeRequest, res: ServerResponse, next?: (req: TypeRequest, res: ServerResponse) => void) => void)`](#addglobalcallback-req-typerequest-res-serverresponse-next-req-typerequest-res-serverresponse--void--void)
 		- [`getCallback(): TypeReturnCallback`](#getcallback-typereturncallback)
 		- [`getInstance(controllers: Controller[])`](#getinstancecontrollers-controller)
 	- [Controller Parameters](#controller-parameters)
 		- [`req: TypeRequestInternalObject`](#req-typerequestinternalobject)
 		- [`res: TypeResponseInternalObject`](#res-typeresponseinternalobject)
-		- [`next: () => void`](#next---void)
 	- [Use Cases](#use-cases)
 		- [Example 1: Managing Routes and Controllers](#example-1-managing-routes-and-controllers)
-
-# ROUTE_CONTROLLERS
 
 ## Overview
 
@@ -47,7 +51,7 @@ The primary goal of the `RouteControllers` class is to manage HTTP routes and th
 
 ### Header Management
 
-The class includes methods to set appropriate HTTP headers, such as cache control, CORS, and content security policies.
+The class includes methods to dynamically set, update, and clear HTTP headers for responses, such as cache control, CORS, and content security policies.
 
 ### JSON Body Parsing
 
@@ -56,6 +60,10 @@ It provides a mechanism to parse JSON bodies from incoming requests, making it e
 ### Query Parameter Parsing
 
 The `RouteControllers` class includes functionality to parse query parameters from the URL, converting them into a key-value object for easy access and manipulation.
+
+### Middleware Support
+
+`RouteControllers` supports global middleware that can be executed for every route, providing a mechanism for pre-processing requests or adding common functionality across all routes.
 
 ### Flexible Integration
 
@@ -85,6 +93,31 @@ Checks if a route exists in the internal route cache, ignoring any query paramet
 
 - **route**: The HTTP method and URL of the route to check.
 - **returns**: An object indicating whether the route exists and any route parameters.
+
+### `addHeader(header: string, value: string)`
+
+Adds or updates an HTTP header in the internal headers object.
+
+- **header**: The name of the HTTP header.
+- **value**: The value of the HTTP header.
+
+### `setHeaders()`
+
+Sets the default HTTP headers by calling `addHeader` internally for each header.
+
+### `getHeadersToSend(): { [key: string]: string }`
+
+Returns the current set of headers that will be sent with the response.
+
+- **returns**: An object containing all HTTP headers set for the response.
+
+### `setResponseHeaders()`
+
+Applies all headers stored in the internal headers object to the current HTTP response.
+
+### `clearAllHeaders()`
+
+Clears all headers stored in the internal headers object.
 
 ### `getQueryParams(url: string): { [key: string]: string }`
 
@@ -120,9 +153,15 @@ Sends a 500 Internal Server Error response with the specified message.
 - **res**: The HTTP response object.
 - **message**: The message to send (optional).
 
+### `addGlobal(callback: (req: TypeRequest, res: ServerResponse, next?: (req: TypeRequest, res: ServerResponse) => void) => void)`
+
+Adds a global middleware callback that will be executed for every incoming request.
+
+- **callback**: A function that receives the request and response objects, and optionally a `next` function for chaining middleware.
+
 ### `getCallback(): TypeReturnCallback`
 
-Returns a callback function that processes incoming requests, checks routes, and invokes the appropriate controller methods.
+Returns a callback function that processes incoming requests, checks routes, and invokes the appropriate controller methods. It also sets the response headers using the `setResponseHeaders` method.
 
 ### `getInstance(controllers: Controller[])`
 
@@ -151,11 +190,6 @@ When a controller is called, it receives the following parameters:
 - **_404**: A function to send a 404 Not Found response with a given body.
 - **_500**: A function to send a 500 Internal Server Error response with a given body.
 
-### `next: () => void`
-
-A function to pass control to the next middleware function. This is useful for chaining multiple middleware functions together.
-
-
 ## Use Cases
 
 ### Example 1: Managing Routes and Controllers
@@ -166,13 +200,13 @@ You can define multiple controllers, each handling different routes and HTTP met
 import { createServer } from 'node:http'
 
 import {
-	Shutdown,
-	Cluster,
-	Dependencies,
-	MongoClient,
-	RedisClient,
-	EventsDomain,
-	RouteControllers,
+  Shutdown,
+  Cluster,
+  Dependencies,
+  MongoClient,
+  RedisClient,
+  EventsDomain,
+  RouteControllers,
 } from 's42-core'
 
 import { userController, healthController } from './controllers'
@@ -180,40 +214,38 @@ import { userController, healthController } from './controllers'
 const port = process.env.PORT ?? 3000
 
 Cluster(
-	1,
-	async (pid, uuid) => {
-		console.info('initializing: ', pid, uuid)
-		const mongoClient = MongoClient.getInstance({
-			connectionString: String(process.env?.MONGO_URI),
-			database: String(process.env?.MONGO_DB),
-		})
+  1,
+  async (pid, uuid) => {
+    console.info('initializing: ', pid, uuid)
+    const mongoClient = MongoClient.getInstance({
+      connectionString: String(process.env?.MONGO_URI),
+      database: String(process.env?.MONGO_DB),
+    })
 
-		await mongoClient.connect()
-		const redisClient = RedisClient.getInstance('localhost')
+    await mongoClient.connect()
+    const redisClient = RedisClient.getInstance('localhost')
 
-		const eventsDomain = EventsDomain.getInstance(redisClient, uuid)
+    const eventsDomain = EventsDomain.getInstance(redisClient, uuid)
 
-		Dependencies.add<MongoClient>('db', mongoClient)
-		Dependencies.add<RedisClient>('redis', redisClient)
-		Dependencies.add<EventsDomain>('eventsDomain', eventsDomain)
+    Dependencies.add<MongoClient>('db', mongoClient)
+    Dependencies.add<RedisClient>('redis', redisClient)
+    Dependencies.add<EventsDomain>('eventsDomain', eventsDomain)
 
-		const routerControllers = RouteControllers.getInstance([
-			userController,
-			healthController,
-		])
-		const server = createServer(routerControllers.getCallback())
+    const routerControllers = RouteControllers.getInstance([
+      userController,
+      healthController,
+    ])
+    const server = createServer(routerControllers.getCallback())
 
-		server.listen(port, () => {
-			console.info(`ready on *:${port}`)
-		})
-		Shutdown([mongoClient.close, redisClient.close, eventsDomain.close])
-	},
-	() => {
-		console.info('Error trying start servers')
-	},
+    server.listen(port, () => {
+      console.info(`ready on *:${port}`)
+    })
+    Shutdown([mongoClient.close, redisClient.close, eventsDomain.close])
+  },
+  () => {
+    console.info('Error trying to start servers')
+  },
 )
-
 ```
----
 
 By leveraging the `RouteControllers` class, you can efficiently manage your HTTP routes and controllers, creating a flexible and robust routing solution that integrates seamlessly with `s42-core` and other frameworks.

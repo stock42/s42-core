@@ -9,6 +9,7 @@ export declare class RedisClient implements RedisInterface {
     hget(key: string, subkey: string): Promise<string | null>;
     hgetall(key: string): Promise<Record<string, string>>;
     subscribe<T>(channelName: string, callback: (payload: T) => void): void;
+    unsubscribe(channelName: string): void;
     publish(channelName: string, payload: object): void;
     static getInstance(connectonURI?: string): RedisClient;
     close(): void;

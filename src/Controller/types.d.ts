@@ -6,5 +6,6 @@ export type TYPE_HTTP_METHOD =
 	| 'UPDATE'
 	| 'PATCH'
 	| 'OPTIONS'
+	| '*'
 
 export type Middleware = (req: any, res: any, next?: Middleware) => void

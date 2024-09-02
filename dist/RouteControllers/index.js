@@ -1,8 +1,11 @@
 import { jsonParse } from '../JSONParse/index.js';
 export class RouteControllers {
     localControllers;
+    Headers = {};
+    Response = null;
     localServerHTTP;
     routesMapCache = {};
+    localMWS = [];
     static instance;
     constructor(controllers) {
         this.localControllers = controllers;
@@ -25,9 +28,14 @@ export class RouteControllers {
         if (!this.localServerHTTP) {
             throw new Error('Not Server setted');
         }
-        this.localServerHTTP.listen(port, () => {
-            console.info(`Ready on *: ${port}`);
-        });
+        try {
+            this.localServerHTTP.listen(port, () => {
+                console.info(`Ready on *: ${port}`);
+            });
+        }
+        catch (err) {
+            throw new Error(`Error listener: ${err}`);
+        }
     }
     checkRoute(route) {
         const result = {
@@ -70,17 +78,33 @@ export class RouteControllers {
         }
         return result;
     }
-    setHeaders(res) {
-        res.setHeader('Surrogate-Control', 'no-store');
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
-        res.setHeader('Access-Control-Expose-Headers', 'Content-Length');
-        res.setHeader('Access-Control-Allow-Headers', 'Accept, Authorization, Content-Type, X-Requested-With, Range, apikey, x-access-token');
-        res.setHeader('Content-Security-Policy', "default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:;");
+    setResponseHeaders() {
+        if (this.Response) {
+            Object.entries(this.Headers).forEach(([header, value]) => {
+                this.Response?.setHeader(header, value);
+            });
+        }
+    }
+    setHeaders() {
+        this.addHeader('Surrogate-Control', 'no-store');
+        this.addHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        this.addHeader('Pragma', 'no-cache');
+        this.addHeader('Expires', '0');
+        this.addHeader('Access-Control-Allow-Origin', '*');
+        this.addHeader('Access-Control-Allow-Credentials', 'true');
+        this.addHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
+        this.addHeader('Access-Control-Expose-Headers', 'Content-Length');
+        this.addHeader('Access-Control-Allow-Headers', 'Accept, Authorization, Content-Type, X-Requested-With, Range, apikey, x-access-token');
+        this.addHeader('Content-Security-Policy', "default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:;");
+    }
+    addHeader(header, value) {
+        this.Headers[header] = value;
+    }
+    getHeadersToSend() {
+        return this.Headers;
+    }
+    clearAllHeaders() {
+        this.Headers = {};
     }
     async getJSONBody(req) {
         try {
@@ -147,19 +171,33 @@ export class RouteControllers {
         res.writeHead(500, { 'Content-Type': 'text/html' });
         res.end(message);
     }
+    addGlobal(callback) {
+        this.routesMapCache['*:*'] = callback;
+    }
     getCallback() {
         return async (req, res) => {
-            const resultCheckPath = this.checkRoute(`${req.method}:${req.url}`);
-            if (resultCheckPath.exists) {
-                if (req.method === 'OPTIONS') {
-                    return res.writeHead(200);
+            this.Response = res;
+            try {
+                const resultCheckPath = this.checkRoute(`${req.method}:${req.url}`);
+                if (resultCheckPath.exists) {
+                    this.setHeaders();
+                    this.setResponseHeaders();
+                    if (req.method === 'OPTIONS') {
+                        return res.writeHead(200);
+                    }
+                    const request = await this.getRequestObject(req);
+                    const response = this.getResponseObject(res);
+                    if (this.routesMapCache['*:*']) {
+                        return this.routesMapCache['*:*'](request, response, this.routesMapCache[resultCheckPath.key]);
+                    }
+                    return this.routesMapCache[resultCheckPath.key](request, response);
                 }
-                this.setHeaders(res);
-                const request = await this.getRequestObject(req);
-                const response = this.getResponseObject(res);
-                return this.routesMapCache[resultCheckPath.key](request, response);
+                return this.notFound(res);
             }
-            this.notFound(res);
+            catch (err) {
+                console.info('Internal Route Controllers Error: ', err);
+                return this.serverError(res);
+            }
         };
     }
     static getInstance(controllers) {

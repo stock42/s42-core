@@ -1,7 +1,7 @@
 {
   "name": "s42-core",
-  "version": "1.0.2",
-	"description": "s42core is a Node.js library designed to facilitate rapid application development with features like clustering, event domains, Redis and MongoDB access, dependency management, and routing controllers. Built with TypeScript for simplicity and high performance.",
+  "version": "1.0.3",
+	"description": "S42Core is a Node.js library designed to facilitate rapid application development with features like clustering, event domains, Redis and MongoDB access, dependency management, and routing controllers. Built with TypeScript for simplicity and high performance. Cell architecture based",
 	"main": "dist/index.js",
   "types": "dist/index.d.ts",
 	"type": "module",
@@ -28,7 +28,7 @@
 		"picocolors": "^1.0.1"
   },
 	"devDependencies": {
-    "@types/node": "^20.14.10",
+    "@types/node": "^22.5.0",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
     "autoprefixer": "^10.4.19",

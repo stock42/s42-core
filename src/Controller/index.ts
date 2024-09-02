@@ -13,6 +13,7 @@ export class Controller implements ControllerInterface {
 	public getMethods() {
 		return this.methods
 	}
+
 	public setPath(path: string) {
 		this.path = path
 		return this
@@ -98,13 +99,14 @@ export class Controller implements ControllerInterface {
 
 			try {
 				if (this.callbacks.length === 0) {
-					return res.end('No "uses" setted for this endpoint')
+					res.writeHead(200, { 'Content-Type': 'application/json' })
+					return res.end(JSON.stringify({ error: 'No "uses" setted for this endpoint' }))
 				}
 
 				next()
 			} catch (err) {
 				res.writeHead(500, { 'Content-Type': 'application/json' })
-				res.end(`Internal Error: ${err}`)
+				return res.end(JSON.stringify({ error: 'Internal Server Error' }))
 			}
 		}
 	}
