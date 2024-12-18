@@ -1,4 +1,4 @@
-import { DatabaseSync } from 'node:sqlite'
+import { Database } from 'bun:sqlite'
 
 export type TypeTableSchema = { [key: string]: string }
 
@@ -7,19 +7,21 @@ export type TypeSQLiteConnection = {
 	filename?: string
 }
 
-export class SQLIte {
+export class SQLite {
 	private type: string
-	private database: DatabaseSync
+	private database: Database
 
 	constructor(props: TypeSQLiteConnection) {
 		this.type = props.type
+
 		if (props.type === 'file' && !props.filename) {
 			throw new Error('Require "file" prop')
 		}
+
 		if (this.type === 'memory') {
-			this.database = new DatabaseSync(':memory:')
+			this.database = new Database(':memory:')
 		} else {
-			this.database = new DatabaseSync(String(props?.filename))
+			this.database = new Database(props.filename!)
 		}
 	}
 
@@ -38,12 +40,12 @@ export class SQLIte {
 				.join(', ')
 
 			const query = `CREATE TABLE IF NOT EXISTS ${tableName} (
-				key INTEGER PRIMARY KEY,
-				value TEXT,
-				${schemaEntries}
-			) STRICT`
+        key INTEGER PRIMARY KEY,
+        value TEXT,
+        ${schemaEntries}
+      ) STRICT`
 
-			this.database.prepare(query).run()
+			this.database.run(query)
 		} catch (err) {
 			throw new Error(`Error creating table: ${String(err)}`)
 		}
@@ -52,7 +54,7 @@ export class SQLIte {
 	public dropTable(tableName: string) {
 		try {
 			const query = `DROP TABLE IF EXISTS ${tableName}`
-			this.database.prepare(query).run()
+			this.database.run(query)
 		} catch (err) {
 			throw new Error(`Error dropping table: ${String(err)}`)
 		}
@@ -61,7 +63,7 @@ export class SQLIte {
 	public delete(tableName: string, where: string, params: any[] = []) {
 		try {
 			const query = `DELETE FROM ${tableName} WHERE ${where}`
-			this.database.prepare(query).run(...params)
+			this.database.run(query, ...params)
 		} catch (err) {
 			throw new Error(`Error deleting data: ${String(err)}`)
 		}
@@ -75,7 +77,7 @@ export class SQLIte {
 				.join(', ')
 
 			const query = `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders})`
-			this.database.prepare(query).run(...Object.values(data))
+			this.database.run(query, ...Object.values(data))
 		} catch (err) {
 			throw new Error(`Error inserting data: ${String(err)}`)
 		}
@@ -84,7 +86,7 @@ export class SQLIte {
 	public select(tableName: string, where: string, params: any[] = []) {
 		try {
 			const query = `SELECT * FROM ${tableName} WHERE ${where} ORDER BY key`
-			return this.database.prepare(query).all(...params)
+			return this.database.query(query).all(...params)
 		} catch (err) {
 			throw new Error(`Error selecting data: ${String(err)}`)
 		}

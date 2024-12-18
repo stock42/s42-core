@@ -3,57 +3,84 @@ import { type IncomingMessage, type ServerResponse } from 'http'
 
 export type TypeSSEventToSend = {
 	eventName: string
-	eventPayload: { [key: string]: string }
+	eventPayload: Record<string, any>
 }
 
 export class SSE {
-	private Response: ServerResponse
+	private response: ServerResponse
 	private readonly uuid: string
-	private localID: number
+	private localID: number = 0
+
 	constructor(req: IncomingMessage, res: ServerResponse) {
-		this.Response = res
-		this.localID = 0
+		this.response = res
 		this.uuid = randomUUID()
-		this.controllerPath()
-		this.sendHello()
+		this.setupConnection()
+		this.sendWelcomeEvent()
 	}
 
-	getUUID() {
+	/**
+	 * Returns the unique identifier for the SSE connection.
+	 */
+	getUUID(): string {
 		return this.uuid
 	}
 
-	private sendHello() {
+	/**
+	 * Sends a server-sent event.
+	 * @param data - The event data to send.
+	 */
+	send(data: TypeSSEventToSend): void {
+		const formattedData = this.formatEvent(data)
+		try {
+			this.response.write(formattedData)
+		} catch (error) {
+			console.error('Error sending SSE data:', error)
+		}
+	}
+
+	/**
+	 * Closes the SSE connection.
+	 */
+	close(): void {
+		try {
+			this.response.end()
+		} catch (error) {
+			console.error('Error closing SSE connection:', error)
+		}
+	}
+
+	/**
+	 * Formats the event data according to the SSE protocol.
+	 * @param data - The event data to format.
+	 * @returns The formatted string.
+	 */
+	private formatEvent(data: TypeSSEventToSend): string {
+		return `id: ${this.localID++}\nevent: ${data.eventName}\ndata: ${JSON.stringify(
+			data.eventPayload,
+		)}\n\n`
+	}
+
+	/**
+	 * Sets up the SSE connection headers.
+	 */
+	private setupConnection(): void {
+		this.response.writeHead(200, {
+			'Content-Type': 'text/event-stream',
+			'Cache-Control': 'no-cache',
+			Connection: 'keep-alive',
+		})
+		this.response.flushHeaders()
+	}
+
+	/**
+	 * Sends a welcome event with the UUID.
+	 */
+	private sendWelcomeEvent(): void {
 		this.send({
 			eventName: 'welcome',
 			eventPayload: {
 				uuid: this.uuid,
 			},
 		})
-	}
-
-	private controllerPath() {
-		this.Response.writeHead(200, {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
-			Connection: 'keep-alive',
-		})
-		this.Response.flushHeaders()
-	}
-
-	send(data: TypeSSEventToSend) {
-		const formattedData = `id: ${this.localID++}\nevent: ${data.eventName}\ndata: ${JSON.stringify(data.eventPayload)}\n\n`
-		try {
-			this.Response.write(formattedData)
-		} catch (error) {
-			console.error('Error sending SSE data:', error)
-		}
-	}
-
-	close() {
-		try {
-			this.Response.end()
-		} catch (error) {
-			console.error('Error closing SSE connection:', error)
-		}
 	}
 }

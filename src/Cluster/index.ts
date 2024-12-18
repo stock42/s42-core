@@ -1,29 +1,37 @@
-import { cpus } from 'node:os'
-import { randomUUID } from 'node:crypto'
+import { spawn } from 'bun'
 
-import cluster from 'node:cluster'
+export class Cluster {
+	private cpus = navigator.hardwareConcurrency
+	private buns = new Array(this.cpus)
+	private file: string = ''
 
-export function Cluster(
-	cores: number = 0,
-	childCallback: (pid: number, uuid: string) => void,
-	fallback: (err: Error) => void,
-) {
-	try {
-		if (cluster.isPrimary) {
-			const numCPUs = cores === 0 ? cpus().length : cores
-			console.info(`Primary ${process.pid} is running`)
+	public start(file: string, fallback: (err: Error) => void) {
+		try {
+			console.info(`Spawning ${this.cpus} worker(s)`)
 
-			for (let i = 0; i < numCPUs; i += 1) {
-				cluster.fork()
+			for (let i = 0; i < this.cpus; i++) {
+				this.buns[i] = spawn({
+					cmd: ['bun', file],
+					stdout: 'inherit',
+					stderr: 'inherit',
+					stdin: 'inherit',
+				})
 			}
 
-			cluster.on('exit', (worker, code, signal) => {
-				console.info(`Worker ${worker.process.pid} died: ${code} - ${signal}`)
-			})
-		} else {
-			childCallback(process.pid, randomUUID())
+			process.on('SIGINT', this.killWorkers.bind(this))
+			process.on('exit', this.killWorkers.bind(this))
+		} catch (unknownError) {
+			const error =
+				unknownError instanceof Error ? unknownError : new Error(String(unknownError))
+
+			fallback(new Error(`Cluster setup failed: ${error.message}`))
 		}
-	} catch (err) {
-		fallback(new Error(String(err)))
+	}
+
+	private killWorkers() {
+		console.info('Shutting down workers...')
+		for (const bun of this.buns) {
+			bun.kill()
+		}
 	}
 }

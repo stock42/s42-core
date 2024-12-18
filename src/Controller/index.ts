@@ -1,112 +1,94 @@
 import { type ControllerInterface } from './controller.interface.js'
-
 import { type TYPE_HTTP_METHOD, type Middleware } from './types.d.js'
 
 export class Controller implements ControllerInterface {
 	private path: string = ''
-	private methods: Array<TYPE_HTTP_METHOD> = []
+	private methods = new Set<TYPE_HTTP_METHOD>()
 	private callbacks: Array<Middleware> = []
-	constructor() {
-		return this
-	}
 
-	public getMethods() {
-		return this.methods
-	}
-
-	public setPath(path: string) {
+	public setPath(path: string): this {
 		this.path = path
 		return this
 	}
 
-	public getPath() {
+	public getPath(): string {
 		return this.path
 	}
 
-	public update() {
-		const method = 'UPDATE'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
+	public getMethods(): Array<TYPE_HTTP_METHOD> {
+		return Array.from(this.methods)
+	}
+
+	private addMethod(method: TYPE_HTTP_METHOD): this {
+		this.methods.add(method)
 		return this
 	}
 
-	public patch() {
-		const method = 'PATCH'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
+	// Define HTTP methods
+	public update(): this {
+		return this.addMethod('UPDATE')
 	}
 
-	public options() {
-		const method = 'OPTIONS'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
+	public patch(): this {
+		return this.addMethod('PATCH')
 	}
 
-	public get() {
-		const method = 'GET'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
+	public options(): this {
+		return this.addMethod('OPTIONS')
 	}
 
-	public delete() {
-		const method = 'DELETE'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
+	public get(): this {
+		return this.addMethod('GET')
 	}
 
-	public post() {
-		const method = 'POST'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
+	public delete(): this {
+		return this.addMethod('DELETE')
 	}
 
-	public put() {
-		const method = 'PUT'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
+	public post(): this {
+		return this.addMethod('POST')
 	}
 
-	public use(callback: (req: any, res: any, next?: Middleware) => void) {
+	public put(): this {
+		return this.addMethod('PUT')
+	}
+
+	public use(callback: Middleware): this {
 		this.callbacks.push(callback)
 		return this
 	}
 
-	public getCallback(): (req: any, res: any) => void {
-		return async (req: any, res: any) => {
+	public getCallback(): (req: any) => Promise<Response> {
+		return async (req: any): Promise<Response> => {
 			let index = 0
-			const next = () => {
+
+			const next = (): Response => {
 				if (index < this.callbacks.length) {
 					const middleware = this.callbacks[index]
 					index++
-					middleware(req, res, next)
+					return middleware(req, next) as Response
 				} else {
-					res.end('End use case')
+					return new Response('End use case', { status: 200 })
 				}
 			}
 
 			try {
 				if (this.callbacks.length === 0) {
-					res.writeHead(200, { 'Content-Type': 'application/json' })
-					return res.end(JSON.stringify({ error: 'No "uses" setted for this endpoint' }))
+					return new Response(
+						JSON.stringify({ error: 'No "uses" set for this endpoint' }),
+						{
+							status: 200,
+							headers: { 'Content-Type': 'application/json' },
+						},
+					)
 				}
 
-				next()
+				return next() as Response
 			} catch (err) {
-				res.writeHead(500, { 'Content-Type': 'application/json' })
-				return res.end(JSON.stringify({ error: 'Internal Server Error' }))
+				new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+					status: 500,
+					headers: { 'Content-Type': 'application/json' },
+				})
 			}
 		}
 	}

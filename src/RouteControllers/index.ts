@@ -1,95 +1,63 @@
-import { type IncomingMessage, type ServerResponse, type Server } from 'node:http'
-import { jsonParse } from '../JSONParse/index.js'
 import { type Controller } from '../Controller/index.js'
-
 import {
 	type TypeReturnCallback,
 	type RouteCheckResult,
 	type TypeRoutesMapCache,
 	type TypeRequestInternalObject,
-	type TypeResponseInternalObject,
 } from './types.d.js'
-
-type TypeRequest = IncomingMessage & {
-	[key: string]: unknown
-}
 
 export class RouteControllers {
 	private readonly localControllers: Controller[]
-	private Headers: { [key: string]: string } = {}
-	private Response: ServerResponse | null = null
-	private localServerHTTP: Server | null
+	private headers: Record<string, string> = {}
 	private routesMapCache: TypeRoutesMapCache = {}
-	private localMWS = []
-	static instance: RouteControllers
+	private static instance: RouteControllers
 
-	constructor(controllers: Controller[]) {
+	private constructor(controllers: Controller[]) {
 		this.localControllers = controllers
-		this.localServerHTTP = null
 		this.processAllControllers()
 	}
 
-	private processAllControllers() {
+	/**
+	 * Processes all controllers and maps their routes and methods.
+	 */
+	private processAllControllers(): void {
 		this.localControllers.forEach(controller => {
 			controller.getMethods().forEach((method: string) => {
-				this.routesMapCache[`${method}:${controller.getPath()}`] =
-					controller.getCallback()
+				const key = `${method}:${controller.getPath()}`
+				this.routesMapCache[key] = controller.getCallback()
 			})
 		})
-		return this
 	}
 
-	public setServer(server: Server) {
-		this.localServerHTTP = server
-	}
-
-	public listen(port: number) {
-		if (!this.localServerHTTP) {
-			throw new Error('Not Server setted')
-		}
-
-		try {
-			this.localServerHTTP.listen(port, () => {
-				console.info(`Ready on *: ${port}`)
-			})
-		} catch (err) {
-			throw new Error(`Error listener: ${err}`)
-		}
-	}
-
+	/**
+	 * Checks if a route exists in the routes map and extracts params if applicable.
+	 */
 	private checkRoute(route: string): RouteCheckResult {
-		const result: RouteCheckResult = {
-			exists: false,
-			params: {},
-			key: '',
-		}
-
+		const result: RouteCheckResult = { exists: false, params: {}, key: '' }
 		const [purePath] = route.split('?')
 		const [method] = purePath.split(':')
 
 		for (const key in this.routesMapCache) {
 			const [routeMethod] = key.split(':')
-
 			if (method !== routeMethod) {
 				continue
 			}
 
 			const keyParts = key.split('/')
 			const routeParts = purePath.split('/')
-
 			if (keyParts.length !== routeParts.length) {
 				continue
 			}
+
 			keyParts.shift()
 			routeParts.shift()
 
 			let isMatch = true
-			const params: { [key: string]: string } = {}
+			const params: Record<string, string> = {}
 
 			for (let i = 0; i < keyParts.length; i++) {
 				if (keyParts[i].startsWith(':')) {
-					const paramName = keyParts[i].substring(1)
-					params[paramName] = routeParts[i]
+					params[keyParts[i].substring(1)] = routeParts[i]
 				} else if (keyParts[i] !== routeParts[i]) {
 					isMatch = false
 					break
@@ -103,170 +71,129 @@ export class RouteControllers {
 				break
 			}
 		}
-
 		return result
 	}
 
-	private setResponseHeaders() {
-		if (this.Response) {
-			Object.entries(this.Headers).forEach(([header, value]) => {
-				this.Response?.setHeader(header, value)
-			})
+	/**
+	 * Adds headers to the response.
+	 */
+	private setHeaders(): void {
+		this.headers = {
+			'Surrogate-Control': 'no-store',
+			'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+			Pragma: 'no-cache',
+			Expires: '0',
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Credentials': 'true',
+			'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE',
+			'Access-Control-Expose-Headers': 'Content-Length',
+			'Access-Control-Allow-Headers':
+				'Accept, Authorization, Content-Type, X-Requested-With, Range, apikey, x-access-token',
+			'Content-Security-Policy':
+				"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self';",
 		}
 	}
 
-	private setHeaders() {
-		this.addHeader('Surrogate-Control', 'no-store')
-		this.addHeader(
-			'Cache-Control',
-			'no-store, no-cache, must-revalidate, proxy-revalidate',
-		)
-		this.addHeader('Pragma', 'no-cache')
-		this.addHeader('Expires', '0')
-		this.addHeader('Access-Control-Allow-Origin', '*')
-		this.addHeader('Access-Control-Allow-Credentials', 'true')
-		this.addHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE')
-		this.addHeader('Access-Control-Expose-Headers', 'Content-Length')
-		this.addHeader(
-			'Access-Control-Allow-Headers',
-			'Accept, Authorization, Content-Type, X-Requested-With, Range, apikey, x-access-token',
-		)
-		this.addHeader(
-			'Content-Security-Policy',
-			"default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:;",
-		)
-	}
-
-	addHeader(header: string, value: string) {
-		this.Headers[header] = value
-	}
-
-	getHeadersToSend() {
-		return this.Headers
-	}
-
-	clearAllHeaders() {
-		this.Headers = {}
-	}
-
-	private async getJSONBody(req: IncomingMessage) {
+	/**
+	 * Parses the request body into JSON.
+	 */
+	private async getJSONBody(req: Request): Promise<Record<string, any>> {
 		try {
-			const data = await jsonParse(req)
-			return data
-		} catch (err) {
+			const bodyText = await req.text()
+			return JSON.parse(bodyText)
+		} catch {
 			return {}
 		}
 	}
 
-	private getQueryParams(url: string): { [key: string]: string } {
-		const queryParams: { [key: string]: string } = {}
+	/**
+	 * Extracts query parameters from the URL.
+	 */
+	private getQueryParams(url: string): Record<string, string> {
+		const queryParams: Record<string, string> = {}
 		const [, query] = url.split('?')
 		if (query) {
 			query.split('&').forEach(param => {
 				const [key, value] = param.split('=')
-				queryParams[key] = decodeURIComponent(value)
+				queryParams[key] = decodeURIComponent(value || '')
 			})
 		}
 		return queryParams
 	}
 
-	private async getRequestObject(
-		req: IncomingMessage,
-	): Promise<TypeRequestInternalObject> {
-		let realIp = '::1'
-		if (req.headers && req.headers['x-forwarded-for']) {
-			const parts = String(req?.headers['x-forwarded-for']).split(',')
-			realIp = String(parts.shift())
-		}
-
-		if (req.socket.remoteAddress) {
-			realIp = String(req.socket.remoteAddress)
-		}
-
+	/**
+	 * Builds an internal request object.
+	 */
+	private async getRequestObject(req: Request): Promise<TypeRequestInternalObject> {
+		const url = new URL(req.url)
 		return {
-			headers: { ...(req?.headers ?? {}) },
-			realIp,
-			query: this.getQueryParams(String(req.url)),
+			headers: { ...(req.headers ?? {}) },
+			realIp:
+				req.headers.get('x-forwarded-for') ||
+				req.headers.get('cf-connecting-ip') ||
+				'::1',
+			query: this.getQueryParams(url.search),
 			body: req.method !== 'GET' ? await this.getJSONBody(req) : {},
-			url: req.url,
+			url: url.pathname,
 			method: req.method,
-		} as TypeRequestInternalObject
+		}
 	}
 
-	private getResponseObject(res: ServerResponse): TypeResponseInternalObject {
-		return {
-			end: (body: string) => res.end(body),
-			json: (body: object) => {
-				res.writeHead(200, { 'Content-Type': 'application/json' })
-				res.end(JSON.stringify(body))
-			},
-			jsonError: (body: object) => {
-				res.writeHead(500, { 'Content-Type': 'application/json' })
-				res.end(JSON.stringify(body))
-			},
-			_404: (body: string) => {
-				this.notFound(res, body)
-			},
-			_500: (body: string) => {
-				this.serverError(res, body)
-			},
-		} as TypeResponseInternalObject
+	/**
+	 * Sends a 404 Not Found response.
+	 */
+	private notFound(): Response {
+		return new Response('Not Found', {
+			status: 404,
+			headers: { 'Content-Type': 'text/plain' },
+		})
 	}
 
-	private notFound(res: ServerResponse, message = 'Not Found') {
-		res.writeHead(404, { 'Content-Type': 'text/html' })
-		res.end(message)
+	/**
+	 * Sends a 500 Internal Server Error response.
+	 */
+	private serverError(message = 'Internal Server Error'): Response {
+		return new Response(message, {
+			status: 500,
+			headers: { 'Content-Type': 'text/plain' },
+		})
 	}
 
-	private serverError(res: ServerResponse, message = 'Internal Server Error') {
-		res.writeHead(500, { 'Content-Type': 'text/html' })
-		res.end(message)
-	}
-
-	public addGlobal(
-		callback: (
-			req: TypeRequest,
-			res: ServerResponse,
-			next?: (req: TypeRequest, res: ServerResponse) => void,
-		) => void,
-	) {
-		this.routesMapCache['*:*'] = callback
-	}
-
+	/**
+	 * Returns the main callback for handling requests.
+	 */
 	public getCallback(): TypeReturnCallback {
-		return async (req: TypeRequest, res: ServerResponse) => {
-			this.Response = res
-
+		return async (req: Request): Promise<Response> => {
 			try {
-				const resultCheckPath = this.checkRoute(`${req.method}:${req.url}`)
+				const url = new URL(req.url)
+				const resultCheckPath = this.checkRoute(`${req.method}:${url.pathname}`)
 				if (resultCheckPath.exists) {
 					this.setHeaders()
-					this.setResponseHeaders()
+
 					if (req.method === 'OPTIONS') {
-						return res.writeHead(200)
-					}
-					const request = await this.getRequestObject(req)
-					const response = this.getResponseObject(res)
-					if (this.routesMapCache['*:*']) {
-						return this.routesMapCache['*:*'](
-							request,
-							response,
-							this.routesMapCache[resultCheckPath.key],
-						)
+						return new Response(null, {
+							status: 204,
+							headers: this.headers,
+						})
 					}
 
-					return this.routesMapCache[resultCheckPath.key](request, response)
+					const request = await this.getRequestObject(req)
+					const callback = this.routesMapCache[resultCheckPath.key]
+					return callback(request)
 				}
 
-				return this.notFound(res)
+				return this.notFound()
 			} catch (err) {
-				console.info('Internal Route Controllers Error: ', err)
-				return this.serverError(res)
+				console.error('Internal RouteControllers Error:', err)
+				return this.serverError()
 			}
 		}
 	}
 
-	static getInstance(controllers: Controller[]) {
+	/**
+	 * Creates a singleton instance of the RouteControllers class.
+	 */
+	public static getInstance(controllers: Controller[]): RouteControllers {
 		if (!RouteControllers.instance) {
 			RouteControllers.instance = new RouteControllers(controllers)
 		}

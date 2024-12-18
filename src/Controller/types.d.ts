@@ -8,4 +8,4 @@ export type TYPE_HTTP_METHOD =
 	| 'OPTIONS'
 	| '*'
 
-export type Middleware = (req: any, res: any, next?: Middleware) => void
+export type Middleware = (req: any, res: any, next?: Middleware) => Response
