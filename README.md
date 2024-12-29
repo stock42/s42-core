@@ -4,15 +4,11 @@
 # s42-core
 - [s42-core](#s42-core)
 	- [Overview](#overview)
+	- [Working with monorepos](#working-with-monorepos)
+		- [Creating a Monorepo](#creating-a-monorepo)
 	- [Key Features](#key-features)
 		- [Microservices and Cells](#microservices-and-cells)
-		- [Framework Agnostic](#framework-agnostic)
 		- [High Performance](#high-performance)
-		- [Simple Monorepo Management](#simple-monorepo-management)
-	- [Use Cases](#use-cases)
-		- [Creating a Monorepo](#creating-a-monorepo)
-		- [Building Microservices](#building-microservices)
-		- [Developing Atoms](#developing-atoms)
 	- [Documentation](#documentation)
 	- [Installation](#installation)
 		- [Example Implementation for listen Events](#example-implementation-for-listen-events)
@@ -26,39 +22,34 @@
 
 ## Overview
 
-`s42-core` is a powerful and flexible Node.js library designed to streamline the development of applications, particularly those utilizing microservices and cell-based architectures. The library simplifies the creation of monorepos and supports the development of small, reusable software components (atoms).
+`s42-core` es una poderosa y flexible biblioteca Bun.js diseñada para facilitar el desarrollo de aplicaciones, en particular aquellas que utilizan arquitecturas de microservicios y celdas. La biblioteca simplifica la creación de monorepos y apoya el desarrollo de componentes de software pequeños y reutilizables (atoms).
+
+
+## Working with monorepos
+
+`s42-core` simplifica la creación de monorepos y apoya el desarrollo de componentes de software pequeños y reutilizables (atoms).
+Para trabajar con monorepos, necesitar tener instalado `bun` y `bun-cli`.
+[Bun.js](https://bun.sh/) es una plataforma de JavaScript moderna y rápida que ejecuta código javascript en backend. Es igual a Node.js, pero mucho más rápido (en algunos benchmarks es hasta 20x más rápido).
+
+![Bunjs](DOCUMENTATION/bunjs-benchmark.png)
+
+### Creating a Monorepo
+
+```bash
+$ mkdir my-monorepo
+$ cd my-monorepo
+$ bun init
+```
 
 ## Key Features
 
 ### Microservices and Cells
 
-`s42-core` is built with microservices and cell-based architectures in mind, allowing you to create highly modular and scalable applications. Each microservice or cell can operate independently, facilitating easier maintenance and updates.
-
-### Framework Agnostic
-
-The classes provided by `s42-core` can be used independently and are agnostic to any specific framework. This means you can seamlessly integrate them with Express, Nest.js, Fastify, and other frameworks of your choice.
+`s42-core` es construido con arquitecturas de microservicios y celdas en mente, lo que permite crear aplicaciones altamente modulares y escalables. Cada microservicio o celda puede operar independientemente, facilitando la mantenimiento y actualizaciones más fáciles.
 
 ### High Performance
+Aplicaciones desarrolladas con `s42-core` benefician de una excelente rendimiento, lo que lo hace adecuado para entornos de alto tráfico.
 
-Applications developed with `s42-core` benefit from exceptional performance, making it suitable for high-demand environments.
-
-### Simple Monorepo Management
-
-Creating and managing a monorepo with `s42-core` is straightforward and efficient. The library encourages the creation of small, modular components that can be easily shared and reused across your projects.
-
-## Use Cases
-
-### Creating a Monorepo
-
-`s42-core` simplifies the setup and management of monorepos, promoting code reuse and modular development. You can easily share common components and services across multiple projects within a single repository.
-
-### Building Microservices
-
-With `s42-core`, you can quickly develop microservices that are easy to deploy and maintain. The library provides essential utilities for handling HTTP requests, managing dependencies, and interacting with databases.
-
-### Developing Atoms
-
-The library supports the creation of small, reusable software components, or atoms, which can be combined to build more complex functionality. This approach enhances code maintainability and scalability.
 
 ## Documentation
 
@@ -76,8 +67,6 @@ For detailed information on each class and module provided by `s42-core`, refer 
 - [TEST.md](./DOCUMENTATION/TEST.md)
 
 ---
-
-By leveraging `s42-core`, you can rapidly develop high-performance applications with a clean and modular architecture, integrating seamlessly with your existing frameworks and tools.
 
 ## Installation
 Installing `s42-core` is simple. You can add it to your project using your preferred package manager.
@@ -274,4 +263,5 @@ For more detailed documentation, please refer to the individual markdown files l
 
 ---
 
-2024 César Casas - [LinkedIn](https://www.linkedin.com/in/cesarcasas/)
+Powered by César Casas - [LinkedIn](https://www.linkedin.com/in/cesarcasas/)
+

@@ -1,4 +1,4 @@
-export type TypeReturnCallback = (req: IncomingMessage, res: ServerResponse) => void
+export type TypeReturnCallback = (req: Request) => Response | Promise<Response>
 
 export type RouteCheckResult = {
 	exists: boolean
@@ -7,7 +7,7 @@ export type RouteCheckResult = {
 }
 
 type TypeRoutesMapCache = {
-	[key: string]: (req: any, res: any, next?: (req: any, res: any) => void) => void
+	[key: string]: (req: any, next?: (req: any, res: any) => void) => void
 }
 
 type TypeRequestInternalObject = {
@@ -17,7 +17,6 @@ type TypeRequestInternalObject = {
 	method: string
 	query: { [string]: [string] }
 	body: { [string]: [string] }
-	on: (evt: string, cb: () => void) => void
 }
 
 type TypeResponseInternalObject = {

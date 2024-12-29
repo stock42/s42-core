@@ -17,9 +17,6 @@ export class RouteControllers {
 		this.processAllControllers()
 	}
 
-	/**
-	 * Processes all controllers and maps their routes and methods.
-	 */
 	private processAllControllers(): void {
 		this.localControllers.forEach(controller => {
 			controller.getMethods().forEach((method: string) => {
@@ -29,9 +26,6 @@ export class RouteControllers {
 		})
 	}
 
-	/**
-	 * Checks if a route exists in the routes map and extracts params if applicable.
-	 */
 	private checkRoute(route: string): RouteCheckResult {
 		const result: RouteCheckResult = { exists: false, params: {}, key: '' }
 		const [purePath] = route.split('?')
@@ -74,9 +68,6 @@ export class RouteControllers {
 		return result
 	}
 
-	/**
-	 * Adds headers to the response.
-	 */
 	private setHeaders(): void {
 		this.headers = {
 			'Surrogate-Control': 'no-store',
@@ -94,9 +85,6 @@ export class RouteControllers {
 		}
 	}
 
-	/**
-	 * Parses the request body into JSON.
-	 */
 	private async getJSONBody(req: Request): Promise<Record<string, any>> {
 		try {
 			const bodyText = await req.text()
@@ -106,9 +94,6 @@ export class RouteControllers {
 		}
 	}
 
-	/**
-	 * Extracts query parameters from the URL.
-	 */
 	private getQueryParams(url: string): Record<string, string> {
 		const queryParams: Record<string, string> = {}
 		const [, query] = url.split('?')
@@ -121,9 +106,6 @@ export class RouteControllers {
 		return queryParams
 	}
 
-	/**
-	 * Builds an internal request object.
-	 */
 	private async getRequestObject(req: Request): Promise<TypeRequestInternalObject> {
 		const url = new URL(req.url)
 		return {
@@ -139,9 +121,6 @@ export class RouteControllers {
 		}
 	}
 
-	/**
-	 * Sends a 404 Not Found response.
-	 */
 	private notFound(): Response {
 		return new Response('Not Found', {
 			status: 404,
@@ -149,9 +128,6 @@ export class RouteControllers {
 		})
 	}
 
-	/**
-	 * Sends a 500 Internal Server Error response.
-	 */
 	private serverError(message = 'Internal Server Error'): Response {
 		return new Response(message, {
 			status: 500,
@@ -159,9 +135,6 @@ export class RouteControllers {
 		})
 	}
 
-	/**
-	 * Returns the main callback for handling requests.
-	 */
 	public getCallback(): TypeReturnCallback {
 		return async (req: Request): Promise<Response> => {
 			try {
@@ -188,15 +161,5 @@ export class RouteControllers {
 				return this.serverError()
 			}
 		}
-	}
-
-	/**
-	 * Creates a singleton instance of the RouteControllers class.
-	 */
-	public static getInstance(controllers: Controller[]): RouteControllers {
-		if (!RouteControllers.instance) {
-			RouteControllers.instance = new RouteControllers(controllers)
-		}
-		return RouteControllers.instance
 	}
 }
