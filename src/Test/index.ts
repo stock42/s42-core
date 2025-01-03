@@ -1,24 +1,28 @@
-import pc from 'picocolors'
-
-export const Init = (str: string) => {
-	console.info(' ')
-	console.info(pc.bgYellow(pc.white(`> ${str}`)))
+export function Init(message: string): void {
+	console.info(
+		`\n${Bun.color("yellow", "ansi")}INIT> ${Bun.color("white", "ansi")}${message}`
+	);
 }
 
-export const Ok = (str: string) => {
-	console.info(' ')
-	console.info('✅', pc.bgGreen(pc.white(`> ${str}`)))
+export function Ok(message: string): void {
+	console.info(
+		`\n✅ ${Bun.color("green", "ansi")}OK> ${Bun.color("white", "ansi")}${message}`
+	);
 }
 
-export const Error = (str: string, err: Error) => {
-	console.info(' ')
-	console.info('📛', pc.bgRed(pc.white(`${str}`)), err)
+export function Error(message: string, error?: Error): void {
+	console.info(
+		`\n📛 ${Bun.color("red", "ansi")}>  ${Bun.color("white", "ansi")} ${message}`,
+		error ? `\n${Bun.color("red", "ansi")}${error.stack}` : ''
+	);
 }
 
-export const Request = (method: string, url: string) => {
-	console.info(pc.bgMagenta(pc.white(`+ Request > ${method} ${url}`)))
+export function Request(method: string, url: string): void {
+	console.info(`${Bun.color("magenta", "ansi")} + Request> ${Bun.color("white", "ansi")} ${method.toUpperCase()} ${url}`);
 }
 
-export const Finish = () => {
-	console.info('😃', pc.bgWhite(pc.red('All tests completed')))
+export function Finish(): void {
+	console.info(
+		`\n😃${Bun.color("green", "ansi")} > All tests completed `
+	);
 }

@@ -1,180 +1,188 @@
 # MONGODB
 
 - [MONGODB](#mongodb)
-	- [Overview](#overview)
-	- [Recommended Usage](#recommended-usage)
-	- [Methods](#methods)
-		- [`connect()`](#connect)
-		- [`ObjectId(id: string)`](#objectidid-string)
-		- [`close()`](#close)
-		- [`getDB()`](#getdb)
-		- [`getCollection(colName: string)`](#getcollectioncolname-string)
-		- [`getInstance({ connectionString: string, database: string })`](#getinstance-connectionstring-string-database-string-)
-	- [Properties](#properties)
-		- [`mongoClient`](#mongoclient)
-		- [`db`](#db)
-		- [`databaseName`](#databasename)
-		- [`instance`](#instance)
-	- [Examples](#examples)
-		- [Example 1: Connecting to MongoDB and Storing the Instance in Dependencies](#example-1-connecting-to-mongodb-and-storing-the-instance-in-dependencies)
-		- [Example 2: Accessing the MongoDB Instance from a Controller to Insert a User](#example-2-accessing-the-mongodb-instance-from-a-controller-to-insert-a-user)
-	- [Additional Details](#additional-details)
+- [MongoClient Class Documentation](#mongoclient-class-documentation)
+	- [Features](#features)
+	- [Installation](#installation)
+	- [Example Usage](#example-usage)
+		- [Basic Setup](#basic-setup)
+		- [Pagination Example](#pagination-example)
+	- [API Documentation](#api-documentation)
+		- [Constructor](#constructor)
+			- [`MongoClient.getInstance(connection: TypeMongoDBdatabaseConnection): MongoClient`](#mongoclientgetinstanceconnection-typemongodbdatabaseconnection-mongoclient)
+		- [Methods](#methods)
+			- [`connect(): Promise<void>`](#connect-promisevoid)
+			- [`close(): Promise<void>`](#close-promisevoid)
+			- [`getDB(): Db`](#getdb-db)
+			- [`getCollection<T>(colName: string): Collection<T>`](#getcollectiontcolname-string-collectiont)
+			- [`ObjectId(id: string): ObjectId`](#objectidid-string-objectid)
+			- [`paginate<T>(collection: Collection, query: object = {}, fields: object = {}, options: TypeMongoQueryPagination = {}): Promise<{ docs: T[]; count: number; limit: number; page: number; totalPages: number }>`](#paginatetcollection-collection-query-object---fields-object---options-typemongoquerypagination---promise-docs-t-count-number-limit-number-page-number-totalpages-number-)
+	- [Error Handling](#error-handling)
+		- [Connection Errors](#connection-errors)
+		- [Pagination Errors](#pagination-errors)
+	- [License](#license)
 
+# MongoClient Class Documentation
 
-## Overview
+The `MongoClient` class is a utility for managing MongoDB connections in Node.js applications. It implements a Singleton pattern to ensure a single database connection throughout the application and provides helper methods for common MongoDB operations.
 
-The `MongoClient` class/module in `s42-core` provides an interface for interacting with MongoDB databases. It offers methods to connect to the database, retrieve collections, and perform operations on the data.
+---
 
-## Recommended Usage
+## Features
 
-It is recommended to always call the `getInstance` method to get an instance of `MongoClient` instead of creating a new instance with the `new` operator. This ensures that there is a single instance managing the MongoDB connection, which is more efficient and reliable.
+- **Singleton Pattern:** Ensures a single instance of the MongoDB client.
+- **Configurable Connection:** Supports environment variables and explicit configuration for connection strings and database names.
+- **Database and Collection Access:** Provides helper methods to access the database and its collections.
+- **Pagination Support:** Includes a utility for paginated queries.
+- **Error Handling:** Logs and handles errors gracefully during connection and disconnection.
 
-## Methods
+---
 
-### `connect()`
+## Installation
 
-Establishes a connection to the MongoDB database. This method should be called before performing any database operations.
+Install the `s42-core` package required for the `MongoClient` class:
 
-### `ObjectId(id: string)`
-
-Converts a string to an `ObjectId`, which is used as a unique identifier for documents in MongoDB.
-
-- **id**: The string to convert to an `ObjectId`.
-
-### `close()`
-
-Closes the MongoDB connection. This method should be called when the application is shutting down to ensure that all resources are properly released.
-
-### `getDB()`
-
-Returns the database instance that was connected. This can be used to perform database operations directly.
-
-### `getCollection(colName: string)`
-
-Retrieves a collection from the database.
-
-- **colName**: The name of the collection to retrieve.
-
-### `getInstance({ connectionString: string, database: string })`
-
-Returns the singleton instance of `MongoClient`. If an instance does not already exist, it creates a new one.
-
-- **connectionString**: The connection string for the MongoDB database.
-- **database**: The name of the database to connect to.
-
-## Properties
-
-### `mongoClient`
-
-The native MongoDB client instance.
-
-### `db`
-
-The database instance that was connected.
-
-### `databaseName`
-
-The name of the database.
-
-### `instance`
-
-The singleton instance of `MongoClient`.
-
-
-## Examples
-
-### Example 1: Connecting to MongoDB and Storing the Instance in Dependencies
-
-In this example, we demonstrate how to connect to a MongoDB database using the `MongoClient` class and store the instance in the application's dependencies. This setup ensures that the MongoDB instance is easily accessible throughout the application.
-
-
-```typescript
-import { createServer } from 'node:http'
-
-import {
-	Shutdown,
-	Cluster,
-	Dependencies,
-	MongoClient,
-	RedisClient,
-	EventsDomain,
-} from 's42-core'
-
-import { Router } from './routers.js'
-
-const port = process.env.PORT ?? 3000
-
-Cluster(
-	1,
-	async (pid, uuid) => {
-		console.info('initializing: ', pid, uuid)
-		const mongoClient = MongoClient.getInstance({
-			connectionString: String(process.env?.MONGO_URI),
-			database: String(process.env?.MONGO_DB),
-		})
-
-		await mongoClient.connect()
-		const redisClient = RedisClient.getInstance('localhost')
-
-		const eventsDomain = EventsDomain.getInstance(redisClient, uuid)
-
-		Dependencies.add<MongoClient>('db', mongoClient)
-		Dependencies.add<RedisClient>('redis', redisClient)
-		Dependencies.add<EventsDomain>('eventsDomain', eventsDomain)
-		const server = createServer(await Router())
-
-		server.listen(port, () => {
-			console.info(`ready on *:${port}`)
-		})
-		Shutdown([mongoClient.close, redisClient.close, eventsDomain.close])
-	},
-	() => {
-		console.info('Error trying start servers')
-	},
-)
-
+```bash
+npm install s42-core
 ```
 
-### Example 2: Accessing the MongoDB Instance from a Controller to Insert a User
+---
 
-In this example, we show how to access the MongoDB instance from a controller to perform an operation, such as inserting a new user into a collection. This demonstrates the practical use of the `MongoClient` instance within different parts of the application.
+## Example Usage
+
+### Basic Setup
 
 ```typescript
-import { type ServerResponse, type IncomingMessage } from 'node:http'
-import { Dependencies, jsonParse, type MongoClient, type EventsDomain } from 's42-core'
+import { MongoClient } from 's42-core';
 
-type TypeUser = {
-	firstName: string
-	lastName: string
-	email: string
-}
+const mongoClient = MongoClient.getInstance({
+  connectionString: 'mongodb://localhost:27017',
+  database: 'myDatabase',
+});
 
-export const UsersController = async () => {
-	const db = Dependencies.get<MongoClient>('db') as MongoClient
-	const eventsDomain = Dependencies.get<EventsDomain>('eventsDomain') as EventsDomain
-	return async (req: IncomingMessage, res: ServerResponse) => {
-		try {
-			const data = (await jsonParse(req)) as TypeUser
+(async () => {
+  await mongoClient.connect();
 
-			await db.getCollection('users').insertOne({
-				...data,
-				remoteIp: req.socket.remoteAddress,
-				added: new Date(),
-				headers: req.headers,
-			})
+  const db = mongoClient.getDB();
+  console.log('Connected to database:', db.databaseName);
 
-			eventsDomain.emitEvent('users.created', { ...data })
-			res.writeHead(200, { 'Content-Type': 'application/json' })
-			res.end(JSON.stringify({ ok: true }))
-		} catch (error) {
-			res.writeHead(400, { 'Content-Type': 'application/json' })
-			res.end(JSON.stringify({ ok: false, msg: String(error) }))
-		}
-	}
-}
+  const usersCollection = mongoClient.getCollection('users');
+  const users = await usersCollection.find().toArray();
+  console.log('Users:', users);
 
+  await mongoClient.close();
+})();
 ```
 
-## Additional Details
+### Pagination Example
 
-The `MongoClient` class in `s42-core` simplifies the process of connecting to and interacting with MongoDB databases. By using the singleton pattern through the `getInstance` method, it ensures that there is only one active connection to the database at any time, which helps manage resources more efficiently.
+```typescript
+const usersCollection = mongoClient.getCollection('users');
+const result = await MongoClient.paginate(usersCollection, { age: { $gt: 18 } }, {}, {
+  page: 2,
+  limit: 5,
+  sort: { name: 1 },
+});
+
+console.log('Paginated Users:', result.docs);
+console.log('Metadata:', {
+  count: result.count,
+  limit: result.limit,
+  page: result.page,
+  totalPages: result.totalPages,
+});
+```
+
+---
+
+## API Documentation
+
+### Constructor
+
+#### `MongoClient.getInstance(connection: TypeMongoDBdatabaseConnection): MongoClient`
+
+Returns the Singleton instance of the MongoClient class.
+
+- **Parameters:**
+  - `connection.connectionString` *(string)*: The MongoDB connection URI.
+  - `connection.database` *(string)*: The name of the database.
+- **Returns:**
+  - *(MongoClient)*: The Singleton instance.
+
+### Methods
+
+#### `connect(): Promise<void>`
+
+Establishes a connection to MongoDB.
+
+- **Throws:**
+  - An error if the connection fails.
+
+#### `close(): Promise<void>`
+
+Closes the MongoDB connection.
+
+#### `getDB(): Db`
+
+Retrieves the database instance.
+
+- **Throws:**
+  - An error if the connection has not been established.
+
+#### `getCollection<T>(colName: string): Collection<T>`
+
+Gets a collection from the connected database.
+
+- **Parameters:**
+  - `colName` *(string)*: The name of the collection.
+- **Returns:**
+  - *(Collection<T>)*: The collection instance.
+
+#### `ObjectId(id: string): ObjectId`
+
+Creates a MongoDB ObjectId.
+
+- **Parameters:**
+  - `id` *(string)*: The string representation of the ObjectId.
+- **Throws:**
+  - An error if the `id` is invalid.
+
+#### `paginate<T>(collection: Collection, query: object = {}, fields: object = {}, options: TypeMongoQueryPagination = {}): Promise<{ docs: T[]; count: number; limit: number; page: number; totalPages: number }>`
+
+Performs a paginated query on a collection.
+
+- **Parameters:**
+  - `collection` *(Collection<T>)*: The MongoDB collection.
+  - `query` *(object, optional)*: The filter query.
+  - `fields` *(object, optional)*: Fields to include or exclude.
+  - `options` *(TypeMongoQueryPagination, optional)*: Pagination options, including:
+    - `opts` *(object, optional)*: Additional query options.
+    - `page` *(number, optional)*: The current page number (default: 1).
+    - `limit` *(number, optional)*: The number of documents per page (default: 30).
+    - `sort` *(object, optional)*: Sorting criteria (default: `{ added: -1 }`).
+- **Returns:**
+  - *(object)*: An object containing:
+    - `docs` *(T[])*: The paginated documents.
+    - `count` *(number)*: The total number of documents matching the query.
+    - `limit` *(number)*: The number of documents per page.
+    - `page` *(number)*: The current page number.
+    - `totalPages` *(number)*: The total number of pages.
+
+---
+
+## Error Handling
+
+### Connection Errors
+
+The `connect` method logs and throws errors if the connection fails. Ensure to handle exceptions in your code to avoid crashes.
+
+### Pagination Errors
+
+The `paginate` method validates the `page` and `limit` parameters to ensure they are positive integers. If invalid values are provided, an error is thrown.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+

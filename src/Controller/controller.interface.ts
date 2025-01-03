@@ -7,6 +7,6 @@ export interface ControllerInterface {
 	update: () => void
 	patch: () => void
 	options: () => void
-	use: (callback: (req: any, res: any, next?: Middleware) => void) => this
+	use: (callback: Middleware) => this
 	setPath: (path: string) => void
 }

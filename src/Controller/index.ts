@@ -1,113 +1,113 @@
 import { type ControllerInterface } from './controller.interface.js'
-
 import { type TYPE_HTTP_METHOD, type Middleware } from './types.d.js'
+import { type Res } from '../Response'
 
 export class Controller implements ControllerInterface {
 	private path: string = ''
-	private methods: Array<TYPE_HTTP_METHOD> = []
+	private methods = new Set<TYPE_HTTP_METHOD>()
 	private callbacks: Array<Middleware> = []
-	constructor() {
-		return this
+
+	public constructor(method: TYPE_HTTP_METHOD, path: string, callback: Middleware) {
+		this.methods.add(method)
+		this.path = path
+		this.use(callback)
 	}
 
-	public getMethods() {
-		return this.methods
-	}
 
-	public setPath(path: string) {
+	public setPath(path: string): this {
 		this.path = path
 		return this
 	}
 
-	public getPath() {
+	public getPath(): string {
 		return this.path
 	}
 
-	public update() {
-		const method = 'UPDATE'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
+	public getMethods(): Array<TYPE_HTTP_METHOD> {
+		return Array.from(this.methods)
+	}
+
+	private addMethod(method: TYPE_HTTP_METHOD): this {
+		this.methods.add(method)
 		return this
 	}
 
-	public patch() {
-		const method = 'PATCH'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
+	// Define HTTP methods
+	public update(): this {
+		return this.addMethod('UPDATE')
+	}
+
+	public patch(): this {
+		return this.addMethod('PATCH')
+	}
+
+	public options(): this {
+		return this.addMethod('OPTIONS')
+	}
+
+	public get(): this {
+		return this.addMethod('GET')
+	}
+
+	public delete(): this {
+		return this.addMethod('DELETE')
+	}
+
+	public post(): this {
+		return this.addMethod('POST')
+	}
+
+	public put(): this {
+		return this.addMethod('PUT')
+	}
+
+	public use(callback: Middleware): this {
+		this.callbacks = [callback, ...this.callbacks]
 		return this
 	}
 
-	public options() {
-		const method = 'OPTIONS'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
-	}
+	public getCallback(): (req: Request, res: Res) => Promise<Response> {
+		return async (req: Request, res: Res): Promise<Response> => {
+			let index = 0;
 
-	public get() {
-		const method = 'GET'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
-	}
-
-	public delete() {
-		const method = 'DELETE'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
-	}
-
-	public post() {
-		const method = 'POST'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
-	}
-
-	public put() {
-		const method = 'PUT'
-		if (this.methods.indexOf(method) === -1) {
-			this.methods.push(method)
-		}
-		return this
-	}
-
-	public use(callback: (req: any, res: any, next?: Middleware) => void) {
-		this.callbacks.push(callback)
-		return this
-	}
-
-	public getCallback(): (req: any, res: any) => void {
-		return async (req: any, res: any) => {
-			let index = 0
-			const next = () => {
+			const next = async (): Promise<Response | undefined> => {
 				if (index < this.callbacks.length) {
-					const middleware = this.callbacks[index]
-					index++
-					middleware(req, res, next)
+					try {
+						const middleware = this.callbacks[index];
+						index++;
+						const result = await middleware(req, res);
+						if (result instanceof Response) {
+							return result;
+						} else {
+							return await next();
+						}
+					} catch (err) {
+						res.setStatus(500);
+						return res.json({ error: `Internal Server Error: ${err} into ${this.path}` });
+					}
+
 				} else {
-					res.end('End use case')
+					return res.text('End without response');
 				}
 			}
 
 			try {
 				if (this.callbacks.length === 0) {
-					res.writeHead(200, { 'Content-Type': 'application/json' })
-					return res.end(JSON.stringify({ error: 'No "uses" setted for this endpoint' }))
+					return res.json({ error: 'No "uses" set for this endpoint' })
 				}
 
-				next()
+				const toReturn = await next();
+				return toReturn as unknown as Response;
 			} catch (err) {
-				res.writeHead(500, { 'Content-Type': 'application/json' })
-				return res.end(JSON.stringify({ error: 'Internal Server Error' }))
+				return new Response(
+					JSON.stringify({ error: 'Internal Server Error' }),
+					{
+						status: 500,
+						headers: { 'Content-Type': 'application/json' },
+					}
+				);
 			}
-		}
+		};
 	}
+
 }

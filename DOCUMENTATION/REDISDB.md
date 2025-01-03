@@ -1,79 +1,176 @@
 # REDISDB
 
 - [REDISDB](#redisdb)
-	- [Overview](#overview)
-	- [Recommended Usage](#recommended-usage)
-	- [Methods](#methods)
-		- [`hset(key: string, value: object)`](#hsetkey-string-value-object)
-		- [`hget(key: string, subkey: string)`](#hgetkey-string-subkey-string)
-		- [`hgetall(key: string)`](#hgetallkey-string)
-		- [`subscribe<T>(channelName: string, callback: (payload: T) => void)`](#subscribetchannelname-string-callback-payload-t--void)
-		- [`publish(channelName: string, payload: object)`](#publishchannelname-string-payload-object)
-		- [`getInstance(connectonURI: string = 'localhost')`](#getinstanceconnectonuri-string--localhost)
-		- [`close()`](#close)
-	- [Additional Details](#additional-details)
+- [RedisClient Class Documentation](#redisclient-class-documentation)
+	- [Features](#features)
+	- [Installation](#installation)
+	- [Example Usage](#example-usage)
+		- [Basic Setup](#basic-setup)
+		- [Publish and Subscribe](#publish-and-subscribe)
+		- [Graceful Shutdown](#graceful-shutdown)
+	- [API Documentation](#api-documentation)
+		- [Methods](#methods)
+			- [`getInstance(connectionURI: string = 'localhost'): RedisClient`](#getinstanceconnectionuri-string--localhost-redisclient)
+			- [`hset(key: string, value: Record<string, any>): Promise<void>`](#hsetkey-string-value-recordstring-any-promisevoid)
+			- [`hget(key: string, subkey: string): Promise<string | null>`](#hgetkey-string-subkey-string-promisestring--null)
+			- [`hgetall(key: string): Promise<Record<string, string>>`](#hgetallkey-string-promiserecordstring-string)
+			- [`subscribe<T>(channelName: string, callback: (payload: T) => void): void`](#subscribetchannelname-string-callback-payload-t--void-void)
+			- [`publish(channelName: string, payload: Record<string, any>): Promise<void>`](#publishchannelname-string-payload-recordstring-any-promisevoid)
+			- [`unsubscribe(channelName: string): void`](#unsubscribechannelname-string-void)
+			- [`close(): void`](#close-void)
+	- [Error Handling](#error-handling)
+		- [Retry Mechanism](#retry-mechanism)
+	- [License](#license)
 
 
-## Overview
+# RedisClient Class Documentation
 
-The `RedisClient` class/module in `s42-core` provides an interface for interacting with Redis databases. It includes methods for performing common Redis operations such as setting and getting hash values, as well as methods for subscribing and publishing to channels.
+The `RedisClient` class in S42-Core provides a robust and flexible way to interact with Redis. It implements a Singleton pattern and handles multiple Redis connections for general operations, publishing, and subscribing. This class ensures stability by retrying connections and offering a simple API for common Redis tasks.
 
-## Recommended Usage
+---
 
-It is recommended to always call the `getInstance` method to get an instance of `RedisClient` instead of creating a new instance with the `new` operator. This ensures that there is a single instance managing the Redis connection, which is more efficient and reliable.
+## Features
 
-## Methods
+- **Singleton Pattern:** Ensures a single instance of the Redis client throughout the application.
+- **Multiple Connections:** Dedicated connections for general commands, publishing, and subscribing.
+- **Retry Mechanism:** Automatically retries connections to Redis in case of failures.
+- **Typed Interface:** Ensures predictable and type-safe operations.
+- **Built-in Error Handling:** Provides informative error messages for troubleshooting.
 
-### `hset(key: string, value: object)`
+---
 
-Sets a hash value in Redis.
+## Installation
 
-- **key**: The key for the hash.
-- **value**: The object to set as the value for the hash.
+Install the `S42-core` package:
 
-### `hget(key: string, subkey: string)`
+```bash
+bun add s42-core
+```
 
-Gets a hash value from Redis.
+---
 
-- **key**: The key for the hash.
-- **subkey**: The subkey for the hash value to retrieve.
-- **returns**: The value associated with the subkey.
+## Example Usage
 
-### `hgetall(key: string)`
+### Basic Setup
 
-Gets all the hash values for a given key from Redis.
+```typescript
+import { RedisClient } from 's42-core';
 
-- **key**: The key for the hash.
-- **returns**: An object containing all the hash values.
+const connectionURI = 'redis://localhost:6379';
+const redisClient = RedisClient.getInstance(connectionURI);
 
-### `subscribe<T>(channelName: string, callback: (payload: T) => void)`
+// Perform operations
+(async () => {
+  await redisClient.hset('user:1', { name: 'John Doe', age: '30' });
+  const userName = await redisClient.hget('user:1', 'name');
+  console.log('User Name:', userName);
+})();
+```
 
-Subscribes to a Redis channel and listens for messages. When a message is received, the provided callback function is called with the message payload.
+### Publish and Subscribe
 
-- **channelName**: The name of the channel to subscribe to.
-- **callback**: The function to call when a message is received.
+```typescript
+const redisClient = RedisClient.getInstance();
 
-### `unsubscribe(channelName: string)`: void
-Unsubscribe event name
+// Subscribe to a channel
+redisClient.subscribe('notifications', (message) => {
+  console.log('Received message:', message);
+});
 
-### `publish(channelName: string, payload: object)`
+// Publish a message to the channel
+redisClient.publish('notifications', { type: 'alert', content: 'This is a test message' });
+```
+
+### Graceful Shutdown
+
+```typescript
+process.on('SIGINT', () => {
+  redisClient.close();
+  process.exit(0);
+});
+```
+
+---
+
+## API Documentation
+
+### Methods
+
+#### `getInstance(connectionURI: string = 'localhost'): RedisClient`
+
+Returns the singleton instance of `RedisClient`.
+
+- **Parameters:**
+  - `connectionURI` *(string)*: Redis connection URI. Defaults to `localhost`.
+- **Returns:**
+  - *(RedisClient)*: The singleton instance.
+
+#### `hset(key: string, value: Record<string, any>): Promise<void>`
+
+Sets a hash field in Redis.
+
+- **Parameters:**
+  - `key` *(string)*: The key of the hash.
+  - `value` *(Record<string, any>)*: The data to set.
+
+#### `hget(key: string, subkey: string): Promise<string | null>`
+
+Gets a value from a hash field.
+
+- **Parameters:**
+  - `key` *(string)*: The key of the hash.
+  - `subkey` *(string)*: The field to retrieve.
+- **Returns:**
+  - *(string | null)*: The value of the field or `null` if not found.
+
+#### `hgetall(key: string): Promise<Record<string, string>>`
+
+Gets all fields and values from a hash.
+
+- **Parameters:**
+  - `key` *(string)*: The key of the hash.
+- **Returns:**
+  - *(Record<string, string>)*: All fields and values.
+
+#### `subscribe<T>(channelName: string, callback: (payload: T) => void): void`
+
+Subscribes to a Redis channel.
+
+- **Parameters:**
+  - `channelName` *(string)*: The channel name to subscribe to.
+  - `callback` *(function)*: Callback invoked with the message payload.
+
+#### `publish(channelName: string, payload: Record<string, any>): Promise<void>`
 
 Publishes a message to a Redis channel.
 
-- **channelName**: The name of the channel to publish to.
-- **payload**: The message payload to publish.
+- **Parameters:**
+  - `channelName` *(string)*: The channel name to publish to.
+  - `payload` *(Record<string, any>)*: The message payload.
 
-### `getInstance(connectonURI: string = 'localhost')`
+#### `unsubscribe(channelName: string): void`
 
-Returns the singleton instance of `RedisClient`. If an instance does not already exist, it creates a new one.
+Unsubscribes from a Redis channel.
 
-- **connectonURI**: The connection URI for the Redis server.
+- **Parameters:**
+  - `channelName` *(string)*: The channel name to unsubscribe from.
 
-### `close()`
+#### `close(): void`
 
-Closes the Redis connection. This method should be called when the application is shutting down to ensure that all resources are properly released.
+Closes all Redis connections.
 
-## Additional Details
+---
 
-The `RedisClient` class in `s42-core` automatically manages a publisher and a subscriber instance for Redis. This setup allows for easy use of the subscribe and publish functionalities without additional configuration. By using the singleton pattern through the `getInstance` method, it ensures that there is only one active connection to the Redis server at any time, which helps manage resources more efficiently.
+## Error Handling
 
+The `RedisClient` class provides robust error handling mechanisms. If a connection or operation fails, informative error messages are logged to aid debugging.
+
+### Retry Mechanism
+
+Each connection attempts to reconnect up to 3 times before throwing an error. This ensures better resilience in unstable network conditions.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.

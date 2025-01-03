@@ -1,59 +1,74 @@
-import { randomUUID } from 'crypto'
-import { type IncomingMessage, type ServerResponse } from 'http'
 
 export type TypeSSEventToSend = {
 	eventName: string
-	eventPayload: { [key: string]: string }
+	eventPayload: Record<string, any>
 }
 
 export class SSE {
-	private Response: ServerResponse
+	private response: Response
 	private readonly uuid: string
-	private localID: number
-	constructor(req: IncomingMessage, res: ServerResponse) {
-		this.Response = res
-		this.localID = 0
-		this.uuid = randomUUID()
-		this.controllerPath()
-		this.sendHello()
+	private localID: number = 0
+	private controller: ReadableStreamDirectController | null = null;
+
+	constructor(req: Request) {
+		this.uuid = crypto.randomUUID()
+
+		const signal = req.signal;
+		const _this = this;
+		this.response = new Response(
+			new ReadableStream({
+				type: "direct",
+				async pull(controller: ReadableStreamDirectController) {
+					_this.controller = controller
+					while (!signal?.aborted) {
+						await controller.flush();
+						await Bun.sleep(1000);
+					}
+					controller.close();
+				},
+			}),
+			{ status: 200, headers: { "Content-Type": "text/event-stream" } },
+		);
+
 	}
 
-	getUUID() {
+	public getResponse(): Response {
+		return this.response;
+	}
+
+	private sendSSECustom( eventName: string, data: string) {
+		return this?.controller?.write(`event: ${eventName}\ndata:${JSON.stringify(data)}\n\n`);
+	}
+
+	private sendSSEMessage(data: string) {
+		return this?.controller?.write(data);
+	}
+
+	public getUUID(): string {
 		return this.uuid
 	}
 
-	private sendHello() {
-		this.send({
-			eventName: 'welcome',
-			eventPayload: {
-				uuid: this.uuid,
-			},
-		})
-	}
-
-	private controllerPath() {
-		this.Response.writeHead(200, {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
-			Connection: 'keep-alive',
-		})
-		this.Response.flushHeaders()
-	}
-
-	send(data: TypeSSEventToSend) {
-		const formattedData = `id: ${this.localID++}\nevent: ${data.eventName}\ndata: ${JSON.stringify(data.eventPayload)}\n\n`
+	public send(data: TypeSSEventToSend): void {
+		const formattedData = this.formatEvent(data)
 		try {
-			this.Response.write(formattedData)
+			this.sendSSEMessage(formattedData)
 		} catch (error) {
 			console.error('Error sending SSE data:', error)
 		}
 	}
 
-	close() {
+	public close(): void {
 		try {
-			this.Response.end()
+			this.controller?.close()
 		} catch (error) {
 			console.error('Error closing SSE connection:', error)
 		}
 	}
+
+	private formatEvent(data: TypeSSEventToSend): string {
+		return `id: ${this.localID++}\nevent: ${data.eventName}\ndata: ${JSON.stringify(
+			data.eventPayload,
+		)}\n\n`
+	}
+
 }

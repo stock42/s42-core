@@ -1,96 +1,201 @@
-# EVENTSDOMAIN
-
-- [EVENTSDOMAIN](#eventsdomain)
-	- [Overview](#overview)
+- [EventsDomain - s42-core](#eventsdomain---s42-core)
 	- [Purpose](#purpose)
-	- [Key Features](#key-features)
-		- [Round-Robin Event Emission](#round-robin-event-emission)
-		- [Event Registration and Notification](#event-registration-and-notification)
-		- [Dependency on Redis](#dependency-on-redis)
-		- [Graceful Shutdown](#graceful-shutdown)
-	- [Best Practices](#best-practices)
-	- [Usage Scenario](#usage-scenario)
-	- [Examples](#examples)
-		- [Listener and emit](#listener-and-emit)
+	- [Installation](#installation)
+	- [Features](#features)
+	- [Usage](#usage)
+		- [Setting Up EventsDomain](#setting-up-eventsdomain)
+		- [Registering an Event Listener](#registering-an-event-listener)
+		- [Emitting Events](#emitting-events)
+		- [Closing EventsDomain](#closing-eventsdomain)
+	- [Full Example](#full-example)
+		- [Scenario: User Registration and Email Service](#scenario-user-registration-and-email-service)
+			- [User Registration Service](#user-registration-service)
+			- [Email Service](#email-service)
+	- [Methods](#methods)
+		- [`getInstance(redisInstance: RedisClient, uuid: string): EventsDomain`](#getinstanceredisinstance-redisclient-uuid-string-eventsdomain)
+		- [`listenEvent<TypePayload>(eventName: string, callback: (payload: TypePayload) => void): void`](#listeneventtypepayloadeventname-string-callback-payload-typepayload--void-void)
+		- [`emitEvent(eventName: string, payload: object): boolean`](#emiteventeventname-string-payload-object-boolean)
+		- [`getAllRegisteredEvents(): Record<string, TypeEvent>`](#getallregisteredevents-recordstring-typeevent)
+		- [`close(): void`](#close-void)
+	- [Advantages](#advantages)
+	- [License](#license)
 
-## Overview
 
-The `EventsDomain` class/module in `s42-core` is designed to emit domain events from our microservices, cells, or software components. It relies on an instance of Redis from `s42-core` to function.
+# EventsDomain - s42-core
 
-## Purpose
-
-The primary goal of `EventsDomain` is to provide a robust and efficient way to manage and emit domain events across different parts of an application. It ensures that events are handled in a round-robin manner, distributing events evenly across all instances that are listening to a particular event.
-
-## Key Features
-
-### Round-Robin Event Emission
-
-One of the main features of `EventsDomain` is its use of a round-robin system to emit events to instances that are listening to a particular event. This ensures that the load is balanced across all listening instances.
-
-### Event Registration and Notification
-
-Every time an event is listened to, it is notified to an internal channel. All instances are aware of who is listening to which event, ensuring proper event distribution and handling.
-
-### Dependency on Redis
-
-`EventsDomain` depends on an instance of Redis from `s42-core` to function. It uses Redis for publishing and subscribing to events, making sure that all instances can communicate effectively.
-
-### Graceful Shutdown
-
-It is recommended to use the `Shutdown` class to call the `close` method of `EventsDomain`. This ensures that the instance announces that it is no longer available to process the events it was listening to, allowing for a clean and graceful shutdown.
-
-## Best Practices
-
-- **Event Naming Convention**: It is a good practice to use an event naming format like `$domain.$subdomain.$action`. For example, "users.created" or "cart.products.add".
-- **Graceful Shutdown**: Always ensure that `EventsDomain` instances call the `close` method during shutdown to notify other instances that they are no longer available.
-
-## Usage Scenario
-
-Consider a scenario where you have a microservice with an endpoint to create users. On the other hand, you have a software cell that listens to the "users.created" event and sends a welcome email.
-
-This setup ensures that every time a user is created, an event is emitted and the corresponding action (sending a welcome email) is triggered in a different part of the system.
+The `EventsDomain` class is a core utility of the `s42-core` package, designed to facilitate event-driven communication between microservices or cells in a distributed system. It enables seamless publishing, listening, and routing of events via Redis, ensuring efficient and decoupled interactions between independent services.
 
 ---
 
-By following these practices and utilizing the `EventsDomain` class, you can effectively manage and emit domain events across your microservices, cells, or software components.
+## Purpose
 
-## Examples
-### Listener and emit
+The `EventsDomain` class is particularly useful in scenarios where microservices or cells need to interact indirectly through events. For example:
+
+- **User Registration and Email Sending**: A user registration service emits an event when a new user is created. The email service listens to this event to send a welcome email.
+- **Order Processing and Notification**: An order processing service emits events that trigger notifications to customers via a separate notification service.
+- **Real-Time Updates**: Events can be used to update UI clients or trigger specific actions in other services.
+
+---
+
+## Installation
+
+Install the `s42-core` package:
+
+```bash
+npm install s42-core
+```
+
+---
+
+## Features
+
+1. **Event Broadcasting**: Publish events that can be consumed by other services.
+2. **Listener Registration**: Easily register listeners for specific events.
+3. **Dynamic Event Routing**: Supports routing of events to specific instances.
+4. **Redis Integration**: Uses Redis for reliable and efficient communication.
+5. **Singleton Instance**: Ensures a single instance of `EventsDomain` across the application.
+
+---
+
+## Usage
+
+### Setting Up EventsDomain
 
 ```typescript
-import { Shutdown, Cluster, EventsDomain, RedisClient } from 's42-core'
+import { EventsDomain } from 's42-core';
+import { RedisClient } from 's42-core';
 
-type UsersCreated = {
-  email: string
-  firstName: string
-  lastName: string
-  lang: 'en' | 'es' | 'it' | 'fr'
-  template: string
-}
+// Initialize Redis client
+const redisClient = RedisClient.getInstance('redis://localhost:6379');
 
-Cluster(
-  1, // only one instance
-  async (pid, uuid) => {
-    console.info('initializing event user.created listener : ', pid, uuid)
-    const redisInstance = RedisClient.getInstance(process.env.REDIS_URI)
-    const eventsDomain = EventsDomain.getInstance(redisInstance, uuid)
+// Unique identifier for the process
+const processUUID = 'unique-process-id';
 
-    eventsDomain.listenEvent<UsersCreated>(
-      `users.created`,
-      async (payload: UsersCreated) => {
-        try {
-          console.info('Email sent successfully:', payload)
-          eventsDomain.emitEvent('users.created.email.sent', { ok: true })
-        } catch (error) {
-          console.error('Error sending email:', error)
-        }
-      },
-    )
-
-    Shutdown([eventsDomain.close, redisInstance.close])
-  },
-  () => {
-    console.info('Error trying start servers')
-  },
-)
+// Create an EventsDomain instance
+const eventsDomain = EventsDomain.getInstance(redisClient, processUUID);
 ```
+
+---
+
+### Registering an Event Listener
+
+You can listen to specific events and trigger a callback when the event occurs:
+
+```typescript
+eventsDomain.listenEvent<{ userId: string }>('user_registered', (payload) => {
+  console.info('New user registered:', payload.userId);
+});
+```
+
+---
+
+### Emitting Events
+
+To emit an event for other services to consume:
+
+```typescript
+const success = eventsDomain.emitEvent('user_registered', { userId: '12345' });
+if (success) {
+  console.info('Event emitted successfully.');
+} else {
+  console.error('Failed to emit event. Event may not be registered.');
+}
+```
+
+---
+
+### Closing EventsDomain
+
+When shutting down the service, clean up resources:
+
+```typescript
+eventsDomain.close();
+console.info('EventsDomain closed.');
+```
+
+---
+
+## Full Example
+
+### Scenario: User Registration and Email Service
+
+#### User Registration Service
+
+```typescript
+import { EventsDomain } from 's42-core';
+import { RedisClient } from 's42-core';
+
+const redisClient = RedisClient.getInstance('redis://localhost:6379');
+const eventsDomain = EventsDomain.getInstance(redisClient, 'user-service');
+
+function registerUser(userId: string) {
+  console.info('Registering user:', userId);
+  // Perform user registration logic...
+
+  // Emit event after registration
+  eventsDomain.emitEvent('user_registered', { userId });
+}
+```
+
+#### Email Service
+
+```typescript
+import { EventsDomain } from 's42-core';
+import { RedisClient } from 's42-core';
+
+const redisClient = RedisClient.getInstance('redis://localhost:6379');
+const eventsDomain = EventsDomain.getInstance(redisClient, 'email-service');
+
+eventsDomain.listenEvent<{ userId: string }>('user_registered', (payload) => {
+  console.info('Sending welcome email to user:', payload.userId);
+  // Perform email sending logic...
+});
+```
+
+---
+
+## Methods
+
+### `getInstance(redisInstance: RedisClient, uuid: string): EventsDomain`
+
+Returns a singleton instance of `EventsDomain`.
+
+- **`redisInstance`** *(RedisClient)*: The Redis client instance for communication.
+- **`uuid`** *(string)*: A unique identifier for the process.
+
+### `listenEvent<TypePayload>(eventName: string, callback: (payload: TypePayload) => void): void`
+
+Registers a listener for a specific event.
+
+- **`eventName`** *(string)*: The name of the event to listen for.
+- **`callback`** *(function)*: The function to execute when the event is received.
+
+### `emitEvent(eventName: string, payload: object): boolean`
+
+Emits an event to be consumed by other services.
+
+- **`eventName`** *(string)*: The name of the event to emit.
+- **`payload`** *(object)*: The data to send with the event.
+
+### `getAllRegisteredEvents(): Record<string, TypeEvent>`
+
+Returns all registered events.
+
+### `close(): void`
+
+Stops broadcasting events and cleans up Redis connections.
+
+---
+
+## Advantages
+
+- **Decoupling**: Services can communicate without direct dependencies.
+- **Scalability**: Easily handle multiple instances and distribute events efficiently.
+- **Reliability**: Uses Redis for robust messaging between services.
+- **Simplicity**: Provides a straightforward API for managing events.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for more details.

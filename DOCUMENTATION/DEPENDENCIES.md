@@ -1,118 +1,137 @@
-# DEPENDENCIES
-- [DEPENDENCIES](#dependencies)
-	- [Overview](#overview)
-	- [Purpose](#purpose)
-	- [Methods](#methods)
-		- [`add<DEP>(name: string, dep: DEP): void`](#adddepname-string-dep-dep-void)
-		- [`get<DEP>(name: string): DEP | null`](#getdepname-string-dep--null)
-	- [Examples of Usage](#examples-of-usage)
-		- [Example 1: Storing a Database Connection](#example-1-storing-a-database-connection)
-		- [Example 2: Sharing Configuration Settings](#example-2-sharing-configuration-settings)
-		- [Example 3: Managing Service Instances](#example-3-managing-service-instances)
-	- [Additional Details](#additional-details)
+- [Dependencies Class Documentation](#dependencies-class-documentation)
+	- [Features](#features)
+	- [API Documentation](#api-documentation)
+		- [Methods](#methods)
+			- [`add<DEP>(name: string, dep: DEP): void`](#adddepname-string-dep-dep-void)
+			- [`get<DEP>(name: string): DEP | null`](#getdepname-string-dep--null)
+			- [`remove(name: string): boolean`](#removename-string-boolean)
+			- [`clear(): void`](#clear-void)
+			- [`has(name: string): boolean`](#hasname-string-boolean)
+	- [Example Usage](#example-usage)
+		- [Registering and Retrieving Dependencies](#registering-and-retrieving-dependencies)
+		- [Removing and Clearing Dependencies](#removing-and-clearing-dependencies)
+	- [Use Cases](#use-cases)
+	- [Error Handling](#error-handling)
+	- [License](#license)
 
 
-## Overview
+# Dependencies Class Documentation
 
-The `Dependencies` class/module in `s42-core` is designed to store instances or resources that will be shared across a microservice, module, or software component. This class provides a simple but effective way to manage dependencies, making them easily accessible throughout the application.
+The `Dependencies` class is a utility designed to manage dependencies in a centralized and controlled manner. It allows you to register, retrieve, and remove dependencies by name, making it ideal for modular applications.
 
-## Purpose
+---
 
-The primary goal of the `Dependencies` class is to allow for the storage and retrieval of shared instances or resources. This is particularly useful in scenarios where multiple parts of an application need to access the same instance or resource, such as database connections, configuration settings, or service instances.
+## Features
 
-## Methods
+- **Centralized Dependency Management:** Register and retrieve dependencies globally.
+- **Type Safety:** Supports TypeScript generics for type-safe dependency management.
+- **Error Handling:** Prevents duplicate dependency registration.
 
-### `add<DEP>(name: string, dep: DEP): void`
+---
 
-Adds a dependency to the storage.
+## API Documentation
 
-- **name**: The name of the dependency.
-- **dep**: The instance of the dependency to store.
+### Methods
 
-### `get<DEP>(name: string): DEP | null`
+#### `add<DEP>(name: string, dep: DEP): void`
 
-Retrieves a dependency from the storage.
+Registers a new dependency with a unique name.
 
-- **name**: The name of the dependency.
-- **returns**: The instance of the dependency if it exists, or `null` if it does not.
+- **Parameters:**
+  - `name` *(string)*: The unique name of the dependency.
+  - `dep` *(any)*: The dependency instance or object to register.
+- **Throws:**
+  - An error if a dependency with the same name already exists.
 
-## Examples of Usage
+#### `get<DEP>(name: string): DEP | null`
 
-### Example 1: Storing a Database Connection
+Retrieves a registered dependency by its name.
 
-You can store a database connection instance in the `Dependencies` class so that it can be easily accessed throughout your application.
+- **Parameters:**
+  - `name` *(string)*: The name of the dependency to retrieve.
+- **Returns:**
+  - The instance of the dependency if found, or `null` if it does not exist.
 
-```typescript
-import { createServer } from 'node:http'
+#### `remove(name: string): boolean`
 
-import {
-	Shutdown,
-	Cluster,
-	Dependencies,
-	MongoClient,
-} from 's42-core'
+Removes a registered dependency by its name.
 
-import { userController, healthController } from './controllers'
+- **Parameters:**
+  - `name` *(string)*: The name of the dependency to remove.
+- **Returns:**
+  - `true` if the dependency was successfully removed, `false` if it did not exist.
 
-const port = process.env.PORT ?? 3000
+#### `clear(): void`
 
-Cluster(
-	1,
-	async (pid, uuid) => {
-		console.info('initializing: ', pid, uuid)
-		const mongoClient = MongoClient.getInstance({
-			connectionString: String(process.env?.MONGO_URI),
-			database: String(process.env?.MONGO_DB),
-		})
+Clears all registered dependencies.
 
-		await mongoClient.connect()
+#### `has(name: string): boolean`
 
-		Dependencies.add<MongoClient>('db', mongoClient)
+Checks if a dependency with the specified name exists.
 
-		Shutdown([mongoClient.close, redisClient.close, eventsDomain.close])
-	},
-	() => {
-		console.info('Error trying start servers')
-	},
-)
+- **Parameters:**
+  - `name` *(string)*: The name of the dependency to check.
+- **Returns:**
+  - `true` if the dependency exists, `false` otherwise.
 
-```
+---
 
-### Example 2: Sharing Configuration Settings
+## Example Usage
 
-Store configuration settings that multiple components or modules need to access.
+### Registering and Retrieving Dependencies
 
 ```typescript
-import { createServer } from 'node:http'
-import { AppConfiguration } from './appconfiguration.js'
-import {
-	Shutdown,
-	Cluster,
-	Dependencies,
-} from 's42-core'
+import { Dependencies } from 's42-core';
 
-import { userController, healthController } from './controllers'
+// Register a dependency
+Dependencies.add('database', { connectionString: 'mongodb://localhost:27017' });
 
-const port = process.env.PORT ?? 3000
+// Check if the dependency exists
+if (Dependencies.has('database')) {
+  console.log('Database dependency exists.');
+}
 
-Cluster(
-	1,
-	async (pid, uuid) => {
-		console.info('initializing: ', pid, uuid)
-		Dependencies.add<AppConfiguration>('config', AppConfiguration)
-
-		Shutdown([mongoClient.close, redisClient.close, eventsDomain.close])
-	},
-	() => {
-		console.info('Error trying start servers')
-	},
-)
+// Retrieve the dependency
+const dbConfig = Dependencies.get<{ connectionString: string }>('database');
+console.log('Connection String:', dbConfig?.connectionString);
 ```
 
-### Example 3: Managing Service Instances
+### Removing and Clearing Dependencies
 
-Store instances of services that are used across different parts of the application, such as logging services, authentication services, or caching services.
+```typescript
+// Remove a specific dependency
+Dependencies.remove('database');
 
-## Additional Details
+// Clear all dependencies
+Dependencies.clear();
+```
 
-The `Dependencies` class is a very simple but useful utility for managing shared resources within an application. By centralizing the storage and retrieval of these resources, it helps to maintain clean and organized code, reducing the need for passing instances or configurations through multiple layers of the application.
+---
+
+## Use Cases
+
+- **Service Management:** Store shared services such as database instances, HTTP clients, or configurations.
+- **Dependency Injection:** Simplify dependency injection across different parts of the application.
+- **Unit Testing:** Mock dependencies for isolated testing scenarios.
+
+---
+
+## Error Handling
+
+The `add` method will throw an error if you attempt to register a dependency with a name that already exists. Ensure that names are unique within your application:
+
+```typescript
+try {
+  Dependencies.add('database', {});
+  Dependencies.add('database', {}); // Throws an error
+} catch (error) {
+  console.error(error.message);
+}
+```
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+

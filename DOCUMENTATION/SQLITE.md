@@ -1,164 +1,160 @@
 
-# SQLIte
-
-- [SQLIte](#sqlite)
-	- [Overview](#overview)
-	- [Purpose](#purpose)
+- [SQLite Class Documentation](#sqlite-class-documentation)
 	- [Key Features](#key-features)
-	- [Methods](#methods)
-		- [`constructor(props: TypeSQLiteConnection)`](#constructorprops-typesqliteconnection)
-			- [Usage](#usage)
-		- [`close()`](#close)
-			- [Usage](#usage-1)
-		- [`createTable(tableName: string, schema: TypeTableSchema)`](#createtabletablename-string-schema-typetableschema)
-			- [Usage](#usage-2)
-		- [`dropTable(tableName: string)`](#droptabletablename-string)
-			- [Usage](#usage-3)
-		- [`delete(tableName: string, where: string, params: any[])`](#deletetablename-string-where-string-params-any)
-			- [Usage](#usage-4)
-		- [`insert(tableName: string, data: { [key: string]: any })`](#inserttablename-string-data--key-string-any-)
-			- [Usage](#usage-5)
-		- [`select(tableName: string, where: string, params: any[])`](#selecttablename-string-where-string-params-any)
-			- [Usage](#usage-6)
-	- [Use Cases](#use-cases)
-		- [Example: Basic SQLite Setup](#example-basic-sqlite-setup)
+	- [Installation](#installation)
+	- [Usage Examples](#usage-examples)
+		- [Initialization](#initialization)
+		- [Creating and Managing Tables](#creating-and-managing-tables)
+			- [Create a Table](#create-a-table)
+			- [Drop a Table](#drop-a-table)
+			- [Add Columns to an Existing Table](#add-columns-to-an-existing-table)
+		- [CRUD Operations](#crud-operations)
+			- [Insert Data](#insert-data)
+			- [Select Data](#select-data)
+			- [Update Data](#update-data)
+			- [Delete Data](#delete-data)
+		- [Indexing](#indexing)
+			- [Create an Index](#create-an-index)
+		- [Metadata Access](#metadata-access)
+			- [Get All Tables](#get-all-tables)
+			- [Get Table Schema](#get-table-schema)
+	- [Advantages of Using the SQLite Class](#advantages-of-using-the-sqlite-class)
+	- [Error Handling](#error-handling)
+	- [License](#license)
 
-## Overview
+# SQLite Class Documentation
 
-The `SQLIte` class provides a simple interface for interacting with a SQLite database using Node.js. It supports both file-based and in-memory databases and provides basic methods for creating, dropping, inserting, deleting, and selecting data from tables.
-
-## Purpose
-
-The primary goal of the `SQLIte` class is to provide a convenient and type-safe wrapper around SQLite operations, allowing developers to interact with a SQLite database in a structured and secure manner.
+The `SQLite` class is part of the `s42-core` package and provides a comprehensive and efficient interface for interacting with SQLite databases. It supports common operations like creating, updating, querying, and deleting data, as well as advanced features such as schema management, indexing, and MongoDB-style query translation.
 
 ## Key Features
 
-- **Flexible Database Initialization**: Supports both file-based and in-memory SQLite databases.
-- **CRUD Operations**: Provides methods for creating tables, inserting data, deleting data, and selecting data from tables.
-- **Secure Query Handling**: Uses parameterized queries to prevent SQL injection.
-- **Error Handling**: Includes robust error handling to manage database operations safely.
+- **Flexibility:** Support for both in-memory and file-based SQLite databases.
+- **CRUD Operations:** Simplified methods for `INSERT`, `SELECT`, `UPDATE`, and `DELETE` operations.
+- **Schema Management:** Create, drop, and alter tables dynamically.
+- **Pagination Support:** Built-in `LIMIT` and `OFFSET` options for efficient query handling.
+- **Indexing:** Create indexes to optimize query performance.
+- **Metadata Access:** Retrieve a list of all tables and their schemas.
+- **MongoDB-like Queries:** Translate MongoDB-style queries to SQL for seamless integration.
+- **Error Handling:** Built-in validations and descriptive error messages to ensure reliability.
 
-## Methods
+---
 
-### `constructor(props: TypeSQLiteConnection)`
+## Installation
 
-Initializes a new SQLite connection based on the provided configuration.
+To use the `SQLite` class, install the `s42-core` package:
 
-- **props**: An object specifying the connection type ('file' or 'memory') and an optional filename for file-based databases.
-
-#### Usage
-
-```typescript
-const db = new SQLIte({ type: 'file', filename: 'mydatabase.db' });
+```bash
+npm install s42-core
 ```
 
-### `close()`
+---
 
-Closes the SQLite database connection.
+## Usage Examples
 
-#### Usage
+### Initialization
 
 ```typescript
-db.close();
+import { SQLite } from 's42-core';
+
+// Create an in-memory database
+const sqlite = new SQLite({ type: 'memory' });
+
+// Create a file-based database
+const sqliteFile = new SQLite({ type: 'file', filename: 'data.db' });
 ```
 
-### `createTable(tableName: string, schema: TypeTableSchema)`
+### Creating and Managing Tables
 
-Creates a new table with the specified name and schema.
-
-- **tableName**: The name of the table to create.
-- **schema**: An object representing the schema of the table, where the keys are column names and the values are column types.
-
-#### Usage
-
+#### Create a Table
 ```typescript
-db.createTable('users', { username: 'TEXT', age: 'INTEGER' });
+await sqlite.createTable('users', {
+  id: 'INTEGER PRIMARY KEY AUTOINCREMENT',
+  name: 'TEXT',
+  age: 'INTEGER',
+});
 ```
 
-### `dropTable(tableName: string)`
-
-Drops the table with the specified name if it exists.
-
-- **tableName**: The name of the table to drop.
-
-#### Usage
-
+#### Drop a Table
 ```typescript
-db.dropTable('users');
+await sqlite.dropTable('users');
 ```
 
-### `delete(tableName: string, where: string, params: any[])`
-
-Deletes rows from the specified table that match the given condition.
-
-- **tableName**: The name of the table from which to delete rows.
-- **where**: A SQL WHERE clause specifying the condition for deletion.
-- **params**: An array of parameters to replace placeholders in the WHERE clause.
-
-#### Usage
-
+#### Add Columns to an Existing Table
 ```typescript
-db.delete('users', 'age > ?', [30]);
+await sqlite.addTableColumns('users', {
+  email: 'TEXT',
+  isActive: 'BOOLEAN',
+});
 ```
 
-### `insert(tableName: string, data: { [key: string]: any })`
+### CRUD Operations
 
-Inserts a new row into the specified table with the given data.
-
-- **tableName**: The name of the table into which to insert the data.
-- **data**: An object representing the data to insert, where the keys are column names and the values are the values to insert.
-
-#### Usage
-
+#### Insert Data
 ```typescript
-db.insert('users', { username: 'Alice', age: 25 });
+await sqlite.insert('users', { name: 'John Doe', age: 30 });
 ```
 
-### `select(tableName: string, where: string, params: any[])`
-
-Selects rows from the specified table that match the given condition.
-
-- **tableName**: The name of the table from which to select rows.
-- **where**: A SQL WHERE clause specifying the condition for selection.
-- **params**: An array of parameters to replace placeholders in the WHERE clause.
-
-#### Usage
-
+#### Select Data
 ```typescript
-const users = db.select('users', 'age > ?', [20]);
+const users = await sqlite.select('users', ['id', 'name'], { age: { $gte: 18 } }, { name: 1 }, 10, 0);
 console.log(users);
 ```
 
-## Use Cases
-
-### Example: Basic SQLite Setup
-
-This example demonstrates how to set up a basic SQLite database and perform common operations using the `SQLIte` class.
-
+#### Update Data
 ```typescript
-import { SQLIte } from './SQLIte'; // Import the SQLIte class from the appropriate path
-
-const db = new SQLIte({ type: 'memory' });
-
-// Create a new table
-db.createTable('users', { username: 'TEXT', age: 'INTEGER' });
-
-// Insert data into the table
-db.insert('users', { username: 'Alice', age: 25 });
-db.insert('users', { username: 'Bob', age: 30 });
-
-// Select data from the table
-const users = db.select('users', 'age > ?', [20]);
-console.log(users);
-
-// Delete data from the table
-db.delete('users', 'age > ?', [30]);
-
-// Drop the table
-db.dropTable('users');
-
-// Close the database connection
-db.close();
+await sqlite.update('users', { id: 1 }, { name: 'Jane Doe', age: 28 });
 ```
 
-This example shows how to use the `SQLIte` class to interact with a SQLite database in Node.js, including creating a table, inserting data, selecting data, deleting data, and dropping the table.
+#### Delete Data
+```typescript
+await sqlite.delete('users', { age: { $lt: 18 } });
+```
+
+### Indexing
+
+#### Create an Index
+```typescript
+await sqlite.createIndex('users', 'name');
+```
+
+### Metadata Access
+
+#### Get All Tables
+```typescript
+const tables = await sqlite.getAllTables();
+console.log(tables);
+```
+
+#### Get Table Schema
+```typescript
+const schema = await sqlite.getTableSchema('users');
+console.log(schema);
+```
+
+---
+
+## Advantages of Using the SQLite Class
+
+1. **Ease of Use:** Simplifies complex SQLite operations into a clean and intuitive API.
+2. **Seamless Integration:** MongoDB-style query translation enables smooth integration with applications that use MongoDB-like query syntax.
+3. **Performance Optimization:** Features like indexing and pagination ensure efficient data handling.
+4. **Dynamic Schema Management:** Easily modify tables without manual SQL.
+5. **Error Resilience:** Validations and detailed error messages help prevent and debug issues.
+6. **Extensibility:** Built with flexibility to support additional features like transactions and batch operations.
+7. **Real-Time Query Building:** Dynamically construct queries with filtering, sorting, and limiting.
+
+---
+
+## Error Handling
+
+The class includes robust error handling:
+- Ensures valid table and column names.
+- Throws descriptive errors when operations fail.
+- Logs errors to help debug issues effectively.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+

@@ -1,43 +1,39 @@
 {
   "name": "s42-core",
-  "version": "1.0.3",
-	"description": "S42Core is a Node.js library designed to facilitate rapid application development with features like clustering, event domains, Redis and MongoDB access, dependency management, and routing controllers. Built with TypeScript for simplicity and high performance. Cell architecture based",
-	"main": "dist/index.js",
-  "types": "dist/index.d.ts",
-	"type": "module",
-	"module": "dist/index.js",
-	"bugs": {
+  "version": "2.0.0",
+  "description": "S42Core is a Bunjs library designed to facilitate rapid application development with features like clustering, event domains, Redis and MongoDB access, dependency management, and routing controllers. Built with TypeScript for simplicity and high performance. Cell architecture based",
+  "main": "./src/index.ts",
+  "types": "/src/index.ts",
+  "type": "module",
+  "module": "./src/index.ts",
+  "bugs": {
     "url": "https://github.com/stock42/s42core/issues"
   },
-	"homepage": "https://s42core.com",
+  "homepage": "https://s42core.com",
   "author": {
     "name": "César Casas",
     "url": "https://www.linkedin.com/in/cesarcasas/"
   },
-	"repository": {
+  "repository": {
     "type": "git",
     "url": "https://github.com/stock42/s42core"
   },
-  "license": "ISC",
-	"scripts": {
-    "build": "rm -Rf ./dist && npx tsc --build"
+  "license": "MIT",
+  "dependencies": {
+    "ioredis": "^5.4.2",
+    "mongodb": "^6.12.0"
   },
-	"dependencies": {
-    "ioredis": "^5.4.1",
-    "mongodb": "^6.8.0",
-		"picocolors": "^1.0.1"
-  },
-	"devDependencies": {
-    "@types/node": "^22.5.0",
-    "@typescript-eslint/eslint-plugin": "^7.13.0",
-    "@typescript-eslint/parser": "^7.13.0",
-    "autoprefixer": "^10.4.19",
-    "eslint": "^8.57.0",
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+		"@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.2",
+    "@typescript-eslint/parser": "^8.18.2",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.17.0",
     "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-prettier": "^5.1.3",
-    "eslint-plugin-react": "^7.34.2",
-    "prettier": "^3.3.2",
-		"typescript": "^5.5.3"
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
   }
 }

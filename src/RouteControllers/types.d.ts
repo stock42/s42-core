@@ -1,4 +1,6 @@
-export type TypeReturnCallback = (req: IncomingMessage, res: ServerResponse) => void
+import { type Res } from '../Response'
+
+export type TypeReturnCallback = (req: Request, res: Res) => Response | Promise<Response> | void | Promise<void>
 
 export type RouteCheckResult = {
 	exists: boolean
@@ -7,7 +9,7 @@ export type RouteCheckResult = {
 }
 
 type TypeRoutesMapCache = {
-	[key: string]: (req: any, res: any, next?: (req: any, res: any) => void) => void
+	[key: string]: (req: any, res: Res) => void | Promise<void> | Response | Promise<Response>
 }
 
 type TypeRequestInternalObject = {
@@ -17,7 +19,6 @@ type TypeRequestInternalObject = {
 	method: string
 	query: { [string]: [string] }
 	body: { [string]: [string] }
-	on: (evt: string, cb: () => void) => void
 }
 
 type TypeResponseInternalObject = {

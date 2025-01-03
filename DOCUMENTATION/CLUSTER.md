@@ -1,24 +1,49 @@
-# CLUSTER
-- [CLUSTER](#cluster)
-	- [Overview](#overview)
-	- [Important Note](#important-note)
+- [Cluster Documentation](#cluster-documentation)
+	- [Purpose](#purpose)
+	- [Installation](#installation)
 	- [Usage](#usage)
 		- [Basic Example](#basic-example)
-	- [Methods](#methods)
-		- [`Cluster(workers: number, workerCallback: Function, errorCallback: Function)`](#clusterworkers-number-workercallback-function-errorcallback-function)
-	- [Additional Details](#additional-details)
+	- [Constructor](#constructor)
+	- [Key Methods](#key-methods)
+		- [`start(file: string, fallback: (err: Error) => void): void`](#startfile-string-fallback-err-error--void-void)
+		- [`onWorkerMessage(callback: (message: string) => void): void`](#onworkermessagecallback-message-string--void-void)
+		- [`sendMessageToWorkers(message: string): void`](#sendmessagetoworkersmessage-string-void)
+		- [`getCurrentFile(): string`](#getcurrentfile-string)
+		- [`getCurrentWorkers(): Array<ReturnType<typeof spawn>>`](#getcurrentworkers-arrayreturntypetypeof-spawn)
+		- [`killWorkers(): void`](#killworkers-void)
+	- [Features](#features)
+	- [Full Example](#full-example)
+	- [Advantages](#advantages)
+	- [License](#license)
 
-## Overview
 
-The `CLUSTER` class/module in `s42-core` is designed to facilitate the creation and management of Node.js clusters, allowing applications to take full advantage of multi-core systems by spawning multiple processes.
 
-## Important Note
+# Cluster Documentation
 
-The first argument to the `Cluster` function is the number of workers. The `Cluster` module detects the number of cores on the server and can spawn one worker per available core.
+The `Cluster` class is part of the `s42-core` package and enables the creation and management of parallel processes using Bun workers. It simplifies task distribution in applications that need to utilize multiple CPUs or manage independent processes.
 
-- If the first argument is zero, it will spawn one worker per available core.
-- If the first argument is a number other than zero, it will spawn the specified number of workers.
+---
 
+## Purpose
+
+The `Cluster` class:
+
+- Creates and manages multiple workers efficiently.
+- Supports bidirectional messaging between the main process and workers.
+- Includes support for automatic worker restarts in development mode (`--watch`).
+- Handles errors and provides a simple API for integration.
+
+---
+
+## Installation
+
+Install the `s42-core` package:
+
+```bash
+npm install s42-core
+```
+
+---
 
 ## Usage
 
@@ -27,26 +52,150 @@ The first argument to the `Cluster` function is the number of workers. The `Clus
 ```typescript
 import { Cluster } from 's42-core';
 
-Cluster(
-  1,  // Number of cluster workers. 0 for use all cores
-  async (pid, uuid) => {
-    console.info('Initializing: ', pid, uuid);
-    // Worker initialization code here
-  },
-  () => {
-    console.error('Error trying to start servers');
-  },
-);
+const cluster = new Cluster({
+  name: 'MyCluster',
+  maxCPU: 4,
+  watchMode: true, // Enables automatic worker restarts in development mode
+});
+
+cluster.start('./worker.js', (err) => {
+  if (err) {
+    console.error('Failed to start the cluster:', err);
+  }
+});
+
+cluster.onWorkerMessage((message) => {
+  console.info('Message from worker:', message);
+});
 ```
 
-## Methods
+---
 
-### `Cluster(workers: number, workerCallback: Function, errorCallback: Function)`
+## Constructor
 
-- **workers**: The number of worker processes to spawn.
-- **workerCallback**: A callback function that is called for each worker process. This callback receives the `processId` and a `UUID` that uniquely identifies the process.
-- **errorCallback**: A callback function that is called if there is an error starting the cluster.
+```typescript
+constructor(props: TypeConstructor & { watchMode?: boolean });
+```
 
+- **`props.name`** *(string)*: Name of the cluster.
+- **`props.maxCPU`** *(number)*: Maximum number of CPUs to use.
+- **`props.watchMode`** *(boolean, optional)*: Enables automatic worker restarts in development mode (`--watch`).
 
-## Additional Details
-This module uses the built-in cluster module of Node.js to manage worker processes. It provides a simple interface to create clusters and handle worker-specific initialization and error management.
+---
+
+## Key Methods
+
+### `start(file: string, fallback: (err: Error) => void): void`
+
+Starts the cluster and spawns workers.
+
+- **`file`** *(string)*: File to be executed by the workers.
+- **`fallback`** *(function)*: Callback executed if an error occurs while starting the cluster.
+
+```typescript
+cluster.start('./worker.js', (err) => {
+  if (err) {
+    console.error('Failed to start the cluster:', err);
+  }
+});
+```
+
+### `onWorkerMessage(callback: (message: string) => void): void`
+
+Registers a callback to handle messages sent by the workers to the main process.
+
+```typescript
+cluster.onWorkerMessage((message) => {
+  console.info('Message from worker:', message);
+});
+```
+
+### `sendMessageToWorkers(message: string): void`
+
+Sends a message to all active workers.
+
+```typescript
+cluster.sendMessageToWorkers('Hello Workers!');
+```
+
+### `getCurrentFile(): string`
+
+Returns the file currently executed by the workers.
+
+```typescript
+console.info('Current file:', cluster.getCurrentFile());
+```
+
+### `getCurrentWorkers(): Array<ReturnType<typeof spawn>>`
+
+Returns a list of active workers.
+
+```typescript
+console.info('Active workers:', cluster.getCurrentWorkers());
+```
+
+### `killWorkers(): void`
+
+Safely shuts down all active workers.
+
+```typescript
+process.on('SIGINT', () => {
+  cluster.killWorkers();
+});
+```
+
+---
+
+## Features
+
+1. **Parallelism**: Utilizes all available CPUs or a specified number of them.
+2. **Messaging**: Supports bidirectional messaging between the main process and workers.
+3. **Development Mode**: Automatic worker restarts with the `--watch` option.
+4. **Error Handling**: Provides callbacks to handle initialization errors.
+5. **Simple Integration**: Designed for easy integration into applications.
+
+---
+
+## Full Example
+
+```typescript
+import { Cluster } from 's42-core';
+
+const cluster = new Cluster({
+  name: 'MyCluster',
+  maxCPU: 2,
+  watchMode: true,
+});
+
+cluster.start('./worker.js', (err) => {
+  if (err) {
+    console.error('Failed to start the cluster:', err);
+  }
+});
+
+cluster.onWorkerMessage((message) => {
+  console.info('Message from worker:', message);
+});
+
+cluster.sendMessageToWorkers('Hello Workers!');
+
+process.on('SIGINT', () => {
+  cluster.killWorkers();
+});
+```
+
+---
+
+## Advantages
+
+- **Modularity**: Designed to handle parallel processes easily.
+- **Efficiency**: Maximizes system resource utilization.
+- **Flexibility**: Configurable for different environments (development/production).
+- **Simplicity**: Intuitive and well-documented API.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for more details.
+
