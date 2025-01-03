@@ -12,44 +12,27 @@ export class RedisClient implements RedisInterface {
 			this.redis = new Redis(connectionURI)
 			this.redisSub = new Redis(connectionURI)
 			this.redisPub = new Redis(connectionURI)
+
+			this.retryConnection(this.redis);
+      this.retryConnection(this.redisSub);
+      this.retryConnection(this.redisPub);
 		} catch (err) {
 			console.info('Error instance redis')
 		}
 	}
 
-	/**
-	 * Sets a hash key-value pair in Redis.
-	 * @param key - The key for the hash.
-	 * @param value - The object to store in the hash.
-	 */
 	async hset(key: string, value: Record<string, any>): Promise<void> {
 		await this.redis.hset(key, value)
 	}
 
-	/**
-	 * Retrieves a value from a Redis hash by key and subkey.
-	 * @param key - The hash key.
-	 * @param subkey - The specific field in the hash.
-	 * @returns The value as a string or null.
-	 */
 	async hget(key: string, subkey: string): Promise<string | null> {
 		return await this.redis.hget(key, subkey)
 	}
 
-	/**
-	 * Retrieves all key-value pairs from a Redis hash.
-	 * @param key - The hash key.
-	 * @returns An object containing all key-value pairs.
-	 */
 	async hgetall(key: string): Promise<Record<string, string>> {
 		return await this.redis.hgetall(key)
 	}
 
-	/**
-	 * Subscribes to a Redis channel and listens for messages.
-	 * @param channelName - The name of the channel to subscribe to.
-	 * @param callback - The function to call with the message payload.
-	 */
 	subscribe<T>(channelName: string, callback: (payload: T) => void): void {
 		try {
 			this.redisSub.subscribe(channelName)
@@ -68,10 +51,6 @@ export class RedisClient implements RedisInterface {
 		})
 	}
 
-	/**
-	 * Unsubscribes from a Redis channel.
-	 * @param channelName - The name of the channel to unsubscribe from.
-	 */
 	unsubscribe(channelName: string): void {
 		try {
 			this.redisSub.unsubscribe(channelName)
@@ -80,11 +59,6 @@ export class RedisClient implements RedisInterface {
 		}
 	}
 
-	/**
-	 * Publishes a message to a Redis channel.
-	 * @param channelName - The name of the channel to publish to.
-	 * @param payload - The payload to send.
-	 */
 	publish(channelName: string, payload: Record<string, any>): void {
 		try {
 			this.redisPub.publish(channelName, JSON.stringify(payload))
@@ -93,11 +67,6 @@ export class RedisClient implements RedisInterface {
 		}
 	}
 
-	/**
-	 * Retrieves the singleton instance of RedisClient.
-	 * @param connectionURI - The connection URI for Redis.
-	 * @returns The RedisClient instance.
-	 */
 	public static getInstance(connectionURI: string = 'localhost'): RedisClient {
 		if (!RedisClient.instance) {
 			RedisClient.instance = new RedisClient(connectionURI)
@@ -105,9 +74,15 @@ export class RedisClient implements RedisInterface {
 		return RedisClient.instance
 	}
 
-	/**
-	 * Closes all Redis connections.
-	 */
+	public async isConnected(): Promise<boolean> {
+    try {
+        await this.redis.ping();
+        return true;
+    } catch {
+        return false;
+    }
+	}
+
 	public close(): void {
 		try {
 			this.redis.quit()
@@ -118,4 +93,17 @@ export class RedisClient implements RedisInterface {
 			console.error('Error closing Redis connections:', error)
 		}
 	}
+
+
+	private async retryConnection(redisInstance: TypeRedis, retries: number = 3): Promise<void> {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await redisInstance.ping();
+            return;
+        } catch (error) {
+            console.warn(`Retrying Redis connection (${i + 1}/${retries})...`);
+            if (i === retries - 1) throw error;
+        }
+    }
+}
 }

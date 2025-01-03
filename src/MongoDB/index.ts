@@ -3,8 +3,9 @@ import {
 	ObjectId,
 	type Db,
 	type Collection,
+	type Document,
 } from 'mongodb'
-import { type TypeMongoDBdatabaseConnection } from './types'
+import { type TypeMongoDBdatabaseConnection, type TypeMongoQueryPagination } from './types'
 
 export class MongoClient {
 	private static instance: MongoClient
@@ -28,9 +29,6 @@ export class MongoClient {
 		this.mongoClient = new MongoClientNative(connectionString)
 	}
 
-	/**
-	 * Connects to the MongoDB database.
-	 */
 	public async connect(): Promise<void> {
 		try {
 			await this.mongoClient.connect()
@@ -38,22 +36,17 @@ export class MongoClient {
 			console.info(`Connected to MongoDB: ${this.databaseName}`)
 		} catch (error) {
 			console.error('MongoDB connection error:', error)
-			process.exit(1)
+			throw new Error('Failed to connect to MongoDB');
 		}
 	}
 
-	/**
-	 * Returns a MongoDB ObjectId instance.
-	 * @param id - The string representation of the ObjectId.
-	 * @returns An ObjectId instance.
-	 */
 	public ObjectId(id: string): ObjectId {
-		return new ObjectId(id)
+		if (!ObjectId.isValid(id)) {
+			throw new Error(`Invalid ObjectId: ${id}`);
+		}
+		return new ObjectId(id);
 	}
 
-	/**
-	 * Closes the MongoDB connection.
-	 */
 	public async close(): Promise<void> {
 		try {
 			await this.mongoClient.close()
@@ -63,10 +56,6 @@ export class MongoClient {
 		}
 	}
 
-	/**
-	 * Returns the connected database instance.
-	 * @returns The connected Db instance.
-	 */
 	public getDB(): Db {
 		if (!this.db) {
 			throw new Error('Database not initialized. Call connect() first.')
@@ -74,24 +63,54 @@ export class MongoClient {
 		return this.db
 	}
 
-	/**
-	 * Returns a MongoDB collection by name.
-	 * @param colName - The name of the collection.
-	 * @returns The MongoDB Collection instance.
-	 */
-	public getCollection<T>(colName: string): Collection<T> {
+	public getCollection<T extends Document>(colName: string): Collection<T> {
 		return this.getDB().collection<T>(colName)
 	}
 
-	/**
-	 * Returns a singleton instance of the MongoClient.
-	 * @param connection - The connection configuration.
-	 * @returns The MongoClient singleton instance.
-	 */
 	public static getInstance(connection: TypeMongoDBdatabaseConnection): MongoClient {
 		if (!MongoClient.instance) {
 			MongoClient.instance = new MongoClient(connection)
 		}
 		return MongoClient.instance
+	}
+
+	public static async paginate<T>(
+		collection: Collection,
+		query: object = {},
+		fields: object = {},
+		options: TypeMongoQueryPagination = {},
+	): Promise<{ docs: T[]; count: number; limit: number; page: number; totalPages: number }> {
+		const opts = options.opts || {}
+		const page = options.page ?? 1
+		const defaultLimit = 30
+		const limit = options.limit ?? defaultLimit
+		const sort = options.sort ?? { added: -1 }
+
+		if (page <= 0) {
+			throw new Error('Page number must be greater than 0')
+		}
+
+		if (limit <= 0) {
+			throw new Error('Limit must be greater than 0')
+		}
+
+		const count = await collection.countDocuments(query)
+
+		const totalPages = Math.ceil(count / limit)
+
+		const docs = await collection
+			.find(query, { ...opts, projection: fields })
+			.sort(sort)
+			.skip(limit * (page - 1))
+			.limit(limit)
+			.toArray()
+
+		return {
+			docs,
+			limit,
+			count,
+			page,
+			totalPages,
+		}
 	}
 }

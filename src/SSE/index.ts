@@ -1,5 +1,3 @@
-import { randomUUID } from 'crypto'
-import { type IncomingMessage, type ServerResponse } from 'http'
 
 export type TypeSSEventToSend = {
 	eventName: string
@@ -7,80 +5,70 @@ export type TypeSSEventToSend = {
 }
 
 export class SSE {
-	private response: ServerResponse
+	private response: Response
 	private readonly uuid: string
 	private localID: number = 0
+	private controller: ReadableStreamDirectController | null = null;
 
-	constructor(req: IncomingMessage, res: ServerResponse) {
-		this.response = res
-		this.uuid = randomUUID()
-		this.setupConnection()
-		this.sendWelcomeEvent()
+	constructor(req: Request) {
+		this.uuid = crypto.randomUUID()
+
+		const signal = req.signal;
+		const _this = this;
+		this.response = new Response(
+			new ReadableStream({
+				type: "direct",
+				async pull(controller: ReadableStreamDirectController) {
+					_this.controller = controller
+					while (!signal?.aborted) {
+						await controller.flush();
+						await Bun.sleep(1000);
+					}
+					controller.close();
+				},
+			}),
+			{ status: 200, headers: { "Content-Type": "text/event-stream" } },
+		);
+
 	}
 
-	/**
-	 * Returns the unique identifier for the SSE connection.
-	 */
-	getUUID(): string {
+	public getResponse(): Response {
+		return this.response;
+	}
+
+	private sendSSECustom( eventName: string, data: string) {
+		return this?.controller?.write(`event: ${eventName}\ndata:${JSON.stringify(data)}\n\n`);
+	}
+
+	private sendSSEMessage(data: string) {
+		return this?.controller?.write(data);
+	}
+
+	public getUUID(): string {
 		return this.uuid
 	}
 
-	/**
-	 * Sends a server-sent event.
-	 * @param data - The event data to send.
-	 */
-	send(data: TypeSSEventToSend): void {
+	public send(data: TypeSSEventToSend): void {
 		const formattedData = this.formatEvent(data)
 		try {
-			this.response.write(formattedData)
+			this.sendSSEMessage(formattedData)
 		} catch (error) {
 			console.error('Error sending SSE data:', error)
 		}
 	}
 
-	/**
-	 * Closes the SSE connection.
-	 */
-	close(): void {
+	public close(): void {
 		try {
-			this.response.end()
+			this.controller?.close()
 		} catch (error) {
 			console.error('Error closing SSE connection:', error)
 		}
 	}
 
-	/**
-	 * Formats the event data according to the SSE protocol.
-	 * @param data - The event data to format.
-	 * @returns The formatted string.
-	 */
 	private formatEvent(data: TypeSSEventToSend): string {
 		return `id: ${this.localID++}\nevent: ${data.eventName}\ndata: ${JSON.stringify(
 			data.eventPayload,
 		)}\n\n`
 	}
 
-	/**
-	 * Sets up the SSE connection headers.
-	 */
-	private setupConnection(): void {
-		this.response.writeHead(200, {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
-			Connection: 'keep-alive',
-		})
-		this.response.flushHeaders()
-	}
-
-	/**
-	 * Sends a welcome event with the UUID.
-	 */
-	private sendWelcomeEvent(): void {
-		this.send({
-			eventName: 'welcome',
-			eventPayload: {
-				uuid: this.uuid,
-			},
-		})
-	}
 }

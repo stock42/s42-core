@@ -1,4 +1,5 @@
 import { type Controller } from '../Controller/index.js'
+import { Res } from '../Response/index.js'
 import {
 	type TypeReturnCallback,
 	type RouteCheckResult,
@@ -10,9 +11,8 @@ export class RouteControllers {
 	private readonly localControllers: Controller[]
 	private headers: Record<string, string> = {}
 	private routesMapCache: TypeRoutesMapCache = {}
-	private static instance: RouteControllers
 
-	private constructor(controllers: Controller[]) {
+	constructor(controllers: Controller[]) {
 		this.localControllers = controllers
 		this.processAllControllers()
 	}
@@ -27,45 +27,60 @@ export class RouteControllers {
 	}
 
 	private checkRoute(route: string): RouteCheckResult {
-		const result: RouteCheckResult = { exists: false, params: {}, key: '' }
-		const [purePath] = route.split('?')
-		const [method] = purePath.split(':')
+		const result: RouteCheckResult = { exists: false, params: {}, key: '' };
+		const [purePath] = route.split('?');
+		const [method, ...routeParts] = purePath.split(':');
+		const routePath = routeParts.join(':');
 
 		for (const key in this.routesMapCache) {
-			const [routeMethod] = key.split(':')
-			if (method !== routeMethod) {
-				continue
+			const [routeMethod, ...keyParts] = key.split(':');
+			const keyPath = keyParts.join(':');
+
+			// Verifica si el método coincide o si es un wildcard '*'
+			if (routeMethod !== method && routeMethod !== '*') {
+				continue;
 			}
 
-			const keyParts = key.split('/')
-			const routeParts = purePath.split('/')
-			if (keyParts.length !== routeParts.length) {
-				continue
+			// Divide la ruta y la clave en segmentos
+			const keySegments = keyPath.split('/');
+			const routeSegments = routePath.split('/');
+
+			// Si las longitudes no coinciden y no hay wildcard '*', descarta
+			if (keySegments.length !== routeSegments.length && !keySegments.includes('*')) {
+				continue;
 			}
 
-			keyParts.shift()
-			routeParts.shift()
+			let isMatch = true;
+			const params: Record<string, string> = {};
 
-			let isMatch = true
-			const params: Record<string, string> = {}
+			for (let i = 0; i < keySegments.length; i++) {
+				const keySegment = keySegments[i];
+				const routeSegment = routeSegments[i];
 
-			for (let i = 0; i < keyParts.length; i++) {
-				if (keyParts[i].startsWith(':')) {
-					params[keyParts[i].substring(1)] = routeParts[i]
-				} else if (keyParts[i] !== routeParts[i]) {
-					isMatch = false
-					break
+				// Si es un wildcard '*', acepta cualquier segmento
+				if (keySegment === '*') {
+					break;
+				}
+
+				// Si es un parámetro dinámico, almacena el valor
+				if (keySegment.startsWith(':')) {
+					params[keySegment.substring(1)] = routeSegment;
+				} else if (keySegment !== routeSegment) {
+					// Si no coincide exactamente, descarta
+					isMatch = false;
+					break;
 				}
 			}
 
 			if (isMatch) {
-				result.exists = true
-				result.params = params
-				result.key = key
-				break
+				result.exists = true;
+				result.params = params;
+				result.key = key;
+				break;
 			}
 		}
-		return result
+
+		return result;
 	}
 
 	private setHeaders(): void {
@@ -118,6 +133,7 @@ export class RouteControllers {
 			body: req.method !== 'GET' ? await this.getJSONBody(req) : {},
 			url: url.pathname,
 			method: req.method,
+			params: {},
 		}
 	}
 
@@ -142,7 +158,6 @@ export class RouteControllers {
 				const resultCheckPath = this.checkRoute(`${req.method}:${url.pathname}`)
 				if (resultCheckPath.exists) {
 					this.setHeaders()
-
 					if (req.method === 'OPTIONS') {
 						return new Response(null, {
 							status: 204,
@@ -152,7 +167,8 @@ export class RouteControllers {
 
 					const request = await this.getRequestObject(req)
 					const callback = this.routesMapCache[resultCheckPath.key]
-					return callback(request)
+					const response = new Res({ headers: this.headers })
+					return callback({ ...request, params: resultCheckPath.params }, response) as unknown as Response
 				}
 
 				return this.notFound()

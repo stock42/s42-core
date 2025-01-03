@@ -1,4 +1,4 @@
-import { serve } from 'bun'
+import { serve, sleep, type Server as ServerBun} from 'bun'
 import { type RouteControllers } from '../RouteControllers'
 
 import { type TypeHook } from './types.ts'
@@ -12,21 +12,48 @@ export type TypeServerConstructor = {
 	error?: (err: Error) => Response
 	hooks?: TypeHook[]
 	RouteControllers?: RouteControllers
+	development?: boolean,
+	awaitForCluster?: boolean,
 }
 
 export class Server {
-	private statedFromServer: boolean = false
+	private startedFromCluster: boolean = false
 	private clusterName: string = ''
+	private server: ServerBun | undefined
+	private callbackMessageFromWorkers: Array<(message: string) => void> = []
 
-	constructor(properties: TypeServerConstructor) {
+	constructor() {
+		process.on('message', (message: string) => {
+			try {
+				const cmd = JSON.parse(message) as TypeCommandToWorkers
+				if (cmd.command === 'start') {
+					this.startedFromCluster = true
+				}
+				if (cmd.command === 'setName') {
+					this.clusterName = cmd.message
+				}
+				if (cmd.command === 'sendMessageToCluster') {
+					for (const callback of this.callbackMessageFromWorkers) {
+						callback(cmd.message)
+					}
+				}
+			} catch (error) {
+
+			}
+		})
+	}
+
+	public async start(properties: TypeServerConstructor) {
 		const {
-			port = 8080,
+			port = 0,
 			clustering = false,
 			idleTimeout = 300,
 			maxRequestBodySize = 1000000,
 			error,
 			hooks = [],
 			RouteControllers,
+			development = false,
+			awaitForCluster = false,
 		} = properties
 
 		console.info('🚀 Starting server on port:', port)
@@ -37,21 +64,17 @@ export class Server {
 					return new Response(`Not Found ${new URL(req.url).pathname}`, { status: 404 })
 				}
 
-		process.on('message', (message: TypeCommandToWorkers) => {
-			console.info('Received message from cluster:', message)
-			if (message.command === 'start') {
-				this.statedFromServer = true
-			}
-			if (message.command === 'setName') {
-				this.clusterName = message.message
-			}
-		})
 
-		serve({
+
+		this.server = serve({
 			port,
 			reusePort: clustering,
 			idleTimeout,
 			maxRequestBodySize,
+			development,
+			static: {
+				"/health-check": new Response("All good!"),
+			},
 			error(err) {
 				if (error) {
 					return error(err)
@@ -68,13 +91,37 @@ export class Server {
 				return callback(request)
 			},
 		})
+
+		while (awaitForCluster && !this.startedFromCluster) {
+			await sleep(1000)
+		}
+	}
+
+	public getPort() {
+		return this.server?.port
+	}
+
+	public getURL() {
+		return this.server?.url.href
 	}
 
 	public isStartedFromCluster() {
-		return this.statedFromServer
+		return this.startedFromCluster
 	}
 
 	public getClusterName() {
 		return this.clusterName
+	}
+
+	public sendMessageToCluster(message: string) {
+		process.send(message)
+	}
+
+	public sendMessageToWorkers(message: string) {
+		process.send(`>>.<<|${message}`)
+	}
+
+	public onMessageFromWorkers(callback: (message: string) => void) {
+		this.callbackMessageFromWorkers.push(callback)
 	}
 }

@@ -1,132 +1,201 @@
-# Cluster Class Documentation
+- [Cluster Documentation](#cluster-documentation)
+	- [Purpose](#purpose)
+	- [Installation](#installation)
+	- [Usage](#usage)
+		- [Basic Example](#basic-example)
+	- [Constructor](#constructor)
+	- [Key Methods](#key-methods)
+		- [`start(file: string, fallback: (err: Error) => void): void`](#startfile-string-fallback-err-error--void-void)
+		- [`onWorkerMessage(callback: (message: string) => void): void`](#onworkermessagecallback-message-string--void-void)
+		- [`sendMessageToWorkers(message: string): void`](#sendmessagetoworkersmessage-string-void)
+		- [`getCurrentFile(): string`](#getcurrentfile-string)
+		- [`getCurrentWorkers(): Array<ReturnType<typeof spawn>>`](#getcurrentworkers-arrayreturntypetypeof-spawn)
+		- [`killWorkers(): void`](#killworkers-void)
+	- [Features](#features)
+	- [Full Example](#full-example)
+	- [Advantages](#advantages)
+	- [License](#license)
 
-The `Cluster` class is a powerful utility provided by `s42-core` that simplifies the creation and management of worker processes in applications. It supports clustering, inter-process communication, and graceful worker shutdown.
+
+
+# Cluster Documentation
+
+The `Cluster` class is part of the `s42-core` package and enables the creation and management of parallel processes using Bun workers. It simplifies task distribution in applications that need to utilize multiple CPUs or manage independent processes.
 
 ---
 
-## Features
+## Purpose
 
-- **Cluster Management:** Easily spawn and manage multiple worker processes.
-- **Inter-process Communication (IPC):** Send and receive messages between the master process and worker processes.
-- **Graceful Shutdown:** Automatically handles cleanup of workers on process termination.
+The `Cluster` class:
+
+- Creates and manages multiple workers efficiently.
+- Supports bidirectional messaging between the main process and workers.
+- Includes support for automatic worker restarts in development mode (`--watch`).
+- Handles errors and provides a simple API for integration.
 
 ---
 
 ## Installation
 
-Install the `s42-core` package using `bun`:
+Install the `s42-core` package:
 
 ```bash
-bun add s42-core
+npm install s42-core
 ```
 
 ---
 
-## Example Usage
+## Usage
 
 ### Basic Example
 
 ```typescript
 import { Cluster } from 's42-core';
 
-const s42Cluster = new Cluster({
-  name: 'filestorage',
-  maxCPU: 1, // Limits the number of worker processes
+const cluster = new Cluster({
+  name: 'MyCluster',
+  maxCPU: 4,
+  watchMode: true, // Enables automatic worker restarts in development mode
 });
 
-s42Cluster.start('./src/index.ts', (err: Error) => {
+cluster.start('./worker.js', (err) => {
   if (err) {
-    console.info('Error starting cluster:', err);
-    process.exit(1);
+    console.error('Failed to start the cluster:', err);
   }
 });
 
-s42Cluster.onWorkerMessage(async (message: string) => {
+cluster.onWorkerMessage((message) => {
   console.info('Message from worker:', message);
 });
 ```
 
 ---
 
-## API Documentation
+## Constructor
 
-### Constructor
+```typescript
+constructor(props: TypeConstructor & { watchMode?: boolean });
+```
 
-#### `new Cluster(props: TypeConstructor)`
+- **`props.name`** *(string)*: Name of the cluster.
+- **`props.maxCPU`** *(number)*: Maximum number of CPUs to use.
+- **`props.watchMode`** *(boolean, optional)*: Enables automatic worker restarts in development mode (`--watch`).
 
-Creates a new instance of the `Cluster` class.
+---
 
-- **Parameters:**
-  - `props.name` *(string)*: A unique name for the cluster.
-  - `props.maxCPU` *(number, optional)*: The maximum number of worker processes. Defaults to the number of CPUs.
+## Key Methods
 
-### Methods
+### `start(file: string, fallback: (err: Error) => void): void`
 
-#### `start(file: string, fallback: (err: Error) => void): void`
+Starts the cluster and spawns workers.
 
-Starts the worker processes.
+- **`file`** *(string)*: File to be executed by the workers.
+- **`fallback`** *(function)*: Callback executed if an error occurs while starting the cluster.
 
-- **Parameters:**
-  - `file` *(string)*: Path to the worker file to execute.
-  - `fallback` *(function)*: A callback function executed if the cluster fails to start.
+```typescript
+cluster.start('./worker.js', (err) => {
+  if (err) {
+    console.error('Failed to start the cluster:', err);
+  }
+});
+```
 
-#### `onWorkerMessage(callback: (message: string) => void): void`
+### `onWorkerMessage(callback: (message: string) => void): void`
 
-Registers a callback function to handle messages from workers.
+Registers a callback to handle messages sent by the workers to the main process.
 
-- **Parameters:**
-  - `callback` *(function)*: Function executed when a worker sends a message.
+```typescript
+cluster.onWorkerMessage((message) => {
+  console.info('Message from worker:', message);
+});
+```
 
-#### `sendMessageToWorkers(message: string): void`
+### `sendMessageToWorkers(message: string): void`
 
-Sends a message to all worker processes.
+Sends a message to all active workers.
 
-- **Parameters:**
-  - `message` *(string)*: The message to broadcast to workers.
+```typescript
+cluster.sendMessageToWorkers('Hello Workers!');
+```
 
-#### `getCurrentFile(): string`
+### `getCurrentFile(): string`
 
 Returns the file currently executed by the workers.
 
-- **Returns:**
-  - *(string)*: The path of the worker file.
+```typescript
+console.info('Current file:', cluster.getCurrentFile());
+```
 
-#### `getCurrentWorkers(): Array<BunChildProcess>`
+### `getCurrentWorkers(): Array<ReturnType<typeof spawn>>`
 
-Retrieves the array of active worker processes.
-
-- **Returns:**
-  - *(Array<BunChildProcess>)*: List of worker processes.
-
----
-
-## Events
-
-### Process Signals
-
-The `Cluster` class listens to the following signals for cleanup:
-- `SIGINT`
-- `exit`
-
-Workers are gracefully terminated when these signals are received.
-
----
-
-## Error Handling
-
-Ensure to provide a `fallback` function in the `start` method to handle errors during cluster initialization.
+Returns a list of active workers.
 
 ```typescript
-s42Cluster.start('./src/index.ts', (err: Error) => {
-  if (err) {
-    console.error('Cluster failed to start:', err);
-  }
+console.info('Active workers:', cluster.getCurrentWorkers());
+```
+
+### `killWorkers(): void`
+
+Safely shuts down all active workers.
+
+```typescript
+process.on('SIGINT', () => {
+  cluster.killWorkers();
 });
 ```
 
 ---
 
+## Features
+
+1. **Parallelism**: Utilizes all available CPUs or a specified number of them.
+2. **Messaging**: Supports bidirectional messaging between the main process and workers.
+3. **Development Mode**: Automatic worker restarts with the `--watch` option.
+4. **Error Handling**: Provides callbacks to handle initialization errors.
+5. **Simple Integration**: Designed for easy integration into applications.
+
+---
+
+## Full Example
+
+```typescript
+import { Cluster } from 's42-core';
+
+const cluster = new Cluster({
+  name: 'MyCluster',
+  maxCPU: 2,
+  watchMode: true,
+});
+
+cluster.start('./worker.js', (err) => {
+  if (err) {
+    console.error('Failed to start the cluster:', err);
+  }
+});
+
+cluster.onWorkerMessage((message) => {
+  console.info('Message from worker:', message);
+});
+
+cluster.sendMessageToWorkers('Hello Workers!');
+
+process.on('SIGINT', () => {
+  cluster.killWorkers();
+});
+```
+
+---
+
+## Advantages
+
+- **Modularity**: Designed to handle parallel processes easily.
+- **Efficiency**: Maximizes system resource utilization.
+- **Flexibility**: Configurable for different environments (development/production).
+- **Simplicity**: Intuitive and well-documented API.
+
+---
+
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the MIT License. See the LICENSE file for more details.
 

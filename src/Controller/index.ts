@@ -1,10 +1,18 @@
 import { type ControllerInterface } from './controller.interface.js'
 import { type TYPE_HTTP_METHOD, type Middleware } from './types.d.js'
+import { type Res } from '../Response'
 
 export class Controller implements ControllerInterface {
 	private path: string = ''
 	private methods = new Set<TYPE_HTTP_METHOD>()
 	private callbacks: Array<Middleware> = []
+
+	public constructor(method: TYPE_HTTP_METHOD, path: string, callback: Middleware) {
+		this.methods.add(method)
+		this.path = path
+		this.use(callback)
+	}
+
 
 	public setPath(path: string): this {
 		this.path = path
@@ -54,42 +62,52 @@ export class Controller implements ControllerInterface {
 	}
 
 	public use(callback: Middleware): this {
-		this.callbacks.push(callback)
+		this.callbacks = [callback, ...this.callbacks]
 		return this
 	}
 
-	public getCallback(): (req: any) => Promise<Response> {
-		return async (req: any): Promise<Response> => {
-			let index = 0
+	public getCallback(): (req: Request, res: Res) => Promise<Response> {
+		return async (req: Request, res: Res): Promise<Response> => {
+			let index = 0;
 
-			const next = (): Response => {
+			const next = async (): Promise<Response | undefined> => {
 				if (index < this.callbacks.length) {
-					const middleware = this.callbacks[index]
-					index++
-					return middleware(req, next) as Response
+					try {
+						const middleware = this.callbacks[index];
+						index++;
+						const result = await middleware(req, res);
+						if (result instanceof Response) {
+							return result;
+						} else {
+							return await next();
+						}
+					} catch (err) {
+						res.setStatus(500);
+						return res.json({ error: `Internal Server Error: ${err} into ${this.path}` });
+					}
+
 				} else {
-					return new Response('End use case', { status: 200 })
+					return res.text('End without response');
 				}
 			}
 
 			try {
 				if (this.callbacks.length === 0) {
-					return new Response(
-						JSON.stringify({ error: 'No "uses" set for this endpoint' }),
-						{
-							status: 200,
-							headers: { 'Content-Type': 'application/json' },
-						},
-					)
+					return res.json({ error: 'No "uses" set for this endpoint' })
 				}
 
-				return next() as Response
+				const toReturn = await next();
+				return toReturn as unknown as Response;
 			} catch (err) {
-				new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-					status: 500,
-					headers: { 'Content-Type': 'application/json' },
-				})
+				return new Response(
+					JSON.stringify({ error: 'Internal Server Error' }),
+					{
+						status: 500,
+						headers: { 'Content-Type': 'application/json' },
+					}
+				);
 			}
-		}
+		};
 	}
+
 }

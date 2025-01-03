@@ -1,4 +1,5 @@
 export { Cluster } from './Cluster'
+export { Res } from './Response'
 export { Server } from './Server'
 export { EventsDomain } from './EventsDomain'
 export { Dependencies } from './Dependencies'

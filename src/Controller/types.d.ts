@@ -1,3 +1,5 @@
+import { type Res } from '../Response'
+
 export type TYPE_HTTP_METHOD =
 	| 'GET'
 	| 'POST'
@@ -8,4 +10,6 @@ export type TYPE_HTTP_METHOD =
 	| 'OPTIONS'
 	| '*'
 
-export type Middleware = (req: any, res: any, next?: Middleware) => Response
+export type Middleware =  (req: Union<Request,  Record<string, string>>, res: Res) => Promise<Response> | Response | void | Promise<void>
+
+

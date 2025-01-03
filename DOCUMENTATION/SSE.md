@@ -1,156 +1,188 @@
-
-# SSE
-
-- [SSE](#sse)
-	- [Overview](#overview)
+- [SSE - s42-core](#sse---s42-core)
 	- [Purpose](#purpose)
-	- [Key Features](#key-features)
+	- [Installation](#installation)
+	- [Features](#features)
+	- [Usage](#usage)
+		- [Setting Up SSE in a Controller](#setting-up-sse-in-a-controller)
+		- [Sending Events](#sending-events)
+	- [Example Scenario](#example-scenario)
+		- [Use Case: Real-Time Notifications](#use-case-real-time-notifications)
+			- [Client-Side Example (JavaScript)](#client-side-example-javascript)
 	- [Methods](#methods)
-		- [`constructor(req: IncomingMessage, res: ServerResponse)`](#constructorreq-incomingmessage-res-serverresponse)
-			- [Usage](#usage)
+		- [Constructor](#constructor)
+		- [`getResponse(): Response`](#getresponse-response)
 		- [`getUUID(): string`](#getuuid-string)
-			- [Usage](#usage-1)
-		- [`send(data: TypeSSEventToSend)`](#senddata-typesseventtosend)
-			- [Usage](#usage-2)
-		- [`close()`](#close)
-			- [Usage](#usage-3)
-	- [Use Cases](#use-cases)
-		- [Example: Basic SSE Setup](#example-basic-sse-setup)
-	- [Browser implementation](#browser-implementation)
-		- [Response after connected](#response-after-connected)
+		- [`send(data: TypeSSEventToSend): void`](#senddata-typesseventtosend-void)
+		- [`close(): void`](#close-void)
+	- [Integration with s42-core](#integration-with-s42-core)
+	- [Advantages](#advantages)
+	- [License](#license)
 
-## Overview
+# SSE - s42-core
 
-The `SSE` class provides a simplified interface for handling Server-Sent Events (SSE) in a Node.js application. SSE allows servers to push updates to the client over an HTTP connection, ideal for real-time applications where data needs to be pushed from the server to the client without frequent polling.
+The `SSE` (Server-Sent Events) class from the `s42-core` package simplifies the creation of real-time communication streams in web applications. It provides an easy way to send events from the server to connected clients using the Server-Sent Events protocol.
+
+---
 
 ## Purpose
 
-The primary goal of the `SSE` class is to establish and manage an SSE connection, send events to the client, and handle the connection lifecycle, including closing the connection gracefully.
+`SSE` is designed for real-time, one-way communication from the server to the client. It is particularly useful for scenarios like:
 
-## Key Features
+- Live notifications (e.g., new messages, system updates)
+- Real-time monitoring (e.g., stock prices, server health)
+- Event broadcasting (e.g., user activity in collaborative applications)
 
-- **Automatic Connection Setup**: Sets up the response headers needed for SSE and sends an initial welcome event.
-- **Event Sending**: Allows for sending custom events to the client.
-- **Connection Management**: Handles the setup and teardown of SSE connections.
-- **UUID Generation**: Generates a unique identifier for each SSE connection.
+---
+
+## Installation
+
+Install the `s42-core` package:
+
+```bash
+npm install s42-core
+```
+
+---
+
+## Features
+
+1. **Real-Time Communication**: Send server events to clients with minimal overhead.
+2. **Event Broadcasting**: Broadcast events to multiple clients simultaneously.
+3. **Ease of Use**: Straightforward API to manage connections and send events.
+4. **Integration with Controllers**: Works seamlessly with `Controller` and `RouteControllers` classes.
+
+---
+
+## Usage
+
+### Setting Up SSE in a Controller
+
+```typescript
+import { SSE, Controller, RouteControllers, Server } from 's42-core';
+
+// Map to store SSE listeners
+const sseListeners = new Map<string, Function>();
+
+// SSE Controller
+const sseController = new Controller('GET', '/sse', async (req, res) => {
+  const sse = new SSE(req);
+  sseListeners.set(sse.getUUID(), (eventName: string, eventPayload: Record<string, any>) => {
+    sse.send({ eventName, eventPayload });
+  });
+
+  return sse.getResponse();
+});
+
+// Sample 404 Controller
+const controller404 = new Controller('*', '*', async (req, res) => {
+  console.info('404 - No matching route');
+  sseListeners.forEach((listener, uuid) => {
+    listener('404', { url: req.url });
+  });
+
+  return res.text('Not Found');
+});
+
+// Start the server
+(async () => {
+  const server = new Server();
+
+  await server.start({
+    port: 4555,
+    RouteControllers: new RouteControllers([
+      sseController,
+      controller404,
+    ]),
+  });
+
+  console.info(`Server started at port: ${server.getPort()}`);
+})();
+```
+
+---
+
+### Sending Events
+
+To broadcast events to all connected clients:
+
+```typescript
+sseListeners.forEach((listener) => {
+  listener('event_name', { message: 'Hello, World!' });
+});
+```
+
+---
+
+## Example Scenario
+
+### Use Case: Real-Time Notifications
+
+1. **Client Connection**: Clients connect to the `/sse` endpoint to establish an SSE connection.
+2. **Broadcasting Events**: The server broadcasts events (e.g., new notifications) to all connected clients.
+
+#### Client-Side Example (JavaScript)
+
+```javascript
+const eventSource = new EventSource('/sse');
+
+eventSource.onmessage = (event) => {
+  console.log('Received:', event.data);
+};
+
+eventSource.addEventListener('event_name', (event) => {
+  console.log('Custom Event:', JSON.parse(event.data));
+});
+```
+
+---
 
 ## Methods
 
-### `constructor(req: IncomingMessage, res: ServerResponse)`
+### Constructor
 
-Initializes a new SSE connection by setting the appropriate headers and sending a welcome event to the client.
-
-- **req**: The HTTP request object.
-- **res**: The HTTP response object.
-
-#### Usage
-
-```javascript
-const sse = new SSE(req, res);
+```typescript
+constructor(req: Request)
 ```
+
+- **`req`**: The `Request` object from the incoming HTTP request.
+
+### `getResponse(): Response`
+
+Returns the `Response` object to send back to the client.
 
 ### `getUUID(): string`
 
-Returns the unique UUID associated with this SSE connection.
+Returns a unique identifier for the SSE instance.
 
-- **returns**: A string representing the UUID.
+### `send(data: TypeSSEventToSend): void`
 
-#### Usage
+Sends an event to the connected client.
 
-```javascript
-const uuid = sse.getUUID();
-console.log(`Connection UUID: ${uuid}`);
-```
+- **`data`**: An object containing:
+  - `eventName`: The name of the event.
+  - `eventPayload`: The payload of the event.
 
-### `send(data: TypeSSEventToSend)`
+### `close(): void`
 
-Sends a custom event to the client over the established SSE connection.
+Closes the SSE connection.
 
-- **data**: An object containing:
-  - **eventName**: The name of the event to be sent.
-  - **eventPayload**: An object containing the event data as key-value pairs.
+---
 
-#### Usage
+## Integration with s42-core
 
-```javascript
-sse.send({
-  eventName: 'update',
-  eventPayload: { message: 'New update available!' },
-});
-```
+The `SSE` class works seamlessly with the `Controller`, `RouteControllers`, and `Server` classes from the `s42-core` package. It is designed to fit into your application's architecture effortlessly.
 
-### `close()`
+---
 
-Closes the SSE connection gracefully.
+## Advantages
 
-#### Usage
+- **Lightweight**: Minimal setup for real-time communication.
+- **Scalable**: Efficiently handles multiple connections.
+- **Simple API**: Intuitive methods to manage SSE connections.
+- **Event Flexibility**: Supports custom events and data payloads.
 
-```javascript
-sse.close();
-```
+---
 
-## Use Cases
+## License
 
-### Example: Basic SSE Setup
-
-This example demonstrates how to set up a basic SSE connection and send events from a Node.js server.
-
-```javascript
-import { createServer } from 'http';
-import { SSE } from './SSE'; // Import the SSE class from the appropriate path
-
-const server = createServer((req, res) => {
-  if (req.url === '/events') {
-    const sse = new SSE(req, res);
-
-    // Send an example event after the connection is established
-    setTimeout(() => {
-      sse.send({
-        eventName: 'exampleEvent',
-        eventPayload: { data: 'Hello, SSE!' },
-      });
-    }, 1000);
-
-    // Close the connection after 5 seconds
-    setTimeout(() => {
-      sse.close();
-    }, 5000);
-  } else {
-    res.writeHead(404);
-    res.end();
-  }
-});
-
-server.listen(3000, () => {
-  console.log('Server running at http://localhost:3000/');
-});
-```
-
-This example shows how to use the `SSE` class to establish a Server-Sent Events connection, send events, and close the connection after a certain period.
-
-
-## Browser implementation
-```javascript
-const eventSource = new EventSource('/sse');
-eventSource.addEventListener('event',  (event) => {
-    const data = JSON.parse(event.data);
-    console.info('from server: ',data)
-});
-
-eventSource.onerror = (error) => {
-    console.error('SSE Error:', error);
-    eventSource.close();
-};
-```
-
-### Response after connected
-The server side events controller will return a new event "welcome" with the `uuid` prop into "eventPayload".
-
-```json
-{
-    "eventName": "welcome",
-    "eventPayload": {
-        "uuid": "1ceb707b-f57a-4645-a1f6-2c12575fb151"
-    }
-}
-```
+This project is licensed under the MIT License. See the LICENSE file for more details.
