@@ -36,7 +36,7 @@ export class Cluster {
       console.info(`Spawning ${this.maxCPU} worker(s) for ${this.name}`);
 
       // Genera el comando incluyendo `args` y `--watch` si corresponde
-      const cmd = ['bun', file, ...this.args, ...(this.watchMode ? ['--watch'] : [])];
+      const cmd = ['bun', ...this.args, ...(this.watchMode ? ['--watch'] : []), file];
 
       for (let i = 0; i < this.maxCPU; i++) {
         this.buns[i] = spawn({
