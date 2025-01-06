@@ -1,3 +1,8 @@
+---
+title: S42-Core Cluster class
+description: Using cluster
+---
+
 - [Cluster Documentation](#cluster-documentation)
 	- [Purpose](#purpose)
 	- [Installation](#installation)
@@ -15,6 +20,7 @@
 	- [Full Example](#full-example)
 	- [Advantages](#advantages)
 	- [License](#license)
+
 
 
 # Cluster Documentation

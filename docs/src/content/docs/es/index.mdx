@@ -1,0 +1,194 @@
+---
+title: Welcome to S42-Core v2.0
+description: s42-core is a flexible and high-performance Node.js library designed to streamline the development of modular applications. It supports microservices and cell-based architectures, enabling developers to create scalable and maintainable solutions. The library is framework agnostic, allowing seamless integration with popular frameworks like Express, Nest.js, and Fastify.
+template: splash
+hero:
+  title: |
+    Bienvenido a <span class="text-orange-700">S</span><span class="text-blue-400">4</span><span class="text-green-500">2</span>-
+    <span
+      class="font-black text-transparent
+        bg-clip-text bg-gradient-to-b
+        from-gray-900 to-gray-400
+        dark:from-gray-900 dark:to-gray-400"
+    >
+      Core
+    </span>
+  tagline: ¡Comienza a construir la próxima generación de soluciones backend con s42-core! Modular, escalable y optimizado para arquitecturas modernas, s42-core es tu herramienta definitiva para el desarrollo backend.
+  image:
+    file: ../../../assets/s42-core.png
+  actions:
+    - text: Ejemplos
+      link: /es/guides/example
+      icon: right-arrow
+      variant: primary
+    - text: Documentación
+      link: /es/reference
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+# ¿Qué es s42-core?
+## Introducción
+s42-core es una biblioteca robusta y flexible desarrollada en Bun.js, diseñada para simplificar el desarrollo de aplicaciones modernas, escalables y modulares. Creada pensando en el rendimiento y la productividad del desarrollador, s42-core es especialmente adecuada para arquitecturas basadas en microservicios y células. Permite a los desarrolladores crear soluciones de alto rendimiento que sean fáciles de mantener, actualizar y escalar.
+
+## Características clave
+
+### Microservicios y Arquitecturas Basadas en Células
+s42-core ofrece soporte nativo para microservicios y arquitecturas basadas en células. Permite construir aplicaciones modulares donde cada microservicio o célula puede operar de manera independiente mientras se comunican sin problemas. Este diseño fomenta una mejor escalabilidad y mantenibilidad.
+
+### Agnóstico al Framework
+A diferencia de muchas bibliotecas, s42-core no te obliga a usar un framework específico. Puedes integrarlo con cualquier framework o incluso usarlo de manera independiente. Ya sea que trabajes con Bun.js, Express, Fastify o Nest.js, s42-core se adapta perfectamente a tu pila tecnológica, permitiendo una adopción gradual.
+
+### Optimizado para Bun.js
+Como biblioteca creada específicamente para Bun.js, s42-core aprovecha al máximo las capacidades de rendimiento de Bun. Esto se traduce en una ejecución de aplicaciones más rápida, tiempos de inicio reducidos y un menor consumo de recursos.
+
+### Alto Rendimiento
+Las aplicaciones desarrolladas con s42-core están optimizadas para entornos exigentes. Utiliza patrones y prácticas eficientes que garantizan un rendimiento fluido y receptivo incluso bajo cargas pesadas.
+
+### Gestión Simplificada de Monorepositorios
+s42-core fomenta la modularidad facilitando el desarrollo de pequeños componentes de software reutilizables (átomos). Esto simplifica la gestión y escalabilidad de monorepositorios, ya que el código puede compartirse y reutilizarse fácilmente entre varios proyectos dentro de un único repositorio.
+
+## Resumen de Funcionalidades
+
+### Gestión de Clústeres
+Administra fácilmente múltiples procesos con el módulo Cluster integrado. Ya sea que necesites escalar horizontalmente o ejecutar múltiples hilos de trabajo, s42-core ofrece capacidades de clustering sin esfuerzo.
+
+### Server-Sent Events (SSE)
+s42-core simplifica la implementación de comunicación en tiempo real con soporte para Server-Sent Events (SSE). Envía actualizaciones desde el servidor a los clientes sin complicaciones, habilitando funcionalidades en tiempo real en tus aplicaciones.
+
+### Arquitectura Orientada a Eventos
+Con la clase EventsDomain, s42-core permite implementar una arquitectura completamente orientada a eventos. Los microservicios pueden emitir y escuchar eventos de dominio, fomentando un sistema desacoplado y resiliente.
+
+### Soporte para SQLite y Redis
+s42-core incluye soporte integrado para SQLite y Redis, lo que permite soluciones de almacenamiento y caché de datos rápidas y eficientes. Además, simplifica las interacciones con estas bases de datos para que puedas concentrarte en la lógica de tu aplicación.
+
+### Rutas Dinámicas
+El módulo RouteControllers proporciona capacidades de enrutamiento dinámico, permitiendo crear configuraciones de rutas flexibles y modulares para tu aplicación.
+
+## Casos de Uso
+
+### Aplicaciones en Tiempo Real
+Aprovecha SSE para implementar funcionalidades en tiempo real, como notificaciones en vivo, paneles de control o aplicaciones de chat.
+
+### Sistemas Orientados a Eventos
+Construye arquitecturas orientadas a eventos donde los microservicios se comuniquen a través de eventos de dominio. Por ejemplo, emite un evento cuando un usuario se registra y permite que otro microservicio escuche este evento para enviar un correo electrónico de bienvenida.
+
+### Monorepositorios Modulares
+Con s42-core, puedes estructurar tu base de código como componentes reutilizables, promoviendo una mejor colaboración y ciclos de desarrollo más rápidos.
+
+### Aplicaciones Intensivas en Datos
+Integra SQLite y Redis de manera sencilla para una gestión de datos eficiente, garantizando un rendimiento óptimo para operaciones intensivas en datos.
+
+## Primeros Pasos
+
+### Instalación
+Para instalar s42-core, ejecuta:
+```bash
+bun add s42-core
+```
+
+## Ejemplos de uso
+
+### Usando EventsDomain para la comunicación entre microservicios
+
+La clase `EventsDomain` permite una comunicación event-basada seamless entre microservicios. Por ejemplo, puedes usarla para emitir un evento desde un servicio de registro de usuario y escuchar en un servicio de notificación de correo electrónico.
+
+
+```typescript
+import { EventsDomain, RedisClient } from 's42-core';
+
+const redisInstance = RedisClient.getInstance('redis://localhost:6379');
+const eventsDomain = EventsDomain.getInstance(redisInstance, 'service-uuid');
+
+// Emitiendo un evento
+eventsDomain.emitEvent('user.registered', {
+  email: 'example@example.com',
+  name: 'John Doe',
+});
+
+// escuchando un evento
+eventsDomain.listenEvent('user.registered', (payload) => {
+  console.info('User registered:', payload);
+});
+```
+
+---
+
+### Creando controladores
+
+Los controladores manejan solicitudes HTTP y middleware. Aquí hay un ejemplo de crear un controlador simple:
+
+```typescript
+import { Controller } from 's42-core';
+
+const userController = new Controller('POST', '/users', async (req, res) => {
+  const userData = req.body;
+  console.info('User data received:', userData);
+  res.json({ success: true, data: userData });
+});
+```
+
+---
+
+### Agregando controladores con RouteControllers
+
+RouteControllers organiza y administra múltiples controladores de manera eficiente:
+
+```typescript
+import { RouteControllers, Controller } from 's42-core';
+
+const healthController = new Controller('GET', '/health', async (req, res) => {
+  res.text('OK');
+});
+
+const router = new RouteControllers([userController, healthController]);
+
+// Use the router in your server
+server.start({ RouteControllers: router });
+```
+
+---
+
+### Server-Sent Events (SSE)
+Facil de implementar comunicación en tiempo real con la clase SSE:
+
+```typescript
+import { SSE, Controller } from 's42-core';
+
+const sseController = new Controller('GET', '/events', async (req) => {
+  const sse = new SSE(req);
+  setInterval(() => {
+    sse.send({ eventName: 'time', eventPayload: { time: new Date().toISOString() } });
+  }, 1000);
+  return sse.getResponse();
+});
+```
+
+---
+
+### Manejo de cluster
+
+La clase `Cluster` simplifica el manejo de los procesos de trabajo:
+
+```typescript
+import { Cluster } from 's42-core';
+
+const cluster = new Cluster({ name: 'example-cluster', maxCPU: 4, watch: true });
+
+cluster.start('./worker.js', (error) => {
+  if (error) console.error('Cluster failed:', error);
+});
+
+cluster.onWorkerMessage((message) => {
+  console.info('Message from worker:', message);
+});
+```
+
+---
+Para obtener ayuda, puedes contactar al autor a través de Telegram o correo electrónico:
+
+- Telegram: [Contacto](https://t.me/lortmorris)
+- Correo: cesar@stock42.com
+
+Explora la [documentación](/es/reference) para aprender más sobre cómo aprovechar el poder de s42-core en tus proyectos.
