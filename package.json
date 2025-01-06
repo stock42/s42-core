@@ -1,9 +1,9 @@
 {
   "name": "s42-core",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "S42Core is a Bunjs library designed to facilitate rapid application development with features like clustering, event domains, Redis and MongoDB access, dependency management, and routing controllers. Built with TypeScript for simplicity and high performance. Cell architecture based",
   "main": "./src/index.ts",
-  "types": "/src/index.ts",
+  "types": "./src/index.ts",
   "type": "module",
   "module": "./src/index.ts",
   "bugs": {
