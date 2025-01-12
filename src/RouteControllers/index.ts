@@ -124,7 +124,7 @@ export class RouteControllers {
 	private async getRequestObject(req: Request): Promise<TypeRequestInternalObject> {
 		const url = new URL(req.url)
 		return {
-			headers: { ...(req.headers ?? {}) },
+			headers: req.headers,
 			realIp:
 				req.headers.get('x-forwarded-for') ||
 				req.headers.get('cf-connecting-ip') ||
