@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+Add additional Tailwind styles to this file, for example with @layer:
+https://tailwindcss.com/docs/adding-custom-styles#using-css-and-layer
+*/
+
+
+  .console {
+    background-color: #1e1e1e;
+    color: #00ff00;
+    font-family: "Courier New", Courier, monospace;
+    padding: 20px;
+    border-radius: 5px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .console-header {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .red {
+    background-color: #ff5f56;
+  }
+  .yellow {
+    background-color: #ffbd2e;
+  }
+  .green {
+    background-color: #27c93f;
+  }
+  .console-body {
+    white-space: pre-wrap;
+  }
+  .prompt {
+    color: #00ff00;
+  }
+  .completed {
+    opacity: 0.5;
+  }

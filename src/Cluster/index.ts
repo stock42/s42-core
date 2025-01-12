@@ -11,12 +11,14 @@ export class Cluster {
   private maxCPU: number = 0;
   private callbackOnWorkerMessage: Array<(message: string) => void> = [];
   private watchMode: boolean = false;
+  private args: string[] = []; // Nueva propiedad para los argumentos
 
-  constructor(props: TypeConstructor & { watchMode?: boolean }) {
+  constructor(props: TypeConstructor & { watchMode?: boolean; args?: string[] }) {
     this.name = props.name;
     this.maxCPU = props.maxCPU && props.maxCPU < this.cpus ? props.maxCPU : this.cpus;
     this.buns = new Array(this.maxCPU);
     this.watchMode = props.watchMode ?? false;
+    this.args = props.args ?? []; // Inicializa la propiedad `args` con los argumentos pasados
   }
 
   public onWorkerMessage(callback: (message: string) => void): void {
@@ -33,7 +35,8 @@ export class Cluster {
       this.file = file;
       console.info(`Spawning ${this.maxCPU} worker(s) for ${this.name}`);
 
-      const cmd = this.watchMode ? ['bun', file, '--watch'] : ['bun', file]; // Agrega `--watch` si corresponde
+      // Genera el comando incluyendo `args` y `--watch` si corresponde
+      const cmd = ['bun', ...this.args, ...(this.watchMode ? ['--watch'] : []), file];
 
       for (let i = 0; i < this.maxCPU; i++) {
         this.buns[i] = spawn({

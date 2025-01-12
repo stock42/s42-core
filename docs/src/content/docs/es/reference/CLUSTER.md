@@ -1,3 +1,8 @@
+---
+title: S42-Core Cluster Clase
+description: Usa la clase Cluster para generar varios forks de tu servicios.
+---
+
 - [Documentación de Cluster](#documentación-de-cluster)
 	- [Propósito](#propósito)
 	- [Instalación](#instalación)

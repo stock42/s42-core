@@ -5,7 +5,6 @@
     "moduleResolution": "bundler",
     "lib": ["ESNext"],
 		"moduleDetection": "force",
-    "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
 		"allowJs": true,

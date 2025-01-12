@@ -1,0 +1,99 @@
+---
+title: Welcome to S42-Core v2.0
+description: s42-core is a powerful and flexible library built on Bun.js, designed to simplify the development of applications, especially those using microservices and cell-based architectures. This library supports the creation of modular and reusable software components and streamlines the implementation of high-performance monorepos.
+template: splash
+hero:
+  title: |
+    Welcome to <span class="text-orange-700">S</span><span class="text-blue-400">4</span><span class="text-green-500">2</span>-
+    <span
+      class="font-black text-transparent
+        bg-clip-text bg-gradient-to-b
+        from-gray-900 to-gray-400
+        dark:from-gray-900 dark:to-gray-400"
+    >
+      Core
+    </span>
+  tagline: Start building the next generation of backend solutions with s42-core! Modular, scalable, and optimized for modern architectures, s42-core is your ultimate toolkit for backend development.
+  image:
+    file: ../../assets/logo.png
+  actions:
+    - text: English
+      link: /en
+      icon: right-arrow
+      variant: primary
+    - text: Español
+      link: /es
+      icon: right-arrow
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+<Steps>
+1. Create new project
+	```bash
+   bun init -y
+   ```
+2. Install s42-core:
+
+   ```bash
+   bun add s42-core
+   ```
+
+3. Create your first microservice
+	```typescript
+	import { Server, RouteControllers, Controller } from 's42-core'
+	const server = new Server()
+
+	const myTestController = new Controller('*', '/test', async (req, res) => {
+		res.json({ test: 'test' })
+	})
+
+	await server.start({
+		port: parseInt(String(process?.env?.PORT ?? 4555), 10),
+		clustering: true,
+		idleTimeout: 30,
+		maxRequestBodySize: 1024 * 1024 * 10,
+		development: true,
+		awaitForCluster: true,
+		RouteControllers: new RouteControllers([
+			myTestController
+		]),
+	})
+
+	```
+4. Run your project
+
+   ```bash
+   bun app.js
+   ```
+</Steps>
+
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Badge } from '@astrojs/starlight/components';
+
+<div class="mt-4 flex flex-row justify-center space-x-4">
+	<Badge text="Created for: Bun" variant="success" />
+	<Badge text="Features: Faster & Easy" variant="tip" />
+	<Badge text="Modules: Cluster, Server, MongoDB, SQLIte, RedisDB" variant="tip" />
+	<Badge text="Version: 2.0.0" variant="success" />
+</div>
+
+<div class="mt-4">
+	<CardGrid variant="center" >
+		<Card title="Github" icon="github">
+			https://github.com/stock42/s42-core
+		</Card>
+		<Card title="Twitter" icon="twitter">
+			https://twitter.com/stock42ok
+		</Card>
+		<Card title="Telegram" icon="telegram">
+			https://t.me/stock42channel
+		</Card>
+		<Card title="LinkedIn" icon="linkedin">
+			https://www.linkedin.com/company/stock42/
+		</Card>
+	</CardGrid>
+
+</div>
