@@ -72,9 +72,6 @@ export class Server {
 			idleTimeout,
 			maxRequestBodySize,
 			development,
-			static: {
-				"/health-check": new Response("All good!"),
-			},
 			error(err) {
 				if (error) {
 					return error(err)

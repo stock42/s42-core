@@ -29,6 +29,19 @@ export class Res {
 		})
 	}
 
+	public send(data: string): Response {
+		return new Response(data, {
+			headers: { ...this.headers },
+		})
+	}
+
+	public html(data: string): Response {
+		this.setHeader('Content-Type', 'text/html')
+		return new Response(data, {
+			headers: { ...this.headers },
+		})
+	}
+
 	public text(data: string): Response {
 		this.setHeader('Content-Type', 'text/plain')
 		return new Response(data, {
