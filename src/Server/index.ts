@@ -4,13 +4,14 @@ import { type RouteControllers } from '../RouteControllers'
 import { type TypeHook } from './types.ts'
 import { type TypeCommandToWorkers } from '../Cluster/types.ts'
 
+
 export type TypeServerConstructor = {
 	port: number
 	clustering?: boolean
 	idleTimeout?: number
 	maxRequestBodySize?: number
 	error?: (err: Error) => Response
-	hooks?: TypeHook[]
+	hooks?: Array<TypeHook>
 	RouteControllers?: RouteControllers
 	development?: boolean,
 	awaitForCluster?: boolean,
@@ -59,7 +60,7 @@ export class Server {
 		console.info('🚀 Starting server on port:', port)
 		const callback =
 			RouteControllers ?
-				RouteControllers.getCallback()
+				RouteControllers.getCallback(hooks)
 			:	async (req: Request) => {
 					return new Response(`Not Found ${new URL(req.url).pathname}`, { status: 404 })
 				}

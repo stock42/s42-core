@@ -17,8 +17,12 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "declaration": true
+    "declaration": true,
+		"paths": {
+			"@s42-core/*": ["./src/*"]
+		}
   },
+
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }

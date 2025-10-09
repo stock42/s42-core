@@ -7,13 +7,15 @@ export type ValidMethods =
 	| 'PATCH'
 	| 'OPTIONS'
 	| 'HEAD'
+	| '*'
 
 export type TypeHook = {
 	method: ValidMethods
 	path: string
+	when: 'before' | 'after'
 	handle: (
 		req: Request,
 		res: Response,
-		next?: (req: Request, res: Response) => void,
+		next: (req: Request, res: Response) => void,
 	) => void
 }
