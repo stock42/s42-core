@@ -6,7 +6,7 @@ type TypeResponseConstructor = {
 
 export class Res {
 	private headers: Record<string, string> = {}
-	private status: number = 200
+	private httpStatus: number = 200
 
 	constructor({
 		headers,
@@ -14,8 +14,9 @@ export class Res {
 		this.headers = headers ?? {}
 	}
 
-	public setStatus(status: number): void {
-		this.status = status
+	public status(status: number): this {
+		this.httpStatus = status
+		return this
 	}
 
 	public setHeader(key: string, value: string): void {
@@ -25,12 +26,14 @@ export class Res {
 	public json(data: object): Response	{
 		this.setHeader('Content-Type', 'application/json')
 		return new Response(JSON.stringify(data), {
+			status: this.httpStatus,
 			headers: { ...this.headers },
 		})
 	}
 
 	public send(data: string): Response {
 		return new Response(data, {
+			status: this.httpStatus,
 			headers: { ...this.headers },
 		})
 	}
@@ -38,6 +41,7 @@ export class Res {
 	public html(data: string): Response {
 		this.setHeader('Content-Type', 'text/html')
 		return new Response(data, {
+			status: this.httpStatus,
 			headers: { ...this.headers },
 		})
 	}
@@ -45,15 +49,16 @@ export class Res {
 	public text(data: string): Response {
 		this.setHeader('Content-Type', 'text/plain')
 		return new Response(data, {
+			status: this.httpStatus,
 			headers: { ...this.headers },
 		})
 	}
 
 	public redirect(url: string): Response {
 		this.setHeader('Location', url)
-		this.status = 302
+		this.httpStatus = 302
 		return new Response(null, {
-			status: this.status,
+			status: this.httpStatus,
 			headers: { ...this.headers },
 		})
 	}

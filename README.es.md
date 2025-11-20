@@ -1,4 +1,4 @@
-![s42-core](./DOCUMENTATION/s42-core.png)
+![s42-core](./DOCUMENTATION/assets/3.png)
 
 
 - [Visión General](#visión-general)
@@ -48,6 +48,10 @@ Facilita la gestión de procesos de trabajo, permitiendo una utilización eficie
 
 Ofrece utilidades para gestionar conexiones y operaciones en Redis y MongoDB, agilizando la gestión de datos en aplicaciones modernas.
 
+### Abstracción de Base de Datos SQL
+
+Interfaz unificada para interactuar con bases de datos PostgreSQL, MySQL y SQLite, permitiendo código agnóstico a la base de datos con gestión de esquemas y construcción de consultas.
+
 ## Documentación
 
 Documentación detallada de cada clase y módulo:
@@ -60,6 +64,7 @@ Documentación detallada de cada clase y módulo:
 - [MONGODB.md](./DOCUMENTATION/MONGODB.md)
 - [REDISDB.md](./DOCUMENTATION/REDISDB.md)
 - [ROUTECONTROLLERS.md](./DOCUMENTATION/ROUTECONTROLLERS.md)
+- [SQL.md](./DOCUMENTATION/SQL.es.md)
 - [SSE.md](./DOCUMENTATION/SSE.md)
 - [TEST.md](./DOCUMENTATION/TEST.md)
 

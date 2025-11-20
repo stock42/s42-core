@@ -1,4 +1,4 @@
-![s42-core](./DOCUMENTATION/s42-core.png)
+![s42-core](./DOCUMENTATION/assets/3.png)
 
 
 - [Overview](#overview)
@@ -48,6 +48,10 @@ Easily manage worker processes, enabling efficient utilization of multicore syst
 
 Provides utilities for managing Redis and MongoDB connections and operations, streamlining data management in modern applications.
 
+### SQL Database Abstraction
+
+Unified interface for interacting with PostgreSQL, MySQL, and SQLite databases, allowing for database-agnostic code with schema management and query building.
+
 ## Documentation
 
 Detailed documentation for each class and module is available:
@@ -60,6 +64,7 @@ Detailed documentation for each class and module is available:
 - [MONGODB.md](./DOCUMENTATION/MONGODB.md)
 - [REDISDB.md](./DOCUMENTATION/REDISDB.md)
 - [ROUTECONTROLLERS.md](./DOCUMENTATION/ROUTECONTROLLERS.md)
+- [SQL.md](./DOCUMENTATION/SQL.md)
 - [SSE.md](./DOCUMENTATION/SSE.md)
 - [TEST.md](./DOCUMENTATION/TEST.md)
 
