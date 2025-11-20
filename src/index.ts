@@ -11,3 +11,5 @@ export { SSE, type TypeSSEventToSend } from './SSE'
 export * as Test from './Test'
 export { SQLite } from './SQLite'
 export { SQL } from './SQL'
+export type { tableRowSchema, tableInternalSchema, ColumnDefinition, KeyValueData, TypeReturnQuery, TypeSQLConnection } from './SQL/types.d'
+

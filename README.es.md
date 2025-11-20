@@ -16,6 +16,7 @@
 	- [Integración de Controladores con RouteControllers](#integración-de-controladores-con-routecontrollers)
 	- [Eventos Enviados por el Servidor (SSE)](#eventos-enviados-por-el-servidor-sse)
 	- [Gestión de Clústeres](#gestión-de-clústeres-1)
+	- [API de Gestión de Productos (ABM)](#api-de-gestión-de-productos-abm)
 - [Licencia](#licencia)
 
 **Autor**: César Casas
@@ -176,6 +177,22 @@ cluster.onWorkerMessage((message) => {
   console.info('Mensaje desde el worker:', message);
 });
 ```
+
+---
+
+### API de Gestión de Productos (ABM)
+
+Proporcionamos un ejemplo completo de una API de Gestión de Productos (ABM) que demuestra cómo construir un servicio RESTful con `s42-core`.
+
+**Archivo:** [`example/products/index.ts`](./example/products/index.ts)
+
+**Características:**
+- **Integración de Base de Datos**: Utiliza la clase `SQL` para la conexión a PostgreSQL y gestión de esquemas.
+- **Operaciones CRUD**: Implementa endpoints para Crear, Leer, Actualizar y Eliminar.
+- **Paginación**: Demuestra la recuperación eficiente de datos con `selectPaginate`.
+- **Organización de Controladores**: Muestra cómo estructurar controladores y rutas.
+
+Para ejecutar este ejemplo, asegúrate de tener una base de datos PostgreSQL en ejecución y configurada.
 
 ---
 

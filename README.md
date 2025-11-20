@@ -16,6 +16,7 @@
 	- [Integrating Controllers with RouteControllers](#integrating-controllers-with-routecontrollers)
 	- [Server-Sent Events (SSE)](#server-sent-events-sse)
 	- [Cluster Management](#cluster-management-1)
+	- [Product Management API (CRUD)](#product-management-api-crud)
 - [License](#license)
 
 **Author**: César Casas
@@ -176,6 +177,22 @@ cluster.onWorkerMessage((message) => {
   console.info('Message from worker:', message);
 });
 ```
+
+---
+
+### Product Management API (CRUD)
+
+We provide a complete example of a Product Management API (ABM) demonstrating how to build a RESTful service with `s42-core`.
+
+**File:** [`example/products/index.ts`](./example/products/index.ts)
+
+**Features:**
+- **Database Integration**: Uses the `SQL` class for PostgreSQL connection and schema management.
+- **CRUD Operations**: Implements Create, Read, Update, and Delete endpoints.
+- **Pagination**: Demonstrates efficient data retrieval with `selectPaginate`.
+- **Controller Organization**: Shows how to structure controllers and routes.
+
+To run this example, ensure you have a PostgreSQL database running and configured.
 
 ---
 
