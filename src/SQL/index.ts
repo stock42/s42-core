@@ -108,7 +108,6 @@ export class SQL {
 	}
 
 	public async createTable(tableName: string, data: ColumnDefinition): Promise<boolean> {
-		data['added'] = 'integer' // Default column as per user example
 		const columns = Object.entries(data)
 			.map(([columnName, type]) => `${columnName} ${type.toUpperCase()}`)
 			.join(', ')
@@ -127,7 +126,6 @@ export class SQL {
 		tableName: string,
 		data: KeyValueData,
 	): Promise<TypeReturnQuery | null> {
-		data['added'] = new Date().getTime()
 		const keys = Object.keys(data)
 		const values = Object.values(data)
 

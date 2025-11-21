@@ -14,3 +14,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Updated `package.json` version to `2.0.10`.
+
+## [2.0.11] - 2025-11-21
+### Fixed
+- Remove added column from insert method
+
