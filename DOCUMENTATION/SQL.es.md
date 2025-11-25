@@ -89,7 +89,23 @@ const page = await db.selectPaginate<User>({
 });
 
 console.log(page.data);
+console.log(page.data);
 console.log(page.total);
+```
+
+### Contando Datos
+
+Puedes contar filas en una tabla, opcionalmente usando una `whereClause`.
+
+```typescript
+// Contar todas las filas
+const totalUsers = await db.count({ tableName: 'users' });
+
+// Contar con filtro
+const activeUsers = await db.count({
+    tableName: 'users',
+    whereClause: { status: 'active' }
+});
 ```
 
 ### Actualizando Datos

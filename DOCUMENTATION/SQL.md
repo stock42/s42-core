@@ -89,7 +89,23 @@ const page = await db.selectPaginate<User>({
 });
 
 console.log(page.data);
+console.log(page.data);
 console.log(page.total);
+```
+
+### Counting Data
+
+You can count rows in a table, optionally using a `whereClause`.
+
+```typescript
+// Count all rows
+const totalUsers = await db.count({ tableName: 'users' });
+
+// Count with filter
+const activeUsers = await db.count({
+    tableName: 'users',
+    whereClause: { status: 'active' }
+});
 ```
 
 ### Updating Data

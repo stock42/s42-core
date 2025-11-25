@@ -359,6 +359,31 @@ export class SQL {
 			return this.update({ tableName, whereClause: { id }, data })
 	}
 
+	public async count({
+		tableName,
+		whereClause,
+	}: {
+		tableName: string
+		whereClause?: object
+	}): Promise<number> {
+		let whereSentence = ''
+		let whereArgs: any[] = []
+		if (whereClause) {
+			const splited = translateMongoJsonToSql(whereClause)
+			whereSentence = splited.whereStatement
+			whereArgs = splited.values
+		}
+
+		const query = `SELECT COUNT(*) as total FROM ${tableName} ${whereSentence}`
+		try {
+			const result = await this.executeQuery(query, whereArgs)
+			const total = result[0].total || result[0]['COUNT(*)'] || 0
+			return Number(total)
+		} catch (err) {
+			throw err
+		}
+	}
+
 	public async select<T>({
 		tableName,
 		columns = ['*'],
@@ -422,20 +447,10 @@ export class SQL {
         whereClause?: object
         sort?: { [key: string]: number }
     }): Promise<{ data: T[], total: number, page: number, limit: number }> {
-        const offset = (page - 1) * limit
-        const data = await this.select<T>({ tableName, columns, whereClause, sort, limit, offset })
+        const data = await this.select<T>({ tableName, columns, whereClause, sort, limit, page })
 
         // Count total
-        let whereSentence = ''
-        let whereArgs: any[] = []
-        if (whereClause) {
-            const splited = translateMongoJsonToSql(whereClause)
-            whereSentence = splited.whereStatement
-            whereArgs = splited.values
-        }
-        const countQuery = `SELECT COUNT(*) as total FROM ${tableName} ${whereSentence}`
-        const countResult = await this.executeQuery(countQuery, whereArgs)
-        const total = countResult[0].total || countResult[0]['COUNT(*)'] || 0
+        const total = await this.count({ tableName, whereClause })
 
         return {
             data: data || [],

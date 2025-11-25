@@ -19,3 +19,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Remove added column from insert method
 
+
+## [2.0.12] - 2025-11-25
+### Added
+- **SQL**: Added `count` method to `SQL` class to count rows in a table with optional filtering.
