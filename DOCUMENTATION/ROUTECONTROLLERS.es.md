@@ -117,6 +117,18 @@ Evalúa si una ruta dada existe en los controladores registrados. Soporta:
 
 ---
 
+## Soporte para FormData
+
+Los controladores reciben un objeto de solicitud con el helper `formData()` para payloads
+`multipart/form-data` y `application/x-www-form-urlencoded`. Para otros tipos de contenido, retorna un `FormData` vacío.
+
+```typescript
+const form = req.formData();
+const campos = Object.fromEntries(form.entries());
+```
+
+---
+
 ## Salida de Ejemplo
 
 ### 1. **Rutas Definidas**
@@ -143,4 +155,3 @@ Evalúa si una ruta dada existe en los controladores registrados. Soporta:
 ## Licencia
 
 Este proyecto está licenciado bajo la Licencia MIT. Consulta el archivo LICENSE para más detalles.
-

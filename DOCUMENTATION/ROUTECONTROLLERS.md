@@ -153,6 +153,18 @@ Evaluates if a given route exists in the registered controllers. It supports:
 
 ---
 
+## FormData Support
+
+Controllers receive a request object with a `formData()` helper for `multipart/form-data` and
+`application/x-www-form-urlencoded` payloads. For other content types, it returns an empty `FormData`.
+
+```typescript
+const form = req.formData();
+const fields = Object.fromEntries(form.entries());
+```
+
+---
+
 ## Example Output
 
 ### 1. **Defined Routes**
@@ -179,4 +191,3 @@ Evaluates if a given route exists in the registered controllers. It supports:
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
-

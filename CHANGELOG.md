@@ -23,3 +23,12 @@ All notable changes to this project will be documented in this file.
 ## [2.0.12] - 2025-11-25
 ### Added
 - **SQL**: Added `count` method to `SQL` class to count rows in a table with optional filtering.
+
+## [2.0.13] - 2025-12-30
+### Added
+- **RouteControllers**: Documented `formData()` helper for `multipart/form-data` and `application/x-www-form-urlencoded` requests.
+- **Examples**: Added `example/s3.ts` showcasing Bun's native S3 client usage with S42core.
+
+### Changed
+- **RouteControllers**: Parse `formData()` only for form payloads to avoid consuming JSON bodies.
+- **Examples**: Updated `example/index.ts` to serialize form data for JSON responses.

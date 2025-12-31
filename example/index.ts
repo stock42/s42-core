@@ -2,13 +2,36 @@ import { Server, RouteControllers, Controller } from '../src/index'
 (async function startServer() {
 	let x =0
 	const hello = new Controller('GET', '/hello', async (req, res) => {
-		console.info('Hello World!')
-		return res.send(`Hello World! ${x++}`)
+		try {
+			console.info('Hello World!')
+			return res.send(`Hello World! ${x++}`)
+		} catch (err) {
+			console.error(err)
+			return res.send('Error')
+		}
 	})
+
+
+	const form = new Controller('POST', '/form', async (req, res) => {
+		try {
+			console.info('Hello Form!: ', req)
+			const formData = req.formData()
+			const formEntries = Object.fromEntries(formData.entries())
+			console.info('formData: ', formEntries)
+			return res.json({
+				message: `Hello Form! ${x++}`,
+				formData: formEntries
+			})
+		} catch (err) {
+			console.error(err)
+			return res.send('Error')
+		}
+	})
+
 
   console.info("S42-Core Framework running...")
   const apiServer = new Server()
-	await apiServer.start({
+	apiServer.start({
 		port: parseInt(String(process?.env?.PORT ?? 5678), 10),
 		clustering: true,
 		idleTimeout: 30,
@@ -35,7 +58,7 @@ import { Server, RouteControllers, Controller } from '../src/index'
 				}
 			}
 		],
-		RouteControllers: new RouteControllers([hello]),
+		RouteControllers: new RouteControllers([hello, form]),
 	})
 	console.info(`🚀 API Running on port ${process?.env?.PORT ?? 5678}`)
 })()

@@ -17,8 +17,10 @@ type TypeRequestInternalObject = {
 	realIp: string
 	url: string
 	method: string
-	query: { [string]: [string] }
-	body: { [string]: [string] }
+	query: Record<string, string>
+	body: Record<string, string>
+	formData: () => FormData
+	params?: Record<string, string>
 }
 
 type TypeResponseInternalObject = {

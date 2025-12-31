@@ -168,6 +168,22 @@ export class RouteControllers {
 
     private async getRequestObject(req: Request): Promise<TypeRequestInternalObject> {
         const url = new URL(req.url)
+        const contentType = req.headers.get('content-type')?.toLowerCase() ?? ''
+        const isFormData =
+            contentType.includes('multipart/form-data') ||
+            contentType.includes('application/x-www-form-urlencoded')
+
+        let parsedFormData: FormData | null = null
+        if (isFormData) {
+            try {
+                parsedFormData = await req.formData()
+            } catch {
+                parsedFormData = new FormData()
+            }
+        }
+
+        const body = req.method !== 'GET' && !isFormData ? await this.getJSONBody(req) : {}
+
         return {
             headers: req.headers,
             realIp:
@@ -175,10 +191,11 @@ export class RouteControllers {
                 req.headers.get('cf-connecting-ip') ||
                 '::1',
             query: this.getQueryParams(url.search),
-            body: req.method !== 'GET' ? await this.getJSONBody(req) : {},
+            body,
             url: url.pathname,
             method: req.method,
             params: {},
+            formData: () => parsedFormData ?? new FormData(),
         }
     }
 

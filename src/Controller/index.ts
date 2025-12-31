@@ -4,7 +4,7 @@ import { type Res } from '../Response'
 
 export class Controller implements ControllerInterface {
 	private path: string = ''
-	private methods = new Set<TYPE_HTTP_METHOD>()
+	private readonly methods = new Set<TYPE_HTTP_METHOD>()
 	private callbacks: Array<Middleware> = []
 
 	public constructor(method: TYPE_HTTP_METHOD, path: string, callback: Middleware) {
@@ -82,7 +82,7 @@ export class Controller implements ControllerInterface {
 							return await next();
 						}
 					} catch (err) {
-						res.setStatus(500);
+						res.status(500);
 						return res.json({ error: `Internal Server Error: ${err} into ${this.path}` });
 					}
 
