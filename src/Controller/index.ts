@@ -81,6 +81,7 @@ export class Controller implements ControllerInterface {
 						} else {
 							return await next();
 						}
+
 					} catch (err) {
 						res.status(500);
 						return res.json({ error: `Internal Server Error: ${err} into ${this.path}` });
@@ -100,7 +101,7 @@ export class Controller implements ControllerInterface {
 				return toReturn as unknown as Response;
 			} catch (err) {
 				return new Response(
-					JSON.stringify({ error: 'Internal Server Error' }),
+					JSON.stringify({ 'error': 'Internal Server Error', poweredby: 'S42 Core' }),
 					{
 						status: 500,
 						headers: { 'Content-Type': 'application/json' },
