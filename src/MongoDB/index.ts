@@ -107,12 +107,12 @@ export class MongoClient {
 
 		const totalPages = Math.ceil(count / limit)
 
-		const docs = await collection
+		const docs = (await collection
 			.find(query, { ...opts, projection: fields })
 			.sort(sort)
 			.skip(limit * (page - 1))
 			.limit(limit)
-			.toArray()
+			.toArray()) as T[]
 
 		return {
 			docs,

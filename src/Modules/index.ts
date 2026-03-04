@@ -3,9 +3,6 @@ import { z } from 'zod'
 import { Controller } from '../Controller'
 import type { EventsDomain } from '../EventsDomain'
 import type { TypeHook } from '../Server/types'
-import fs from 'node:fs'
-import path from 'node:path'
-import { pathToFileURL } from 'node:url'
 
 export const Module = z.object({
 	name: z.string(),
@@ -29,8 +26,8 @@ export const Controllers = z.array(
 	z.object({
 		name: z.string(),
 		version: z.string(),
-		handler: z.function(),
-		handleError: z.function().optional(),
+		handler: z.any(),
+		handleError: z.any().optional(),
 		method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']),
 		path: z.string(),
 		enabled: z.boolean().optional(),
@@ -74,12 +71,12 @@ export class Modules {
 	private readonly sharedModules: ModuleType[] = []
 	private readonly services: ServiceType[] = []
 	private readonly models: ModelType[] = []
-	private readonly types: TypesType
+	private readonly types: TypesType = undefined
 	private eventsDomain?: EventsDomain
 
 	private readonly path: string = './'
 	constructor(path: string, eventsDomain?: EventsDomain) {
-		this.path = path
+		this.path = this.normalizePath(path)
 		this.eventsDomain = eventsDomain
 	}
 
@@ -112,12 +109,12 @@ export class Modules {
 	private async loadShare(module: ModuleType, moduleFilePath: string): Promise<void> {
 		this.sharedModules.push(module)
 
-		const moduleDir = path.dirname(moduleFilePath)
+		const moduleDir = this.dirname(moduleFilePath)
 		const unsupportedShareDirs = ['controllers', 'events', 'mws']
 
 		for (const dirName of unsupportedShareDirs) {
-			const fullDirPath = path.join(moduleDir, dirName)
-			if (fs.existsSync(fullDirPath)) {
+			const fullDirPath = this.joinPath(moduleDir, dirName)
+			if (await this.directoryExists(fullDirPath)) {
 				console.warn(
 					`Share module ${module.name}@${module.version} ignores "${dirName}" directory (${fullDirPath}).`,
 				)
@@ -135,8 +132,8 @@ export class Modules {
 			}
 
 			console.log('loading module:', file)
-			const moduleFilePath = path.resolve(this.path, file)
-			const completedPath = pathToFileURL(moduleFilePath).href
+			const moduleFilePath = this.toAbsolutePath(this.joinPath(this.path, file))
+			const completedPath = this.toFileImportURL(moduleFilePath)
 			const loadedModule = await import(completedPath)
 			const module = Module.parse(loadedModule.default)
 			modulesFound.push({ module, moduleFilePath })
@@ -146,15 +143,15 @@ export class Modules {
 	}
 
 	private async loadMiddleware(module: ModuleType, moduleFilePath: string): Promise<void> {
-		const middlewarePath = path.join(path.dirname(moduleFilePath), 'mws', 'index.ts')
+		const middlewarePath = this.joinPath(this.dirname(moduleFilePath), 'mws', 'index.ts')
 
-		if (!fs.existsSync(middlewarePath)) {
+		if (!(await this.fileExists(middlewarePath))) {
 			throw new Error(
 				`Module ${module.name}@${module.version} is type "mws" but missing ${middlewarePath}`,
 			)
 		}
 
-		const middlewareURL = pathToFileURL(middlewarePath).href
+		const middlewareURL = this.toFileImportURL(middlewarePath)
 		const middlewareModule = await import(middlewareURL)
 		const constructor = middlewareModule.default as TypeMWSConstructor | undefined
 
@@ -217,64 +214,67 @@ export class Modules {
 		)
 		const glob = new Glob('**/*.ts')
 
-		const controllersDir = path.join(path.dirname(moduleFilePath), 'controllers')
-		if (!fs.existsSync(controllersDir)) {
-			return
-		}
+		const controllersDir = this.joinPath(this.dirname(moduleFilePath), 'controllers')
+		try {
+			for await (const file of glob.scan(controllersDir)) {
+				console.log('loading controller:', file)
+				const controllerPath = this.joinPath(controllersDir, file)
+				const completedPath = this.toFileImportURL(controllerPath)
+				console.log('completed path:', completedPath)
+				const controllerModule = await import(completedPath)
+				const controller = controllerModule.default as ControllerType &
+					Record<string, unknown>
 
-		for await (const file of glob.scan(controllersDir)) {
-			console.log('loading controller:', file)
-			const controllerPath = path.resolve(controllersDir, file)
-			const completedPath = pathToFileURL(controllerPath).href
-			console.log('completed path:', completedPath)
-			const controllerModule = await import(completedPath)
-			const controller = controllerModule.default as ControllerType &
-				Record<string, unknown>
+				const beforeMiddlewareRefs = this.extractRequiredMiddlewareReferences(
+					controller,
+					'before',
+				)
+				const afterMiddlewareRefs = this.extractRequiredMiddlewareReferences(
+					controller,
+					'after',
+				)
+				const beforeMiddlewares = this.resolveMiddlewareReferences(beforeMiddlewareRefs).map(
+					middleware => middleware.beforeRequest,
+				)
+				const afterMiddlewares = this.resolveMiddlewareReferences(afterMiddlewareRefs).map(
+					middleware => middleware.afterRequest,
+				)
 
-			const beforeMiddlewareRefs = this.extractRequiredMiddlewareReferences(
-				controller,
-				'before',
-			)
-			const afterMiddlewareRefs = this.extractRequiredMiddlewareReferences(
-				controller,
-				'after',
-			)
-			const beforeMiddlewares = this.resolveMiddlewareReferences(beforeMiddlewareRefs).map(
-				middleware => middleware.beforeRequest,
-			)
-			const afterMiddlewares = this.resolveMiddlewareReferences(afterMiddlewareRefs).map(
-				middleware => middleware.afterRequest,
-			)
+				this.controllers.push(
+					new Controller(
+						controller.method,
+						controller.path,
+						async (req, res) => {
+							try {
+								await this.executeMiddlewareHandlers(
+									beforeMiddlewares,
+									req as unknown as Request,
+									res as unknown as Response,
+								)
 
-			this.controllers.push(
-				new Controller(
-					controller.method,
-					controller.path,
-					async (req, res) => {
-						try {
-							await this.executeMiddlewareHandlers(
-								beforeMiddlewares,
-								req as unknown as Request,
-								res as unknown as Response,
-							)
+								const response = await controller.handler(req, res)
 
-							const response = await controller.handler(req, res)
-
-							await this.executeMiddlewareHandlers(
-								afterMiddlewares,
-								req as unknown as Request,
-								res as unknown as Response,
-							)
-							return response
-						} catch (err: unknown) {
-							if (controller.handleError) {
-								return controller.handleError(req, res, err)
+								await this.executeMiddlewareHandlers(
+									afterMiddlewares,
+									req as unknown as Request,
+									res as unknown as Response,
+								)
+								return response
+							} catch (err: unknown) {
+								if (controller.handleError) {
+									return controller.handleError(req, res, err)
+								}
+								throw err
 							}
-							throw err
-						}
-					},
-				),
-			)
+						},
+					),
+				)
+			}
+		} catch (error) {
+			if (this.isPathNotFoundError(error)) {
+				return
+			}
+			throw error
 		}
 	}
 
@@ -364,29 +364,127 @@ export class Modules {
 		return value.filter((item): item is string => typeof item === 'string')
 	}
 
+	private normalizePath(inputPath: string): string {
+		const trimmed = inputPath.trim()
+		if (!trimmed) {
+			return '.'
+		}
+		if (trimmed === '/') {
+			return '/'
+		}
+		return trimmed.replace(/\/+$/, '')
+	}
+
+	private joinPath(...segments: string[]): string {
+		if (!segments.length) {
+			return ''
+		}
+
+		const [first, ...rest] = segments
+		let joined = first
+		if (joined !== '/') {
+			joined = joined.replace(/\/+$/, '')
+		}
+
+		for (const segment of rest) {
+			const cleanedSegment = segment.replace(/^\/+|\/+$/g, '')
+			if (!cleanedSegment) {
+				continue
+			}
+
+			if (!joined || joined === '/') {
+				joined = joined === '/' ? `/${cleanedSegment}` : cleanedSegment
+			} else {
+				joined = `${joined}/${cleanedSegment}`
+			}
+		}
+
+		return joined
+	}
+
+	private dirname(filePath: string): string {
+		const normalized = filePath.replace(/\/+$/, '')
+		const lastSlashIndex = normalized.lastIndexOf('/')
+		if (lastSlashIndex <= 0) {
+			return '.'
+		}
+		return normalized.slice(0, lastSlashIndex)
+	}
+
+	private toAbsolutePath(filePath: string): string {
+		if (filePath.startsWith('/')) {
+			return filePath
+		}
+
+		const cwd = process.cwd().replace(/\/+$/, '')
+		const relative = filePath.replace(/^\.?\//, '')
+		return `${cwd}/${relative}`
+	}
+
+	private toFileImportURL(filePath: string): string {
+		const absolutePath = this.toAbsolutePath(filePath)
+		return new URL(absolutePath, 'file://').href
+	}
+
+	private async fileExists(filePath: string): Promise<boolean> {
+		return Bun.file(filePath).exists()
+	}
+
+	private async directoryExists(directoryPath: string): Promise<boolean> {
+		const probe = new Glob('*')
+		try {
+			for await (const _ of probe.scan(directoryPath)) {
+				return true
+			}
+			// Directory exists and may be empty.
+			return true
+		} catch (error) {
+			if (this.isPathNotFoundError(error)) {
+				return false
+			}
+			throw error
+		}
+	}
+
+	private isPathNotFoundError(error: unknown): boolean {
+		if (!error || typeof error !== 'object') {
+			return false
+		}
+
+		return (
+			('code' in error && error.code === 'ENOENT') ||
+			('message' in error &&
+				typeof error.message === 'string' &&
+				error.message.includes('ENOENT'))
+		)
+	}
+
 	private async loadEvents(module: ModuleType, moduleFilePath: string) {
 		if (!this.eventsDomain) {
 			console.warn('EventsDomain not configured. Skipping events registration.')
 			return
 		}
 
-		const eventsDir = path.join(path.dirname(moduleFilePath), 'events')
-		if (!fs.existsSync(eventsDir)) {
-			return
-		}
-
+		const eventsDir = this.joinPath(this.dirname(moduleFilePath), 'events')
 		const glob = new Glob('**/*.ts')
-		for await (const file of glob.scan(eventsDir)) {
-			const eventFilePath = path.resolve(eventsDir, file)
-			const completedPath = pathToFileURL(eventFilePath).href
-			const eventModule = await import(completedPath)
-			const baseName = path.basename(file)
+		try {
+			for await (const file of glob.scan(eventsDir)) {
+				const eventFilePath = this.joinPath(eventsDir, file)
+				const completedPath = this.toFileImportURL(eventFilePath)
+				const eventModule = await import(completedPath)
+				const baseName = file.split('/').pop() ?? file
 
-			if (baseName === 'emit.ts') {
-				this.registerEmitEvents(module, eventModule)
-			} else {
-				this.registerListenerEvents(module, eventModule)
+				if (baseName === 'emit.ts') {
+					this.registerEmitEvents(module, eventModule)
+				} else {
+					this.registerListenerEvents(module, eventModule)
+				}
 			}
+		} catch (error) {
+			if (this.isPathNotFoundError(error)) {
+				return
+			}
+			throw error
 		}
 	}
 

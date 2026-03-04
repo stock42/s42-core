@@ -18,7 +18,7 @@ export type TypeOptionsUpdate = {
 export type TypePaginationOptions = {
 	page: number
 	limit: number
-	sort?: object
+	sort?: Record<string, 1 | -1>
 	projection?: object
 }
 
@@ -110,10 +110,10 @@ export class MongoDBStorage {
 		collectionName: string,
 		query: object,
 		projection?: object,
-		sort?: { [key: string]: number },
+		sort?: Record<string, 1 | -1>,
 	) {
 		const db = Dependencies.get<MongoClient>('db') as MongoClient
-		const options: { projection?: object; sort?: object } = { projection, sort }
+		const options: { projection?: object; sort?: Record<string, 1 | -1> } = { projection, sort }
 		const collection = db.getCollection(collectionName)
 		const result = await collection.findOne<T>(query, options)
 		return result
@@ -128,10 +128,10 @@ export class MongoDBStorage {
 		collectionName: string,
 		query: object,
 		projection?: object,
-		sort?: object,
+		sort?: Record<string, 1 | -1>,
 	) {
 		const db = Dependencies.get<MongoClient>('db') as MongoClient
-		const options: { projection?: object; sort?: object } = {}
+		const options: { projection?: object; sort?: Record<string, 1 | -1> } = {}
 		if (projection) {
 			options.projection = projection
 		}

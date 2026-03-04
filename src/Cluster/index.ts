@@ -3,7 +3,7 @@ import { spawn } from 'bun'
 import { type TypeConstructor, type TypeCommandToWorkers } from './types.ts'
 
 export class Cluster {
-	private cpus = navigator.hardwareConcurrency
+	private readonly cpus = navigator.hardwareConcurrency
 	private buns: Array<ReturnType<typeof spawn>> = []
 	private file: string = ''
 	private name: string = 'noname'
@@ -11,6 +11,15 @@ export class Cluster {
 	private callbackOnWorkerMessage: Array<(message: string) => void> = []
 	private watchMode: boolean = false
 	private args: string[] = [] // Nueva propiedad para los argumentos
+	private shuttingDown: boolean = false
+
+	private readonly handleSigint = (): void => {
+		void this.killWorkers('SIGINT')
+	}
+
+	private readonly handleSigterm = (): void => {
+		void this.killWorkers('SIGTERM')
+	}
 
 	constructor(props: TypeConstructor & { watchMode?: boolean; args?: string[] }) {
 		this.name = props.name
@@ -34,8 +43,13 @@ export class Cluster {
 			this.file = file
 			console.info(`Spawning ${this.maxCPU} worker(s) for ${this.name}`)
 
-			// Genera el comando incluyendo `args` y `--watch` si corresponde
-			const cmd = ['bun', ...this.args, ...(this.watchMode ? ['--watch'] : []), file]
+			// Use current Bun executable to avoid env/path inconsistencies across hosts.
+			const cmd = [
+				process.execPath,
+				...this.args,
+				...(this.watchMode ? ['--watch'] : []),
+				file,
+			]
 
 			for (let i = 0; i < this.maxCPU; i++) {
 				this.buns[i] = spawn({
@@ -52,8 +66,10 @@ export class Cluster {
 				})
 			}
 
-			process.on('SIGINT', this.killWorkers.bind(this))
-			process.on('exit', this.killWorkers.bind(this))
+			process.off('SIGINT', this.handleSigint)
+			process.off('SIGTERM', this.handleSigterm)
+			process.once('SIGINT', this.handleSigint)
+			process.once('SIGTERM', this.handleSigterm)
 
 			this.sendCommandToWorkers({ command: 'start', message: this.file })
 			this.sendCommandToWorkers({ command: 'setName', message: this.name })
@@ -99,16 +115,30 @@ export class Cluster {
 		return this.buns
 	}
 
-	private killWorkers(): void {
-		console.info(`Shutting down ${this.name} workers...`)
+	private async killWorkers(reason = 'shutdown'): Promise<void> {
+		if (this.shuttingDown) {
+			return
+		}
+
+		this.shuttingDown = true
+		console.info(`Shutting down ${this.name} workers (${reason})...`)
+
 		for (const bun of this.buns) {
 			if (bun?.pid) {
 				console.info(`Killing worker ${bun.pid}`)
-				bun.kill()
+				try {
+					bun.kill()
+				} catch (error) {
+					console.error(`Error killing worker ${bun.pid}:`, error)
+				}
 			}
 		}
+
+		this.buns = new Array(this.maxCPU)
+		process.off('SIGINT', this.handleSigint)
+		process.off('SIGTERM', this.handleSigterm)
+		this.shuttingDown = false
 		console.info('All workers have been terminated.')
-		process.exit(0)
 	}
 
 	private handleWorkerMessage(

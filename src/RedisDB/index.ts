@@ -3,20 +3,43 @@ import { type RedisInterface } from './Redis.interface.js'
 
 export class RedisClient implements RedisInterface {
 	private static instance: RedisClient
-	private readonly redis!: BunRedisClient
-	private readonly redisSub!: BunRedisClient
-	private readonly redisPub!: BunRedisClient
+	private readonly redis: BunRedisClient
+	private redisSub: BunRedisClient | null = null
+	private redisPub: BunRedisClient | null = null
+	private connected = false
+	private connecting: Promise<void> | null = null
+	private readonly subscribedChannels = new Set<string>()
 
 	private constructor(connectionURI?: string) {
 		this.redis = RedisClient.createClient(connectionURI)
-		this.redisSub = RedisClient.createClient(connectionURI)
-		this.redisPub = RedisClient.createClient(connectionURI)
 	}
 
 	async connect(): Promise<void> {
-		await this.redis.connect()
-		await this.redisSub.connect()
-		await this.redisPub.connect()
+		if (this.connected) {
+			return
+		}
+
+		if (this.connecting) {
+			await this.connecting
+			return
+		}
+
+			this.connecting = (async () => {
+				await this.redis.connect()
+				const redisSub = await this.redis.duplicate()
+				const redisPub = await this.redis.duplicate()
+				await redisSub.connect()
+				await redisPub.connect()
+				this.redisSub = redisSub
+				this.redisPub = redisPub
+				this.connected = true
+			})()
+
+		try {
+			await this.connecting
+		} finally {
+			this.connecting = null
+		}
 	}
 
 	async hset(key: string, value: object): Promise<void> {
@@ -40,13 +63,19 @@ export class RedisClient implements RedisInterface {
 		return await this.redis.hget(key, subkey)
 	}
 
-	async hgetall(key: string): Promise<Record<string, string> | null> {
-		return await this.redis.hgetall(key)
+	async hgetall(key: string): Promise<Record<string, string>> {
+		return (await this.redis.hgetall(key)) ?? {}
 	}
 
 	subscribe<T>(channelName: string, callback: (payload: T) => void): void {
-		void this.redisSub
-			.subscribe(channelName, (message: string, channel: string) => {
+		void (async () => {
+			const ready = await this.ensurePubSubConnections()
+			if (!ready || !this.redisSub) {
+				return
+			}
+
+			this.subscribedChannels.add(channelName)
+			await this.redisSub.subscribe(channelName, (message: string, channel: string) => {
 				if (channel !== channelName) {
 					return
 				}
@@ -57,17 +86,23 @@ export class RedisClient implements RedisInterface {
 					console.error(`Error parsing message from channel "${channelName}":`, error)
 				}
 			})
-			.catch(error => {
-				console.error(`Error subscribing to channel "${channelName}":`, error)
-			})
+		})().catch(error => {
+			console.error(`Error subscribing to channel "${channelName}":`, error)
+		})
 	}
 
 	unsubscribe(channelName: string): void {
-		void this.redisSub
-			.unsubscribe(channelName)
-			.catch(error =>
-				console.error(`Error unsubscribing from channel "${channelName}":`, error),
-			)
+		void (async () => {
+			const ready = await this.ensurePubSubConnections()
+			if (!ready || !this.redisSub) {
+				return
+			}
+
+			this.subscribedChannels.delete(channelName)
+			await this.redisSub.unsubscribe(channelName)
+		})().catch(error =>
+			console.error(`Error unsubscribing from channel "${channelName}":`, error),
+		)
 	}
 
 	publish(channelName: string, payload: object): void {
@@ -79,11 +114,15 @@ export class RedisClient implements RedisInterface {
 			return
 		}
 
-		void this.redisPub
-			.publish(channelName, message)
-			.catch(error =>
-				console.error(`Error publishing to channel "${channelName}":`, error),
-			)
+		void (async () => {
+			const ready = await this.ensurePubSubConnections()
+			if (!ready || !this.redisPub) {
+				return
+			}
+			await this.redisPub.publish(channelName, message)
+		})().catch(error =>
+			console.error(`Error publishing to channel "${channelName}":`, error),
+		)
 	}
 
 	public static getInstance(connectionURI?: string): RedisClient {
@@ -104,9 +143,18 @@ export class RedisClient implements RedisInterface {
 
 	public close(): void {
 		try {
+			for (const channel of this.subscribedChannels) {
+				void this.redisSub?.unsubscribe(channel)
+			}
+			this.subscribedChannels.clear()
+
+			this.redisSub?.close()
+			this.redisPub?.close()
 			this.redis.close()
-			this.redisSub.close()
-			this.redisPub.close()
+			this.redisSub = null
+			this.redisPub = null
+			this.connected = false
+			this.connecting = null
 			console.log('Redis connections closed')
 		} catch (error) {
 			console.error('Error closing Redis connections:', error)
@@ -169,20 +217,15 @@ export class RedisClient implements RedisInterface {
 		return JSON.stringify(value)
 	}
 
-	private async retryConnection(
-		redisInstance: BunRedisClient,
-		retries: number = 3,
-	): Promise<void> {
-		for (let i = 0; i < retries; i++) {
-			try {
-				await redisInstance.connect()
-				return
-			} catch (error) {
-				console.warn(`Retrying Redis connection (${i + 1}/${retries})...`)
-				if (i === retries - 1) {
-					throw error
-				}
+	private async ensurePubSubConnections(): Promise<boolean> {
+		try {
+			if (!this.connected || !this.redisSub || !this.redisPub) {
+				await this.connect()
 			}
+			return Boolean(this.redisSub && this.redisPub)
+		} catch (error) {
+			console.error('Error ensuring Redis pub/sub connections:', error)
+			return false
 		}
 	}
 }

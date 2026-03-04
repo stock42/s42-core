@@ -24,9 +24,12 @@ export async function ViewTemplates(
 			if (!Array.isArray(items)) return ''
 			return items
 				.map(item => {
-					return blockContent.replace(/{{this\.(.*?)}}/g, (_, thisPath) => {
+					return blockContent.replace(
+						/{{this\.(.*?)}}/g,
+						(_match: string, thisPath: string) => {
 						return String(getValueFromPath(item, thisPath))
-					})
+						},
+					)
 				})
 				.join('')
 		},
