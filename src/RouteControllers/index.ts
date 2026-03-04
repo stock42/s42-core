@@ -213,6 +213,63 @@ export class RouteControllers {
         })
     }
 
+    private hookError(err: unknown): Response {
+        const message = err instanceof Error ? err.message : 'Hook execution failed'
+        const isAuthError = /(token|auth|unauthoriz|forbidden)/i.test(message)
+        const status = isAuthError ? 401 : 500
+
+        return new Response(
+            JSON.stringify({
+                ok: false,
+                error: message,
+            }),
+            {
+                status,
+                headers: {
+                    ...this.headers,
+                    'Content-Type': 'application/json',
+                },
+            },
+        )
+    }
+
+    private async executeHooks(
+        hooks: TypeHook[],
+        req: Request,
+        res: Res,
+        index = 0,
+    ): Promise<void> {
+        if (index >= hooks.length) {
+            return
+        }
+
+        await new Promise<void>((resolve, reject) => {
+            const hook = hooks[index]
+            let nextCalled = false
+
+            const runNext = (nextReq: Request, nextRes: Response): void => {
+                if (nextCalled) {
+                    return
+                }
+
+                nextCalled = true
+                this.executeHooks(hooks, nextReq, nextRes as unknown as Res, index + 1)
+                    .then(resolve)
+                    .catch(reject)
+            }
+
+            Promise.resolve()
+                .then(() => hook.handle(req, res as unknown as Response, runNext))
+                .then(() => {
+                    // Keep chain moving even if hook forgot to call next()
+                    if (!nextCalled) {
+                        runNext(req, res as unknown as Response)
+                    }
+                })
+                .catch(reject)
+        })
+    }
+
     public getCallback(hooks: TypeHook[]): TypeReturnCallback {
         return async (req: Request): Promise<Response> => {
             try {
@@ -237,41 +294,24 @@ export class RouteControllers {
                     const beforeHooks = matchedHooks.filter(hook => hook.when === 'before')
                     const afterHooks = matchedHooks.filter(hook => hook.when === 'after')
 
-                    // Execute hooks and controller in a promise chain
                     let finalResponse: Response | null = null
 
-                    // Function to execute a series of hooks
-                    const executeHooks = async (
-                        hooks: TypeHook[],
-                        req: Request,
-                        res: Res,
-                        index: number,
-                    ): Promise<void> => {
-                        if (index >= hooks.length) return
-
-                        return new Promise((resolve, reject) => {
-                            const hook = hooks[index]
-                            hook.handle(
-                                req,
-                                res,
-                                (req: Request, res: Response) => {
-                                    // Proceed to the next hook
-                                    executeHooks(hooks, req, res, index + 1)
-                                        .then(resolve)
-                                        .catch(reject)
-                                },
-                            )
-                        })
+                    try {
+                        await this.executeHooks(beforeHooks, req, response)
+                    } catch (hookError) {
+                        console.error('Error executing before hooks:', hookError)
+                        return this.hookError(hookError)
                     }
-
-                    // Execute before hooks
-                    await executeHooks(beforeHooks, req, response, 0)
 
                     // Execute controller callback
                     finalResponse = (await callback(request, response)) as unknown as Response
 
-                    // Execute after hooks
-                    await executeHooks(afterHooks, req, response, 0)
+                    try {
+                        await this.executeHooks(afterHooks, req, response)
+                    } catch (hookError) {
+                        // Keep response path healthy even if post-processing hook fails
+                        console.error('Error executing after hooks:', hookError)
+                    }
 
                     return finalResponse
                 }

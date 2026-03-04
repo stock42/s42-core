@@ -1,73 +1,92 @@
-import Redis, { type Redis as TypeRedis } from 'ioredis'
+import { RedisClient as BunRedisClient } from 'bun'
 import { type RedisInterface } from './Redis.interface.js'
 
 export class RedisClient implements RedisInterface {
 	private static instance: RedisClient
-	private redis!: TypeRedis
-	private redisSub!: TypeRedis
-	private redisPub!: TypeRedis
+	private readonly redis!: BunRedisClient
+	private readonly redisSub!: BunRedisClient
+	private readonly redisPub!: BunRedisClient
 
-	private constructor(connectionURI: string) {
-		try {
-			this.redis = new Redis(connectionURI)
-			this.redisSub = new Redis(connectionURI)
-			this.redisPub = new Redis(connectionURI)
-
-			this.retryConnection(this.redis);
-      this.retryConnection(this.redisSub);
-      this.retryConnection(this.redisPub);
-		} catch (err) {
-			console.info('Error instance redis')
-		}
+	private constructor(connectionURI?: string) {
+		this.redis = RedisClient.createClient(connectionURI)
+		this.redisSub = RedisClient.createClient(connectionURI)
+		this.redisPub = RedisClient.createClient(connectionURI)
 	}
 
-	async hset(key: string, value: Record<string, any>): Promise<void> {
-		await this.redis.hset(key, value)
+	async connect(): Promise<void> {
+		await this.redis.connect()
+		await this.redisSub.connect()
+		await this.redisPub.connect()
+	}
+
+	async hset(key: string, value: object): Promise<void> {
+		const args: string[] = []
+		for (const [field, rawValue] of Object.entries(value as Record<string, unknown>)) {
+			const serialized = RedisClient.serializeHashValue(rawValue)
+			if (serialized === undefined) {
+				continue
+			}
+			args.push(field, serialized)
+		}
+
+		if (!args.length) {
+			return
+		}
+
+		await this.redis.send('HSET', [key, ...args])
 	}
 
 	async hget(key: string, subkey: string): Promise<string | null> {
 		return await this.redis.hget(key, subkey)
 	}
 
-	async hgetall(key: string): Promise<Record<string, string>> {
+	async hgetall(key: string): Promise<Record<string, string> | null> {
 		return await this.redis.hgetall(key)
 	}
 
 	subscribe<T>(channelName: string, callback: (payload: T) => void): void {
-		try {
-			this.redisSub.subscribe(channelName)
-		} catch (error) {
-			throw new Error(`Error subscribing to channel "${channelName}": ${error}`)
-		}
+		void this.redisSub
+			.subscribe(channelName, (message: string, channel: string) => {
+				if (channel !== channelName) {
+					return
+				}
 
-		this.redisSub.on('message', (channel: string, message: string) => {
-			if (channel === channelName) {
 				try {
 					callback(JSON.parse(message) as T)
 				} catch (error) {
 					console.error(`Error parsing message from channel "${channelName}":`, error)
 				}
-			}
-		})
+			})
+			.catch(error => {
+				console.error(`Error subscribing to channel "${channelName}":`, error)
+			})
 	}
 
 	unsubscribe(channelName: string): void {
-		try {
-			this.redisSub.unsubscribe(channelName)
-		} catch (error) {
-			throw new Error(`Error unsubscribing from channel "${channelName}": ${error}`)
-		}
+		void this.redisSub
+			.unsubscribe(channelName)
+			.catch(error =>
+				console.error(`Error unsubscribing from channel "${channelName}":`, error),
+			)
 	}
 
-	publish(channelName: string, payload: Record<string, any>): void {
+	publish(channelName: string, payload: object): void {
+		let message: string
 		try {
-			this.redisPub.publish(channelName, JSON.stringify(payload))
+			message = JSON.stringify(payload)
 		} catch (error) {
-			console.error(`Error publishing to channel "${channelName}":`, error)
+			console.error(`Error serializing payload for channel "${channelName}":`, error)
+			return
 		}
+
+		void this.redisPub
+			.publish(channelName, message)
+			.catch(error =>
+				console.error(`Error publishing to channel "${channelName}":`, error),
+			)
 	}
 
-	public static getInstance(connectionURI: string = 'localhost'): RedisClient {
+	public static getInstance(connectionURI?: string): RedisClient {
 		if (!RedisClient.instance) {
 			RedisClient.instance = new RedisClient(connectionURI)
 		}
@@ -75,35 +94,95 @@ export class RedisClient implements RedisInterface {
 	}
 
 	public async isConnected(): Promise<boolean> {
-    try {
-        await this.redis.ping();
-        return true;
-    } catch {
-        return false;
-    }
+		try {
+			await this.redis.send('PING', [])
+			return true
+		} catch {
+			return false
+		}
 	}
 
 	public close(): void {
 		try {
-			this.redis.quit()
-			this.redisSub.quit()
-			this.redisPub.quit()
+			this.redis.close()
+			this.redisSub.close()
+			this.redisPub.close()
 			console.log('Redis connections closed')
 		} catch (error) {
 			console.error('Error closing Redis connections:', error)
 		}
 	}
 
+	public async counter(key: string): Promise<number> {
+		const exists = await this.redis.exists(key)
+		if (!exists) {
+			await this.redis.set(key, '0')
+		}
+		return await this.redis.incr(key)
+	}
 
-	private async retryConnection(redisInstance: TypeRedis, retries: number = 3): Promise<void> {
-    for (let i = 0; i < retries; i++) {
-        try {
-            await redisInstance.ping();
-            return;
-        } catch (error) {
-            console.warn(`Retrying Redis connection (${i + 1}/${retries})...`);
-            if (i === retries - 1) throw error;
-        }
-    }
-}
+	public async setCache(key: string, value: object): Promise<void> {
+		await this.redis.set(key, JSON.stringify(value))
+	}
+
+	public async getCache<T>(key: string): Promise<T | null> {
+		const cachedValue = await this.redis.get(key)
+		if (!cachedValue) {
+			return null
+		}
+
+		try {
+			return JSON.parse(cachedValue) as T
+		} catch {
+			return null
+		}
+	}
+
+	private static createClient(connectionURI?: string): BunRedisClient {
+		const resolvedURI = RedisClient.resolveConnectionURI(connectionURI)
+		return resolvedURI ? new BunRedisClient(resolvedURI) : new BunRedisClient()
+	}
+
+	private static resolveConnectionURI(connectionURI?: string): string | undefined {
+		const envURI = connectionURI || process.env.REDIS_URL || process.env.VALKEY_URL
+		if (!envURI) {
+			return undefined
+		}
+
+		if (envURI.includes('://')) {
+			return envURI
+		}
+
+		const hasPort = envURI.includes(':')
+		return `redis://${envURI}${hasPort ? '' : ':6379'}`
+	}
+
+	private static serializeHashValue(value: unknown): string | undefined {
+		if (value === undefined) {
+			return undefined
+		}
+
+		if (typeof value === 'string') {
+			return value
+		}
+
+		return JSON.stringify(value)
+	}
+
+	private async retryConnection(
+		redisInstance: BunRedisClient,
+		retries: number = 3,
+	): Promise<void> {
+		for (let i = 0; i < retries; i++) {
+			try {
+				await redisInstance.connect()
+				return
+			} catch (error) {
+				console.warn(`Retrying Redis connection (${i + 1}/${retries})...`)
+				if (i === retries - 1) {
+					throw error
+				}
+			}
+		}
+	}
 }

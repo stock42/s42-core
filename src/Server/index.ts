@@ -1,9 +1,8 @@
-import { serve, sleep, type Server as ServerBun} from 'bun'
+import { serve, sleep, type Server as ServerBun } from 'bun'
 import { type RouteControllers } from '../RouteControllers'
 
 import { type TypeHook } from './types.ts'
 import { type TypeCommandToWorkers } from '../Cluster/types.ts'
-
 
 export type TypeServerConstructor = {
 	port: number
@@ -13,8 +12,8 @@ export type TypeServerConstructor = {
 	error?: (err: Error) => Response
 	hooks?: Array<TypeHook>
 	RouteControllers?: RouteControllers
-	development?: boolean,
-	awaitForCluster?: boolean,
+	development?: boolean
+	awaitForCluster?: boolean
 }
 
 export class Server {
@@ -39,7 +38,7 @@ export class Server {
 					}
 				}
 			} catch (error) {
-
+				console.error('Error parsing message from worker:', error)
 			}
 		})
 	}
@@ -64,8 +63,6 @@ export class Server {
 			:	async (req: Request) => {
 					return new Response(`Not Found ${new URL(req.url).pathname}`, { status: 404 })
 				}
-
-
 
 		this.server = serve({
 			port,
