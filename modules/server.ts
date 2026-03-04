@@ -3,12 +3,11 @@ import { Server, RouteControllers, Modules } from '../src'
 export async function server() {
 	console.info('Modules server testing v1.0')
 
-
-
 	const apiServer = new Server()
 
 	const modules = new Modules('./modules/')
 	await modules.load()
+	const modulesHooks = modules.getHooks()
 
 	apiServer.start({
 		port: Number.parseInt(String(process?.env?.SERVER_PORT ?? 5678), 10),
@@ -18,6 +17,7 @@ export async function server() {
 		development: true,
 		awaitForCluster: false,
 		hooks: [
+			...modulesHooks,
 			{
 				method: '*',
 				path: '*',
@@ -41,12 +41,12 @@ export async function server() {
 				},
 			},
 		],
-		RouteControllers: new RouteControllers([
-			...modules.getControllers(),
-		]),
+		RouteControllers: new RouteControllers([...modules.getControllers()]),
 	})
 
-	console.info(`Modules server testing Running on port ${process?.env?.SERVER_PORT ?? 5678}`)
+	console.info(
+		`Modules server testing Running on port ${process?.env?.SERVER_PORT ?? 5678}`,
+	)
 }
 
 if (import.meta.main) {

@@ -5,3 +5,8 @@ bun.lock
 .windsurf/rules/snyk_rules.md
 .env
 .env.example
+
+AGENTS.md
+TODO.md
+modules
+.vscode
