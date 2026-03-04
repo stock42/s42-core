@@ -5,13 +5,16 @@ import {
 	type Collection,
 	type Document,
 } from 'mongodb'
-import { type TypeMongoDBdatabaseConnection, type TypeMongoQueryPagination } from './types'
+import {
+	type TypeMongoDBdatabaseConnection,
+	type TypeMongoQueryPagination,
+} from './types'
 
 export class MongoClient {
 	private static instance: MongoClient
-	private mongoClient: MongoClientNative
+	private readonly mongoClient: MongoClientNative
 	private db: Db | null = null
-	private databaseName: string
+	private readonly databaseName: string
 
 	private constructor({
 		connectionString = process.env?.MONGO_URI ?? '',
@@ -36,15 +39,15 @@ export class MongoClient {
 			console.info(`Connected to MongoDB: ${this.databaseName}`)
 		} catch (error) {
 			console.error('MongoDB connection error:', error)
-			throw new Error('Failed to connect to MongoDB');
+			throw new Error('Failed to connect to MongoDB')
 		}
 	}
 
 	public ObjectId(id: string): ObjectId {
 		if (!ObjectId.isValid(id)) {
-			throw new Error(`Invalid ObjectId: ${id}`);
+			throw new Error(`Invalid ObjectId: ${id}`)
 		}
-		return new ObjectId(id);
+		return new ObjectId(id)
 	}
 
 	public async close(): Promise<void> {
@@ -79,7 +82,13 @@ export class MongoClient {
 		query: object = {},
 		fields: object = {},
 		options: TypeMongoQueryPagination = {},
-	): Promise<{ docs: T[]; count: number; limit: number; page: number; totalPages: number }> {
+	): Promise<{
+		docs: T[]
+		count: number
+		limit: number
+		page: number
+		totalPages: number
+	}> {
 		const opts = options.opts || {}
 		const page = options.page ?? 1
 		const defaultLimit = 30
@@ -98,12 +107,12 @@ export class MongoClient {
 
 		const totalPages = Math.ceil(count / limit)
 
-		const docs = await collection
+		const docs = (await collection
 			.find(query, { ...opts, projection: fields })
 			.sort(sort)
 			.skip(limit * (page - 1))
 			.limit(limit)
-			.toArray()
+			.toArray()) as T[]
 
 		return {
 			docs,

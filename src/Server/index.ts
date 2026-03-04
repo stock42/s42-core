@@ -1,31 +1,33 @@
-import { serve, sleep, type Server as ServerBun} from 'bun'
+import { serve, sleep, type Server as ServerBun } from 'bun'
 import { type RouteControllers } from '../RouteControllers'
 
 import { type TypeHook } from './types.ts'
 import { type TypeCommandToWorkers } from '../Cluster/types.ts'
-
 
 export type TypeServerConstructor = {
 	port: number
 	clustering?: boolean
 	idleTimeout?: number
 	maxRequestBodySize?: number
-	error?: (err: Error) => Response
+	error?: (err: unknown) => Response
 	hooks?: Array<TypeHook>
 	RouteControllers?: RouteControllers
-	development?: boolean,
-	awaitForCluster?: boolean,
+	development?: boolean
+	awaitForCluster?: boolean
 }
 
 export class Server {
 	private startedFromCluster: boolean = false
 	private clusterName: string = ''
-	private server: ServerBun | undefined
+	private server: ServerBun<undefined> | undefined
 	private callbackMessageFromWorkers: Array<(message: string) => void> = []
 
 	constructor() {
-		process.on('message', (message: string) => {
+		process.on('message', (message: unknown) => {
 			try {
+				if (typeof message !== 'string') {
+					return
+				}
 				const cmd = JSON.parse(message) as TypeCommandToWorkers
 				if (cmd.command === 'start') {
 					this.startedFromCluster = true
@@ -39,7 +41,7 @@ export class Server {
 					}
 				}
 			} catch (error) {
-
+				console.error('Error parsing message from worker:', error)
 			}
 		})
 	}
@@ -64,8 +66,7 @@ export class Server {
 			:	async (req: Request) => {
 					return new Response(`Not Found ${new URL(req.url).pathname}`, { status: 404 })
 				}
-
-
+		const routes = RouteControllers?.getRoutes(hooks) as any
 
 		this.server = serve({
 			port,
@@ -73,22 +74,23 @@ export class Server {
 			idleTimeout,
 			maxRequestBodySize,
 			development,
-			error(err) {
+			routes,
+			error(err: unknown) {
 				if (error) {
 					return error(err)
 				}
-				return new Response(`<pre>${error}\n${err.stack}</pre>`, {
+				const message = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
+				return new Response(`<pre>${message}</pre>`, {
+					status: 500,
 					headers: {
 						'Content-Type': 'text/html',
 					},
 				})
 			},
-			async fetch(request, server) {
-				const ip = server.requestIP(request)
-				const url = new URL(request.url).pathname
+			async fetch(request: Request) {
 				return callback(request)
 			},
-		})
+		} as any)
 
 		while (awaitForCluster && !this.startedFromCluster) {
 			await sleep(1000)
@@ -112,10 +114,18 @@ export class Server {
 	}
 
 	public sendMessageToCluster(message: string) {
+		if (typeof process.send !== 'function') {
+			console.warn('sendMessageToCluster called outside cluster worker context.')
+			return
+		}
 		process.send(message)
 	}
 
 	public sendMessageToWorkers(message: string) {
+		if (typeof process.send !== 'function') {
+			console.warn('sendMessageToWorkers called outside cluster worker context.')
+			return
+		}
 		process.send(`>>.<<|${message}`)
 	}
 

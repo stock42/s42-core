@@ -119,9 +119,10 @@ export class SQLite {
 
 	public createTable(tableName: string, schema: TypeTableSchema): Changes {
 		try {
-			if (!tableName || typeof tableName !== 'string' || this.tableMatch(tableName)) {
+			if (!tableName || typeof tableName !== 'string') {
 				throw new Error('Invalid table name');
 			}
+			this.tableMatch(tableName)
 
 			schema['added'] = 'integer'
 			const columns = Object.entries(schema)
@@ -168,16 +169,17 @@ export class SQLite {
 	}
 
 	public async delete(tableName: string, whereClause?: object): Promise<Changes> {
+		this.tableMatch(tableName)
 		let whereSentence = ''
-		let whereArgs = []
+		let whereArgs: SQLQueryBindings[] = []
 		if (whereClause) {
 			const splited = translateMongoJsonToSql(whereClause)
 			whereSentence = splited.whereStatement
-			whereArgs = splited.values
+			whereArgs = splited.values as SQLQueryBindings[]
 		}
-		const query = this.database.prepare(`DELETE FROM ${tableName} ${whereSentence}`, whereArgs)
+		const query = this.database.prepare(`DELETE FROM ${tableName} ${whereSentence}`)
 		try {
-			const result = query.run()
+			const result = query.run(...whereArgs)
 			return result
 		} catch (err) {
 			throw err
@@ -187,8 +189,8 @@ export class SQLite {
 
 	public insert(tableName: string, data: { [key: string]: SQLQueryBindings }) {
 		try {
+			this.tableMatch(tableName)
 			data['added'] = new Date().getTime()
-			const keys = Object.keys(data)
 			const values = Object.values(data)
 
 			const columns = Object.keys(data).join(', ')
@@ -197,7 +199,7 @@ export class SQLite {
 				.join(', ')
 
 			const query = `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders})`
-			this.database.run(query, ...Object.values(data))
+			this.database.run(query, values)
 		} catch (err) {
 			throw new Error(`Error inserting data: ${String(err)}`)
 		}
@@ -235,19 +237,19 @@ export class SQLite {
 		const setClause = Object.keys(data)
 			.map(key => `${key} = ?`)
 			.join(', ')
-		const values = Object.values(data)
+		const values = Object.values(data) as SQLQueryBindings[]
 
 		let whereSentence = ''
-		let whereArgs = []
+		let whereArgs: SQLQueryBindings[] = []
 		if (whereClause) {
 			const splited = translateMongoJsonToSql(whereClause)
 			whereSentence = splited.whereStatement
-			whereArgs = splited.values
+			whereArgs = splited.values as SQLQueryBindings[]
 		}
 
 		const query = `UPDATE ${tableName} SET ${setClause} ${whereSentence}`
 		try {
-			const result =  this.database.prepare(query, [...values, ...whereArgs]).run()
+			const result = this.database.prepare(query).run(...values, ...whereArgs)
 			return result
 		} catch (err) {
 			throw err
@@ -265,11 +267,11 @@ export class SQLite {
 	): Promise<T[] | null> {
 		this.tableMatch(tableName)
 		let whereSentence = ''
-		let whereArgs = []
+		let whereArgs: SQLQueryBindings[] = []
 		if (whereClause) {
 			const splited = translateMongoJsonToSql(whereClause)
 			whereSentence = splited.whereStatement
-			whereArgs = splited.values
+			whereArgs = splited.values as SQLQueryBindings[]
 		}
 
 		let orderByClause = ''
@@ -289,7 +291,7 @@ export class SQLite {
 			if (offset) {
 				query += ` OFFSET ${offset}`
 			}
-			const result = this.database.query(query).all() as T[]
+			const result = this.database.prepare(query).all(...whereArgs) as T[]
 			return result
 		} catch (err: any) {
 			throw new Error(`Failed to execute SELECT query: ${err.message}`);
