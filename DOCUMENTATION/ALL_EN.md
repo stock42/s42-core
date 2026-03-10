@@ -80,12 +80,14 @@ Runtime schema (`zod`) requires:
   name: string
   version: string
   type?: 'mws' | 'full' | 'share' // defaults to 'full'
+  enabled?: boolean // defaults to true
 }
 ```
 
 Notes:
-- Additional keys (for example `dependencies`) can exist in files, but the loader currently uses only `name`, `version`, and `type` for behavior.
+- Additional keys (for example `dependencies`) can exist in files, but the loader currently uses `name`, `version`, `type`, and `enabled` for behavior.
 - If `type` is omitted, module is treated as `full`.
+- If `enabled` is `false`, the module is skipped entirely during discovery.
 
 ### 4.2 Module Types
 
@@ -139,10 +141,11 @@ properties/
 
 `Modules.load()` executes in this order:
 1. Discover all modules.
-2. Load all `mws` modules.
-3. Load all `share` modules.
-4. Load all `full` module controllers.
-5. Load all `full` module events.
+2. Skip manifests with `enabled: false`.
+3. Load all `mws` modules.
+4. Load all `share` modules.
+5. Load all `full` module controllers.
+6. Load all `full` module events.
 
 This guarantees middleware exists before full controllers are built.
 

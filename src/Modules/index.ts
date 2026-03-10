@@ -8,6 +8,7 @@ export const Module = z.object({
 	name: z.string(),
 	version: z.string(),
 	type: z.enum(['mws', 'full', 'share']).default('full'),
+	enabled: z.boolean().default(true),
 })
 
 export const Model = z.object({
@@ -173,11 +174,15 @@ export class Modules {
 				continue
 			}
 
-			console.log(':green_circle: Loading module:', file)
+			console.log('📦 Loading module:', file)
 			const moduleFilePath = this.toAbsolutePath(this.joinPath(this.path, file))
 			const completedPath = this.toFileImportURL(moduleFilePath)
 			const loadedModule = await import(completedPath)
 			const module = Module.parse(loadedModule.default)
+			if (!module.enabled) {
+				console.log('⏭️  Skipping disabled module:', module.name)
+				continue
+			}
 			modulesFound.push({ module, moduleFilePath })
 		}
 

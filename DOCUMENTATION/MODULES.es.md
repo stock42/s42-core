@@ -55,6 +55,8 @@ const modules = new Modules('./modules', eventsDomain?)
 - `getControllers()`
 - `getHooks()`
 - `getSharedModules()`
+- `getLoadedModules()`
+- `getModulesStats()`
 - `getServices()`
 - `getModels()`
 - `getTypes()`
@@ -66,9 +68,12 @@ export default {
   name: 'operators',
   version: '1.0.0',
   type: 'full',
+  enabled: true,
   dependencies: [{ module: 'auth', version: 1 }],
 }
 ```
+
+`enabled` por defecto es `true`. Si un modulo define `enabled: false`, el loader lo omite por completo, incluyendo middleware, controllers y eventos.
 
 ## Ejemplo de controlador con middleware on-demand
 
@@ -86,6 +91,7 @@ export default {
 ## Notas
 
 - Los modulos `share` ignoran `controllers/`, `events/` y `mws/`.
+- Los modulos deshabilitados (`enabled: false`) se ignoran durante el discovery y no entran al pipeline de carga.
 - Los archivos en `events/` se registran automaticamente si `EventsDomain` esta configurado.
 - Mantener contratos de modulo estrictos y versionados.
 

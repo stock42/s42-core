@@ -55,6 +55,8 @@ const modules = new Modules('./modules', eventsDomain?)
 - `getControllers()`
 - `getHooks()`
 - `getSharedModules()`
+- `getLoadedModules()`
+- `getModulesStats()`
 - `getServices()`
 - `getModels()`
 - `getTypes()`
@@ -66,9 +68,12 @@ export default {
   name: 'operators',
   version: '1.0.0',
   type: 'full',
+  enabled: true,
   dependencies: [{ module: 'auth', version: 1 }],
 }
 ```
+
+`enabled` defaults to `true`. If a module sets `enabled: false`, the loader skips it completely, including middleware, controllers, and events.
 
 ## Example controller using middleware on-demand
 
@@ -86,6 +91,7 @@ export default {
 ## Notes
 
 - `share` modules intentionally ignore `controllers/`, `events/`, and `mws/` folders.
+- Disabled modules (`enabled: false`) are ignored during discovery and never enter the load pipeline.
 - Event files under `events/` are auto-registered when `EventsDomain` is configured.
 - Keep module contracts strict and versioned.
 
