@@ -21,8 +21,10 @@ Main exports:
 - `Server`
 - `RouteControllers`
 - `Controller`
+- `getControllersStats`
 - `Res`
 - `Modules`
+- `getModulesStats`
 - `EventsDomain`
 - `RedisEventsAdapter`
 - `SQSEventsAdapter`
@@ -32,6 +34,7 @@ Main exports:
 - `SQL`
 - `SQLite`
 - `SSE`
+- `CoreStats`
 - `Cluster`
 - `Test` namespace
 - `ViewTemplates`
@@ -832,7 +835,34 @@ export default {
 }
 ```
 
-## 8.2 `Cluster`
+## 8.2 `CoreStats`
+
+Automatic introspection endpoint exposed as `GET /core/stats` when `ENABLE_CORE_STATS=true`.
+
+No manual bootstrap is required. It is registered automatically when you build `RouteControllers`.
+
+```ts
+import { Modules, RouteControllers, Server } from 's42-core'
+
+const modules = new Modules('./modules')
+await modules.load()
+
+const server = new Server()
+await server.start({
+  port: 5678,
+  RouteControllers: new RouteControllers(modules.getControllers()),
+  hooks: modules.getHooks(),
+})
+```
+
+Response includes:
+- all exposed endpoints (`method` + `path`)
+- all loaded modules (`mws`, `share`, `full`)
+- system information from `free -m`, `df -h`, `uptime`, `who`, and `cpupower frequency-info`
+
+If the env var is missing or false, the route is not injected.
+
+## 8.3 `Cluster`
 
 Worker orchestration with `Bun.spawn` and IPC.
 
@@ -857,7 +887,7 @@ cluster.start('./modules/server.ts', err => {
 })
 ```
 
-## 8.3 `sendEmail` (Mailgun)
+## 8.4 `sendEmail` (Mailgun)
 
 ```ts
 import { sendEmail } from 's42-core/dist/Mailgun'
@@ -874,7 +904,7 @@ await sendEmail({
 })
 ```
 
-## 8.4 `ViewTemplates`
+## 8.5 `ViewTemplates`
 
 ```ts
 import { ViewTemplates } from 's42-core'
@@ -890,7 +920,7 @@ Supports:
 - `{{nested.key}}`
 - `{{#each list}}...{{/each}}` + `{{this.field}}`
 
-## 8.5 `Test` Helpers
+## 8.6 `Test` Helpers
 
 `Test` namespace exports:
 - `Init`

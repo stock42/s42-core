@@ -46,6 +46,44 @@ export type ControllerType = z.infer<typeof Controllers>[number]
 export type TypesType = z.infer<typeof Types>
 export type ModuleType = z.infer<typeof Module>
 
+export type ModulesStats = {
+	totalModulesLoaded: number
+	totalModulesFull: number
+	totalModulesShare: number
+	totalModulesMws: number
+	modulesNames: string[]
+	modules: ModuleType[]
+}
+
+const loadedModulesRegistry = new Map<string, ModuleType>()
+
+export function getModulesStats(): ModulesStats {
+	const modules = Array.from(loadedModulesRegistry.values()).sort((left, right) => {
+		if (left.type !== right.type) {
+			return left.type.localeCompare(right.type)
+		}
+
+		if (left.name !== right.name) {
+			return left.name.localeCompare(right.name)
+		}
+
+		return left.version.localeCompare(right.version)
+	})
+
+	return {
+		totalModulesLoaded: modules.length,
+		totalModulesFull: modules.filter(module => module.type === 'full').length,
+		totalModulesShare: modules.filter(module => module.type === 'share').length,
+		totalModulesMws: modules.filter(module => module.type === 'mws').length,
+		modulesNames: modules.map(module => module.name),
+		modules,
+	}
+}
+
+export function clearModulesStats(): void {
+	loadedModulesRegistry.clear()
+}
+
 type TypeDiscoveredModule = {
 	module: ModuleType
 	moduleFilePath: string
@@ -68,6 +106,7 @@ export class Modules {
 	private readonly controllers: Controller[] = []
 	private readonly hooks: TypeHook[] = []
 	private readonly middlewareModules: Map<string, TypeRegisteredMiddleware> = new Map()
+	private readonly fullModules: ModuleType[] = []
 	private readonly sharedModules: ModuleType[] = []
 	private readonly services: ServiceType[] = []
 	private readonly models: ModelType[] = []
@@ -90,7 +129,9 @@ export class Modules {
 		const shareModules = discoveredModules.filter(
 			discovered => discovered.module.type === 'share',
 		)
-		const fullModules = discoveredModules.filter(discovered => discovered.module.type === 'full')
+		const fullModules = discoveredModules.filter(
+			discovered => discovered.module.type === 'full',
+		)
 
 		for (const discovered of middlewareModules) {
 			await this.loadMiddleware(discovered.module, discovered.moduleFilePath)
@@ -107,7 +148,8 @@ export class Modules {
 	}
 
 	private async loadShare(module: ModuleType, moduleFilePath: string): Promise<void> {
-		this.sharedModules.push(module)
+		registerModuleStats(module)
+		this.trackModule(this.sharedModules, module)
 
 		const moduleDir = this.dirname(moduleFilePath)
 		const unsupportedShareDirs = ['controllers', 'events', 'mws']
@@ -131,7 +173,7 @@ export class Modules {
 				continue
 			}
 
-			console.log('loading module:', file)
+			console.log(':green_circle: Loading module:', file)
 			const moduleFilePath = this.toAbsolutePath(this.joinPath(this.path, file))
 			const completedPath = this.toFileImportURL(moduleFilePath)
 			const loadedModule = await import(completedPath)
@@ -142,7 +184,11 @@ export class Modules {
 		return modulesFound
 	}
 
-	private async loadMiddleware(module: ModuleType, moduleFilePath: string): Promise<void> {
+	private async loadMiddleware(
+		module: ModuleType,
+		moduleFilePath: string,
+	): Promise<void> {
+		registerModuleStats(module)
 		const middlewarePath = this.joinPath(this.dirname(moduleFilePath), 'mws', 'index.ts')
 
 		if (!(await this.fileExists(middlewarePath))) {
@@ -209,6 +255,8 @@ export class Modules {
 	}
 
 	async loadControllers(module: ModuleType, moduleFilePath: string) {
+		registerModuleStats(module)
+		this.trackModule(this.fullModules, module)
 		console.log(
 			`loading all controllers for ${module.name}@${module.version} - ${moduleFilePath}`,
 		)
@@ -217,10 +265,9 @@ export class Modules {
 		const controllersDir = this.joinPath(this.dirname(moduleFilePath), 'controllers')
 		try {
 			for await (const file of glob.scan(controllersDir)) {
-				console.log('loading controller:', file)
+				console.log(':green_circle: Loading controller:', file)
 				const controllerPath = this.joinPath(controllersDir, file)
 				const completedPath = this.toFileImportURL(controllerPath)
-				console.log('completed path:', completedPath)
 				const controllerModule = await import(completedPath)
 				const controller = controllerModule.default as ControllerType &
 					Record<string, unknown>
@@ -233,41 +280,37 @@ export class Modules {
 					controller,
 					'after',
 				)
-				const beforeMiddlewares = this.resolveMiddlewareReferences(beforeMiddlewareRefs).map(
-					middleware => middleware.beforeRequest,
-				)
-				const afterMiddlewares = this.resolveMiddlewareReferences(afterMiddlewareRefs).map(
-					middleware => middleware.afterRequest,
-				)
+				const beforeMiddlewares = this.resolveMiddlewareReferences(
+					beforeMiddlewareRefs,
+				).map(middleware => middleware.beforeRequest)
+				const afterMiddlewares = this.resolveMiddlewareReferences(
+					afterMiddlewareRefs,
+				).map(middleware => middleware.afterRequest)
 
 				this.controllers.push(
-					new Controller(
-						controller.method,
-						controller.path,
-						async (req, res) => {
-							try {
-								await this.executeMiddlewareHandlers(
-									beforeMiddlewares,
-									req as unknown as Request,
-									res as unknown as Response,
-								)
+					new Controller(controller.method, controller.path, async (req, res) => {
+						try {
+							await this.executeMiddlewareHandlers(
+								beforeMiddlewares,
+								req as unknown as Request,
+								res as unknown as Response,
+							)
 
-								const response = await controller.handler(req, res)
+							const response = await controller.handler(req, res)
 
-								await this.executeMiddlewareHandlers(
-									afterMiddlewares,
-									req as unknown as Request,
-									res as unknown as Response,
-								)
-								return response
-							} catch (err: unknown) {
-								if (controller.handleError) {
-									return controller.handleError(req, res, err)
-								}
-								throw err
+							await this.executeMiddlewareHandlers(
+								afterMiddlewares,
+								req as unknown as Request,
+								res as unknown as Response,
+							)
+							return response
+						} catch (err: unknown) {
+							if (controller.handleError) {
+								return controller.handleError(req, res, err)
 							}
-						},
-					),
+							throw err
+						}
+					}),
 				)
 			}
 		} catch (error) {
@@ -599,6 +642,23 @@ export class Modules {
 		this.eventsDomain = eventsDomain
 		return this
 	}
+
+	private trackModule(collection: ModuleType[], module: ModuleType): void {
+		if (
+			collection.some(item => {
+				return (
+					item.name === module.name &&
+					item.version === module.version &&
+					item.type === module.type
+				)
+			})
+		) {
+			return
+		}
+
+		collection.push(module)
+	}
+
 	getControllers(): Controller[] {
 		return this.controllers
 	}
@@ -609,6 +669,14 @@ export class Modules {
 
 	getSharedModules(): ModuleType[] {
 		return this.sharedModules
+	}
+
+	getLoadedModules(): ModuleType[] {
+		return [
+			...Array.from(this.middlewareModules.values()).map(middleware => middleware.module),
+			...this.sharedModules,
+			...this.fullModules,
+		]
 	}
 
 	getServices(): ServiceType[] {
@@ -622,4 +690,12 @@ export class Modules {
 	getTypes(): TypesType {
 		return this.types
 	}
+}
+
+function registerModuleStats(module: ModuleType): void {
+	loadedModulesRegistry.set(getModuleKey(module), module)
+}
+
+function getModuleKey(module: ModuleType): string {
+	return `${module.type}:${module.name}:${module.version}`
 }

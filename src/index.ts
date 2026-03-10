@@ -1,4 +1,17 @@
 export { Cluster } from './Cluster'
+export {
+	CoreStats,
+	type CoreStatsCommand,
+	type CoreStatsCommandRunner,
+	type CoreStatsCommandResult,
+	type CoreStatsConstructor,
+	type CoreStatsDisk,
+	type CoreStatsEndpoint,
+	type CoreStatsModule,
+	type CoreStatsMemory,
+	type CoreStatsPayload,
+	type CoreStatsSystem,
+} from './CoreStats'
 export { Res } from './Response'
 export { Server } from './Server'
 export { EventsDomain } from './EventsDomain'
@@ -10,7 +23,12 @@ export {
 export { Dependencies } from './Dependencies'
 export { MongoClient } from './MongoDB'
 export { RedisClient } from './RedisDB'
-export { Controller } from './Controller'
+export {
+	Controller,
+	getControllersStats,
+	type ControllerStatsEndpoint,
+	type ControllersStats,
+} from './Controller'
 export { RouteControllers } from './RouteControllers'
 export { SSE, type TypeSSEventToSend } from './SSE'
 export * as Test from './Test'
@@ -22,7 +40,9 @@ export {
 	Model,
 	Service,
 	Controllers,
+	getModulesStats,
 	type ModelType,
+	type ModulesStats,
 	type ServiceType,
 	type ControllerType,
 } from './Modules'

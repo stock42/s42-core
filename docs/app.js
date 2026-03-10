@@ -139,6 +139,15 @@ const docsCatalog = [
     },
   },
   {
+    id: 'CORESTATS',
+    category: 'utilities',
+    file: 'CORESTATS.md',
+    title: {
+      en: 'CoreStats',
+      es: 'CoreStats',
+    },
+  },
+  {
     id: 'DEPENDENCIES',
     category: 'utilities',
     file: 'DEPENDENCIES.md',

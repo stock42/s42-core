@@ -76,6 +76,8 @@ await server.start({
 })
 ```
 
+If `ENABLE_CORE_STATS=true`, `RouteControllers` also injects `GET /core/stats` automatically unless that route already exists.
+
 ## Notes
 
 - `OPTIONS` is handled with 204 + CORS headers.

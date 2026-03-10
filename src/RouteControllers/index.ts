@@ -1,4 +1,5 @@
 import { type Controller } from '../Controller/index.js'
+import { getCoreStatsController, getCoreStatsPath } from '../CoreStats/index.js'
 import { Res } from '../Response/index.js'
 import type { TypeHook } from '../Server/types.js'
 import {
@@ -14,8 +15,29 @@ export class RouteControllers {
     private routesMapCache: TypeRoutesMapCache = {}
 
     constructor(controllers: Controller[]) {
-        this.localControllers = controllers
+        this.localControllers = this.attachCoreStatsController(controllers)
         this.processAllControllers()
+    }
+
+    private attachCoreStatsController(controllers: Controller[]): Controller[] {
+        const localControllers = [...controllers]
+        const hasCoreStats = localControllers.some(controller => {
+            return (
+                controller.getPath() === getCoreStatsPath() &&
+                controller.getMethods().includes('GET')
+            )
+        })
+
+        if (hasCoreStats) {
+            return localControllers
+        }
+
+        const coreStatsController = getCoreStatsController()
+        if (!coreStatsController) {
+            return localControllers
+        }
+
+        return [coreStatsController, ...localControllers]
     }
 
     private processAllControllers(): void {
