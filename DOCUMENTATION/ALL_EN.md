@@ -156,10 +156,23 @@ Controller metadata fields supported by loader:
 - `requireAfter?: string[]`
 - `beforeRequest?: string[]` (alias)
 - `afterRequest?: string[]` (alias)
+- `handler(req, res, { events })`
 
 Reference modes:
 - `['mws']` => all loaded middleware modules
 - `['auth']` => one specific middleware module by module name
+
+`handler` receives a third runtime argument:
+
+```ts
+{
+  events: {
+    emit(eventName: string, payload?: object)
+  }
+}
+```
+
+`events.emit()` is namespaced automatically with the module name at runtime.
 
 Example from repo:
 
@@ -168,8 +181,8 @@ export default {
   method: 'POST',
   path: '/operators/create',
   requireBefore: ['auth'],
-  handler: async (req, res) => {
-    // handler
+  handler: async (req, res, { events }) => {
+    events.emit('Operator$Create$Started', { actor: req.user?.uuid })
     return res.json({ ok: true })
   },
 }

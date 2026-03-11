@@ -34,6 +34,28 @@ Cada archivo en `controllers/` exporta un `ControllerType` con:
 - `handleError` (opcional)
 - `requireBefore` / `requireAfter` (opcionales)
 
+Ejemplo:
+
+```ts
+import type { ControllerType } from '@/Modules'
+
+export default {
+  name: 'operatorList',
+  version: '1.0.0',
+  method: 'GET',
+  path: '/operators/list',
+  enabled: true,
+  requireBefore: ['auth'],
+  handler: async (req, res, { events }) => {
+    events.emit('Operator$List$Completed', { ok: true })
+    return res.json({ ok: true })
+  },
+  handleError: async (req, res, err) => res.status(500).json({ ok: false, error: 'Error' }),
+} as ControllerType
+```
+
+El tercer argumento es un contexto runtime. Actualmente expone `{ events }`.
+
 ## Middleware por ruta
 
 - `['mws']`: ejecuta todos los modules middleware cargados.

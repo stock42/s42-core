@@ -58,5 +58,6 @@ usersList.use(async (req, res) => {
 - Retornar `Response` de forma explicita mejora la predictibilidad.
 - Mantener middlewares acotados (auth, validacion, normalizacion).
 - `update()` y `UPDATE` existen hoy en la API, pero conviene revisarlos por consistencia HTTP estandar.
+- Esta pagina documenta `new Controller(...)`. La metadata `ControllerType` cargada via `Modules` usa `handler(req, res, { events })`.
 
 S42-Core fue desarrollado por Cesar Casas y Stock42 LLC con ingenieria asistida por AI (Codex).

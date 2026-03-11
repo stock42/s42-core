@@ -1,16 +1,16 @@
-import { Server, RouteControllers, Modules } from '../src'
+import { Server, RouteControllers, Modules, EventsDomain } from '../src'
 
 export async function server() {
 	console.info('Modules server testing v1.0')
 
 	const apiServer = new Server()
 
-	const modules = new Modules('./modules/')
+	const modules = new Modules('./modules/', EventsDomain.getInstance())
 	await modules.load()
 	const modulesHooks = modules.getHooks()
 
 	apiServer.start({
-		port: Number.parseInt(String(process?.env?.SERVER_PORT ?? 5678), 10),
+		port: Number.parseInt(String(process?.env?.SERVER_PORT ?? 4455), 10),
 		clustering: false,
 		idleTimeout: 30,
 		maxRequestBodySize: Number.MAX_SAFE_INTEGER,

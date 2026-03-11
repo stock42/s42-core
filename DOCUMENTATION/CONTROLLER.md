@@ -58,5 +58,6 @@ usersList.use(async (req, res) => {
 - Return `Response` explicitly from middleware/handler for predictable flow.
 - Keep middleware focused (auth, validation, normalization).
 - `update()` and `UPDATE` are currently supported in API but should be reviewed for HTTP standard consistency.
+- This page documents `new Controller(...)`. Module controller metadata loaded via `Modules` uses `handler(req, res, { events })`.
 
 S42-Core is developed by Cesar Casas and Stock42 LLC with AI-assisted engineering (Codex).

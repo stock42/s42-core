@@ -311,7 +311,7 @@ const exampleSets = {
     {
       id: 'full',
       label: 'full controller',
-      code: `export default {\n  name: 'operatorList',\n  version: '1.0.0',\n  method: 'GET',\n  path: '/operators/list',\n  requireBefore: ['auth'],\n  handler: async (req, res) => {\n    return res.json({ ok: true, docs: [] })\n  },\n  handleError: async (req, res, err) => {\n    return res.status(500).json({ ok: false, error: String(err) })\n  },\n}`,
+      code: `export default {\n  name: 'operatorList',\n  version: '1.0.0',\n  method: 'GET',\n  path: '/operators/list',\n  requireBefore: ['auth'],\n  handler: async (req, res, { events }) => {\n    events.emit('Operator$List$Completed', { ok: true })\n    return res.json({ ok: true, docs: [] })\n  },\n  handleError: async (req, res, err) => {\n    return res.status(500).json({ ok: false, error: String(err) })\n  },\n}`,
     },
     {
       id: 'events',
@@ -333,7 +333,7 @@ const exampleSets = {
     {
       id: 'full',
       label: 'Controller full',
-      code: `export default {\n  name: 'operatorList',\n  version: '1.0.0',\n  method: 'GET',\n  path: '/operators/list',\n  requireBefore: ['auth'],\n  handler: async (req, res) => {\n    return res.json({ ok: true, docs: [] })\n  },\n  handleError: async (req, res, err) => {\n    return res.status(500).json({ ok: false, error: String(err) })\n  },\n}`,
+      code: `export default {\n  name: 'operatorList',\n  version: '1.0.0',\n  method: 'GET',\n  path: '/operators/list',\n  requireBefore: ['auth'],\n  handler: async (req, res, { events }) => {\n    events.emit('Operator$List$Completed', { ok: true })\n    return res.json({ ok: true, docs: [] })\n  },\n  handleError: async (req, res, err) => {\n    return res.status(500).json({ ok: false, error: String(err) })\n  },\n}`,
     },
     {
       id: 'events',

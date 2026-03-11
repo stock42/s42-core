@@ -84,9 +84,20 @@ export default {
   method: 'GET',
   path: '/operators/list',
   requireBefore: ['mws'],
-  handler: async (req, res) => res.json({ ok: true }),
+  handler: async (req, res, { events }) => {
+    events.emit('Operator$List$Completed', { ok: true })
+    return res.json({ ok: true })
+  },
 }
 ```
+
+Contrato de controlador cargado por `Modules`:
+
+- `handler` debe ser una funcion.
+- Firma: `handler(req, res, { events })`.
+- El tercer argumento expone `{ events }`.
+- Ahi existe `events.emit(eventName, payload?)`.
+- El nombre emitido se prefija automaticamente con el nombre del modulo en runtime.
 
 ## Notas
 

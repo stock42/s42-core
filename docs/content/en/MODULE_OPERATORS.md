@@ -43,10 +43,15 @@ export default {
   path: '/operators/list',
   enabled: true,
   requireBefore: ['auth'],
-  handler: async (req, res) => res.json({ ok: true }),
+  handler: async (req, res, { events }) => {
+    events.emit('Operator$List$Completed', { ok: true })
+    return res.json({ ok: true })
+  },
   handleError: async (req, res, err) => res.status(500).json({ ok: false, error: 'Error' }),
 } as ControllerType
 ```
+
+The third argument is a runtime context object. Right now it exposes `{ events }`.
 
 ## On-demand middleware
 

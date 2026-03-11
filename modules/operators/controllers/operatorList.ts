@@ -1,4 +1,6 @@
-import type { ControllerType } from '@/Modules'
+import type { ControllerType } from '../../../src/Modules'
+
+import {} from '../events/emit'
 
 export default {
 	name: 'operatorList',
@@ -6,7 +8,12 @@ export default {
 	method: 'GET',
 	path: '/operators/list',
 	enabled: true,
-	handler: async (req: any, res: any) => {
+	handler: async (req: any, res: any, { events }) => {
+		console.info(events)
+		events.emit('Operator$List$Completed', {
+			firstName: 'pepe',
+			lastName: 'luis',
+		})
 		return res.json({
 			ok: true,
 			docs: [{ id: 1, name: 'John Doe' }],
@@ -19,5 +26,4 @@ export default {
 			msg: 'Error',
 		})
 	},
-	// requireBefore: ['mws'],
 } as ControllerType
