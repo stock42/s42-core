@@ -1,7 +1,7 @@
 import { Glob } from 'bun'
 import { z } from 'zod'
 import { Controller } from '../Controller'
-import type { EventsDomain, EventPayload } from '../EventsDomain'
+import type { EventsDomain } from '../EventsDomain'
 import type { TypeHook } from '../Server/types'
 
 // 🤖🧩📡⚙️🔎⭕️
@@ -43,7 +43,12 @@ export const Controllers = z.array(
 			]),
 			output: z.any(),
 		}),
-		handleError: z.function().optional(),
+		handleError: z
+			.function({
+				input: z.tuple([z.any(), z.any(), z.any()]),
+				output: z.void(),
+			})
+			.optional(),
 		method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']),
 		path: z.string(),
 		enabled: z.boolean().optional(),
@@ -318,7 +323,7 @@ export class Modules {
 
 							const response = (await controller.handler(req, res, {
 								events: {
-									emit: (event: string, payload: EventPayload) =>
+									emit: (event: string, payload: any) =>
 										this.eventsDomain?.emit({
 											eventName: `${module.name}.${event}`,
 											payload: payload ?? undefined,

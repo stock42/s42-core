@@ -1,3 +1,4 @@
+import { type TLSOptions } from 'bun'
 
 export type tableRowSchema = {
 	cid: number
@@ -26,11 +27,11 @@ export type KeyValueData = { [key: string]: any }
 export type TypeReturnQuery = {
 	lastInsertRowId?: number | string
 	changes?: number
-    affectedRows?: number
+	affectedRows?: number
 }
 
 export type TypeSQLConnection = {
-    type: 'mysql' | 'postgres' | 'sqlite'
-    url?: string
-    config?: any
+	type: 'mysql' | 'postgres' | 'sqlite'
+	url?: string
+	tls?: TLSOptions
 }

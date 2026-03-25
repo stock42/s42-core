@@ -1,6 +1,6 @@
 {
 	"name": "s42-core",
-	"version": "3.0.4",
+	"version": "3.0.5",
 	"description": "S42-Core v3 is a Bun-first, 100% module-oriented backend framework where each module encapsulates everything needed to work autonomously in production systems.",
 	"keywords": [
 		"bun",

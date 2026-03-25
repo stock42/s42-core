@@ -70,7 +70,9 @@ export class SQL {
 		} else {
 			// For Postgres and MySQL, we use Bun's native SQL client
 			if (config.url) {
-				this.dbInstance = new BunSQL(config.url)
+				this.dbInstance = new BunSQL(config.url, {
+					...(config.tls ? { tls: config.tls } : {}),
+				})
 			} else {
 				// Fallback to default env vars if no URL provided, or empty constructor
 				this.dbInstance = new BunSQL()
@@ -81,29 +83,32 @@ export class SQL {
 	private async executeQuery(query: string, params: any[] = []): Promise<any> {
 		if (this.dbType === 'sqlite') {
 			const statement = this.dbInstance.prepare(query)
-			if (query.trim().toUpperCase().startsWith('SELECT') || query.trim().toUpperCase().startsWith('PRAGMA')) {
+			if (
+				query.trim().toUpperCase().startsWith('SELECT') ||
+				query.trim().toUpperCase().startsWith('PRAGMA')
+			) {
 				return statement.all(...params)
 			} else {
 				return statement.run(...params)
 			}
 		} else {
 			// Bun SQL (Postgres/MySQL)
-            // We use the template tag function simulation by splitting the query by '?'
-            // This allows us to pass parameters safely to Bun's SQL template tag.
+			// We use the template tag function simulation by splitting the query by '?'
+			// This allows us to pass parameters safely to Bun's SQL template tag.
 
-            if (this.dbType === 'postgres' || this.dbType === 'mysql') {
-                 const parts = query.split('?')
+			if (this.dbType === 'postgres' || this.dbType === 'mysql') {
+				const parts = query.split('?')
 
-                 // Safety check: ensure parts match params
-                 // Note: This simple split might fail if '?' is inside a string literal in the query.
-                 // For a robust implementation, a proper SQL parser/tokenizer is needed,
-                 // but for this abstraction level we assume standard usage.
+				// Safety check: ensure parts match params
+				// Note: This simple split might fail if '?' is inside a string literal in the query.
+				// For a robust implementation, a proper SQL parser/tokenizer is needed,
+				// but for this abstraction level we assume standard usage.
 
-                 const strings: any = parts;
-                 strings.raw = parts;
+				const strings: any = parts
+				strings.raw = parts
 
-                 return this.dbInstance(strings, ...params);
-            }
+				return this.dbInstance(strings, ...params)
+			}
 		}
 	}
 
@@ -157,7 +162,7 @@ export class SQL {
 					const row = result[0]
 					return {
 						lastInsertRowId: row.id || row.ID || 0,
-						changes: 1
+						changes: 1,
 					}
 				}
 				return { changes: 0 }
@@ -170,7 +175,7 @@ export class SQL {
 				// If result has `insertId`, use it.
 				return {
 					lastInsertRowId: (result as any).insertId,
-					changes: (result as any).affectedRows
+					changes: (result as any).affectedRows,
 				}
 			}
 		} catch (err) {
@@ -224,10 +229,12 @@ export class SQL {
 			return result as tableInternalSchema[]
 		} else if (this.dbType === 'postgres') {
 			// Map to tableInternalSchema
-			return result.map((row: any) => ({ name: row.name, type: 'table' } as any))
+			return result.map((row: any) => ({ name: row.name, type: 'table' }) as any)
 		} else {
 			// MySQL returns { Tables_in_dbname: 'tablename' }
-			return result.map((row: any) => ({ name: Object.values(row)[0], type: 'table' } as any))
+			return result.map(
+				(row: any) => ({ name: Object.values(row)[0], type: 'table' }) as any,
+			)
 		}
 	}
 
@@ -245,7 +252,7 @@ export class SQL {
 				notnull: row.notnull === 'NO' ? 1 : 0,
 				dflt_value: row.dflt_value,
 				pk: 0, // Hard to get PK simply in one query without joins
-				cid: 0
+				cid: 0,
 			}))
 		} else {
 			// MySQL
@@ -257,7 +264,7 @@ export class SQL {
 				notnull: row.Null === 'NO' ? 1 : 0,
 				dflt_value: row.Default,
 				pk: row.Key === 'PRI' ? 1 : 0,
-				cid: 0
+				cid: 0,
 			}))
 		}
 	}
@@ -313,14 +320,17 @@ export class SQL {
 		}
 	}
 
-    public async deleteById(tableName: string, id: string | number): Promise<number | null> {
-        return this.delete(tableName, { id })
-    }
+	public async deleteById(
+		tableName: string,
+		id: string | number,
+	): Promise<number | null> {
+		return this.delete(tableName, { id })
+	}
 
 	public async update({
 		tableName,
 		whereClause,
-		data
+		data,
 	}: {
 		tableName: string
 		whereClause: object
@@ -345,9 +355,9 @@ export class SQL {
 			if (this.dbType === 'sqlite') {
 				return result.changes
 			} else if (this.dbType === 'postgres') {
-                 // Similar issue with rowCount
-                 return (result as any).rowCount || 0
-            } else {
+				// Similar issue with rowCount
+				return (result as any).rowCount || 0
+			} else {
 				return (result as any).affectedRows
 			}
 		} catch (err) {
@@ -355,8 +365,12 @@ export class SQL {
 		}
 	}
 
-	public async updateById(tableName: string, id: string | number, data: KeyValueData): Promise<number | null> {
-			return this.update({ tableName, whereClause: { id }, data })
+	public async updateById(
+		tableName: string,
+		id: string | number,
+		data: KeyValueData,
+	): Promise<number | null> {
+		return this.update({ tableName, whereClause: { id }, data })
 	}
 
 	public async count({
@@ -432,31 +446,38 @@ export class SQL {
 		}
 	}
 
-    public async selectPaginate<T>({
-        tableName,
-        page = 1,
-        limit = 10,
-        columns = ['*'],
-        whereClause,
-        sort
-    }: {
-        tableName: string
-        page?: number
-        limit?: number
-        columns?: string[]
-        whereClause?: object
-        sort?: { [key: string]: number }
-    }): Promise<{ data: T[], total: number, page: number, limit: number }> {
-        const data = await this.select<T>({ tableName, columns, whereClause, sort, limit, page })
+	public async selectPaginate<T>({
+		tableName,
+		page = 1,
+		limit = 10,
+		columns = ['*'],
+		whereClause,
+		sort,
+	}: {
+		tableName: string
+		page?: number
+		limit?: number
+		columns?: string[]
+		whereClause?: object
+		sort?: { [key: string]: number }
+	}): Promise<{ data: T[]; total: number; page: number; limit: number }> {
+		const data = await this.select<T>({
+			tableName,
+			columns,
+			whereClause,
+			sort,
+			limit,
+			page,
+		})
 
-        // Count total
-        const total = await this.count({ tableName, whereClause })
+		// Count total
+		const total = await this.count({ tableName, whereClause })
 
-        return {
-            data: data || [],
-            total: Number(total),
-            page,
-            limit
-        }
-    }
+		return {
+			data: data || [],
+			total: Number(total),
+			page,
+			limit,
+		}
+	}
 }
