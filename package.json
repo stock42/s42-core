@@ -1,6 +1,6 @@
 {
 	"name": "s42-core",
-	"version": "3.0.5",
+	"version": "3.0.6",
 	"description": "S42-Core v3 is a Bun-first, 100% module-oriented backend framework where each module encapsulates everything needed to work autonomously in production systems.",
 	"keywords": [
 		"bun",
@@ -70,22 +70,22 @@
 	},
 	"license": "MIT",
 	"dependencies": {
-		"@aws-sdk/client-sqs": "^3.1000.0",
+		"@aws-sdk/client-sqs": "^3.1041.0",
 		"jsonwebtoken": "^9.0.3",
 		"mongodb": "^6.21.0",
-		"zod": "^4.3.6"
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@types/bun": "^1.3.10",
-		"@types/node": "^22.19.13",
-		"@typescript-eslint/eslint-plugin": "^8.56.1",
-		"@typescript-eslint/parser": "^8.56.1",
-		"autoprefixer": "^10.4.27",
-		"eslint": "^9.39.3",
+		"@types/bun": "^1.3.13",
+		"@types/node": "^22.19.17",
+		"@typescript-eslint/eslint-plugin": "^8.59.1",
+		"@typescript-eslint/parser": "^8.59.1",
+		"autoprefixer": "^10.5.0",
+		"eslint": "^9.39.4",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-import": "^2.32.0",
 		"eslint-plugin-prettier": "^5.5.5",
-		"prettier": "^3.8.1",
+		"prettier": "^3.8.3",
 		"typescript": "^5.9.3"
 	}
 }
