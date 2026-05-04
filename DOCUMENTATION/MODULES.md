@@ -26,6 +26,8 @@ Domain modules with controllers and optional events.
 3. All `full` modules
 
 This guarantees middleware availability before full controllers are loaded.
+If a loaded module manifest provides `initialize`, the loader executes it immediately after that module finishes its own loading step.
+For `full` modules, that means after controllers and events are loaded.
 
 ## Controller-level middleware activation
 
@@ -70,10 +72,14 @@ export default {
   type: 'full',
   enabled: true,
   dependencies: [{ module: 'auth', version: 1 }],
+  initialize: async () => {
+    console.info('operators module ready')
+  },
 }
 ```
 
 `enabled` defaults to `true`. If a module sets `enabled: false`, the loader skips it completely, including middleware, controllers, and events.
+`initialize` is optional, receives no arguments, and can be sync or async. `Modules.load()` awaits it before moving to the next module.
 
 ## Example controller using middleware on-demand
 
@@ -103,6 +109,7 @@ Controller contract loaded by `Modules`:
 
 - `share` modules intentionally ignore `controllers/`, `events/`, and `mws/` folders.
 - Disabled modules (`enabled: false`) are ignored during discovery and never enter the load pipeline.
+- `initialize` only runs for enabled modules after their type-specific load completes.
 - Event files under `events/` are auto-registered when `EventsDomain` is configured.
 - Keep module contracts strict and versioned.
 

@@ -26,6 +26,9 @@ export default {
   version: '1.0.0',
   type: 'full', // optional, defaults to full
   dependencies: [{ module: 'auth', version: 1 }],
+  initialize: () => {
+    console.info('hola mundo, soy operators')
+  },
 }
 ```
 
@@ -73,7 +76,7 @@ Reference modes:
 1. `mws` modules initialize first
 2. `share` modules register
 3. `full` modules load controllers/events
-4. controller-level middleware executes on-demand
+4. module `initialize` hooks run after each module load
 
 ## Professional recommendations
 

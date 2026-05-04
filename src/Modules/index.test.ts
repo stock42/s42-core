@@ -62,4 +62,33 @@ describe('getModulesStats', () => {
 			'share',
 		])
 	})
+
+	test('runs module initialize hooks after each module is loaded', async () => {
+		const initializeEventsKey = '__s42CoreInitializeEvents'
+		;(globalThis as Record<string, unknown>)[initializeEventsKey] = []
+
+		await writeFile(
+			join(fixtureDir, 'auth', '__module__.ts'),
+			`export default { name: 'auth', version: '1.0.0', type: 'mws', initialize: () => globalThis.${initializeEventsKey}.push('auth') }\n`,
+		)
+		await writeFile(
+			join(fixtureDir, 'share', '__module__.ts'),
+			`export default { name: 'share', version: '1.0.0', type: 'share', initialize: async () => { await Bun.sleep(1); globalThis.${initializeEventsKey}.push('share') } }\n`,
+		)
+		await writeFile(
+			join(fixtureDir, 'operators', '__module__.ts'),
+			`export default { name: 'operators', version: '1.0.0', type: 'full', initialize: () => globalThis.${initializeEventsKey}.push('operators') }\n`,
+		)
+
+		const modules = new Modules(fixtureDir)
+		await modules.load()
+
+		expect((globalThis as Record<string, unknown>)[initializeEventsKey]).toEqual([
+			'auth',
+			'share',
+			'operators',
+		])
+
+		delete (globalThis as Record<string, unknown>)[initializeEventsKey]
+	})
 })

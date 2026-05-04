@@ -208,7 +208,7 @@ const i18n = {
     'hero.flow1': 'Load mws modules first',
     'hero.flow2': 'Register share modules',
     'hero.flow3': 'Load full controllers and events',
-    'hero.flow4': 'Execute middleware on-demand per route',
+    'hero.flow4': 'Run optional initialize hooks',
 
     'architecture.eyebrow': 'Platform Design',
     'architecture.title': 'Corporate-grade backend architecture on Bun',
@@ -221,7 +221,7 @@ const i18n = {
 
     'modules.eyebrow': 'Module Strategy',
     'modules.title': 'One framework, autonomous modules',
-    'modules.full': 'Domain modules with controllers, handlers, services and events.',
+    'modules.full': 'Domain modules with controllers, events and optional initialize hooks.',
     'modules.mws': 'Middleware modules with default, beforeRequest and afterRequest contracts.',
     'modules.share': 'Reusable contracts, helpers and shared services without route registration.',
 
@@ -262,7 +262,7 @@ const i18n = {
     'hero.flow1': 'Cargar primero los modulos mws',
     'hero.flow2': 'Registrar modulos share',
     'hero.flow3': 'Cargar controllers y eventos full',
-    'hero.flow4': 'Ejecutar middleware on-demand por ruta',
+    'hero.flow4': 'Ejecutar hooks initialize opcionales',
 
     'architecture.eyebrow': 'Diseno de Plataforma',
     'architecture.title': 'Arquitectura backend corporativa sobre Bun',
@@ -275,7 +275,7 @@ const i18n = {
 
     'modules.eyebrow': 'Estrategia Modular',
     'modules.title': 'Un framework, modulos autonomos',
-    'modules.full': 'Modulos de dominio con controllers, handlers, servicios y eventos.',
+    'modules.full': 'Modulos de dominio con controllers, eventos y hooks initialize opcionales.',
     'modules.mws': 'Modulos middleware con contratos default, beforeRequest y afterRequest.',
     'modules.share': 'Contratos y utilidades compartidas sin registro de rutas.',
 
@@ -309,6 +309,11 @@ const exampleSets = {
       code: `// modules/auth/mws/index.ts\nexport default async () => {\n  // one-time init\n}\n\nexport const beforeRequest = async (req, res) => {\n  return async (req, res, next) => {\n    if (!req.headers.get('authorization')) {\n      throw new Error('Token required')\n    }\n    return next(req, res)\n  }\n}\n\nexport const afterRequest = async (req, res) => res`,
     },
     {
+      id: 'module',
+      label: 'module manifest',
+      code: `// modules/operators/__module__.ts\nexport default {\n  name: 'operators',\n  version: '1.0.0',\n  type: 'full',\n  enabled: true,\n  dependencies: [{ module: 'auth', version: 1 }],\n  initialize: async () => {\n    console.info('operators module ready')\n  },\n}`,
+    },
+    {
       id: 'full',
       label: 'full controller',
       code: `export default {\n  name: 'operatorList',\n  version: '1.0.0',\n  method: 'GET',\n  path: '/operators/list',\n  requireBefore: ['auth'],\n  handler: async (req, res, { events }) => {\n    events.emit('Operator$List$Completed', { ok: true })\n    return res.json({ ok: true, docs: [] })\n  },\n  handleError: async (req, res, err) => {\n    return res.status(500).json({ ok: false, error: String(err) })\n  },\n}`,
@@ -329,6 +334,11 @@ const exampleSets = {
       id: 'mws',
       label: 'Modulo mws',
       code: `// modules/auth/mws/index.ts\nexport default async () => {\n  // inicializacion unica\n}\n\nexport const beforeRequest = async (req, res) => {\n  return async (req, res, next) => {\n    if (!req.headers.get('authorization')) {\n      throw new Error('Token requerido')\n    }\n    return next(req, res)\n  }\n}\n\nexport const afterRequest = async (req, res) => res`,
+    },
+    {
+      id: 'module',
+      label: 'Manifest modulo',
+      code: `// modules/operators/__module__.ts\nexport default {\n  name: 'operators',\n  version: '1.0.0',\n  type: 'full',\n  enabled: true,\n  dependencies: [{ module: 'auth', version: 1 }],\n  initialize: async () => {\n    console.info('operators module ready')\n  },\n}`,
     },
     {
       id: 'full',

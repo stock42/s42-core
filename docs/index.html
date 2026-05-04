@@ -135,7 +135,7 @@
                     <div class="flow-step"><span>1</span><p data-i18n="hero.flow1">Load <code>mws</code> modules first</p></div>
                     <div class="flow-step"><span>2</span><p data-i18n="hero.flow2">Register <code>share</code> modules</p></div>
                     <div class="flow-step"><span>3</span><p data-i18n="hero.flow3">Load <code>full</code> controllers and events</p></div>
-                    <div class="flow-step"><span>4</span><p data-i18n="hero.flow4">Execute middleware on-demand per route</p></div>
+                    <div class="flow-step"><span>4</span><p data-i18n="hero.flow4">Run optional <code>initialize</code> hooks</p></div>
                   </div>
 
                   <div class="terminal-box mt-4">
@@ -185,8 +185,8 @@
           <div class="grid lg:grid-cols-3 gap-5 mt-8">
             <article class="module-card reveal">
               <h3>full</h3>
-              <p data-i18n="modules.full">Domain modules with controllers, handlers, services and events.</p>
-              <code>controllers/ · events/ · models/ · services/</code>
+              <p data-i18n="modules.full">Domain modules with controllers, events and optional initialize hooks.</p>
+              <code>__module__.ts · controllers/ · events/</code>
             </article>
             <article class="module-card reveal delay-1">
               <h3>mws</h3>

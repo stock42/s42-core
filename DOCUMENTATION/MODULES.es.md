@@ -26,6 +26,8 @@ Modulos de dominio con controladores y eventos opcionales.
 3. Todos los `full`
 
 Esto garantiza disponibilidad de middleware antes de cargar controladores `full`.
+Si el manifest de un modulo cargado define `initialize`, el loader lo ejecuta inmediatamente despues de terminar la carga propia de ese modulo.
+En modulos `full`, eso ocurre despues de cargar controllers y eventos.
 
 ## Activacion de middleware por controlador
 
@@ -70,10 +72,14 @@ export default {
   type: 'full',
   enabled: true,
   dependencies: [{ module: 'auth', version: 1 }],
+  initialize: async () => {
+    console.info('operators module ready')
+  },
 }
 ```
 
 `enabled` por defecto es `true`. Si un modulo define `enabled: false`, el loader lo omite por completo, incluyendo middleware, controllers y eventos.
+`initialize` es opcional, no recibe argumentos y puede ser sync o async. `Modules.load()` lo espera antes de avanzar al siguiente modulo.
 
 ## Ejemplo de controlador con middleware on-demand
 
@@ -103,6 +109,7 @@ Contrato de controlador cargado por `Modules`:
 
 - Los modulos `share` ignoran `controllers/`, `events/` y `mws/`.
 - Los modulos deshabilitados (`enabled: false`) se ignoran durante el discovery y no entran al pipeline de carga.
+- `initialize` solo se ejecuta para modulos habilitados despues de terminar su carga segun el tipo.
 - Los archivos en `events/` se registran automaticamente si `EventsDomain` esta configurado.
 - Mantener contratos de modulo estrictos y versionados.
 

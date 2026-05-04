@@ -81,13 +81,16 @@ Runtime schema (`zod`) requires:
   version: string
   type?: 'mws' | 'full' | 'share' // defaults to 'full'
   enabled?: boolean // defaults to true
+  initialize?: () => unknown | Promise<unknown>
+  dependencies?: Array<Record<string, unknown>>
 }
 ```
 
 Notes:
-- Additional keys (for example `dependencies`) can exist in files, but the loader currently uses `name`, `version`, `type`, and `enabled` for behavior.
+- The loader uses `name`, `version`, `type`, `enabled`, and `initialize` for behavior.
 - If `type` is omitted, module is treated as `full`.
 - If `enabled` is `false`, the module is skipped entirely during discovery.
+- If `initialize` exists, `Modules.load()` awaits it immediately after that module finishes its type-specific load.
 
 ### 4.2 Module Types
 
@@ -142,10 +145,10 @@ properties/
 `Modules.load()` executes in this order:
 1. Discover all modules.
 2. Skip manifests with `enabled: false`.
-3. Load all `mws` modules.
-4. Load all `share` modules.
+3. Load all `mws` modules, then run each module `initialize`.
+4. Load all `share` modules, then run each module `initialize`.
 5. Load all `full` module controllers.
-6. Load all `full` module events.
+6. Load all `full` module events, then run each module `initialize`.
 
 This guarantees middleware exists before full controllers are built.
 
@@ -1079,7 +1082,14 @@ export default { name: 'share', version: '1.0.0', type: 'share' }
 
 ```ts
 // modules/operators/__module__.ts
-export default { name: 'operators', version: '1.0.0', type: 'full' }
+export default {
+  name: 'operators',
+  version: '1.0.0',
+  type: 'full',
+  initialize: () => {
+    console.info('hola mundo, soy operators')
+  },
+}
 ```
 
 ```ts

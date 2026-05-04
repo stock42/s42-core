@@ -21,6 +21,9 @@ export default {
   version: '1.0.0',
   type: 'full',
   dependencies: [{ module: 'auth', version: 1 }],
+  initialize: () => {
+    console.info('hola mundo, soy operators')
+  },
 }
 ```
 
@@ -66,7 +69,7 @@ El tercer argumento es un contexto runtime. Actualmente expone `{ events }`.
 1. Cargan modules `mws`.
 2. Cargan modules `share`.
 3. Cargan modules `full`.
-4. Se ejecutan middlewares segun referencia del controlador.
+4. Se ejecutan hooks `initialize` despues de cargar cada modulo.
 
 ## Recomendaciones
 

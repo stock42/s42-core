@@ -10,6 +10,8 @@ export const Module = z.object({
 	version: z.string(),
 	type: z.enum(['mws', 'full', 'share']).default('full'),
 	enabled: z.boolean().default(true),
+	initialize: z.function().optional(),
+	dependencies: z.array(z.record(z.string(), z.any())).optional(),
 })
 
 export const Model = z.object({
@@ -110,6 +112,7 @@ type TypeDiscoveredModule = {
 	moduleFilePath: string
 }
 
+type TypeModuleInitialize = () => Promise<unknown> | unknown
 type TypeMWSConstructor = () => Promise<unknown> | unknown
 type TypeMWSHook = (
 	req: Request,
@@ -156,16 +159,28 @@ export class Modules {
 
 		for (const discovered of middlewareModules) {
 			await this.loadMiddleware(discovered.module, discovered.moduleFilePath)
+			await this.initializeModule(discovered.module)
 		}
 
 		for (const discovered of shareModules) {
 			await this.loadShare(discovered.module, discovered.moduleFilePath)
+			await this.initializeModule(discovered.module)
 		}
 
 		for (const discovered of fullModules) {
 			await this.loadControllers(discovered.module, discovered.moduleFilePath)
 			await this.loadEvents(discovered.module, discovered.moduleFilePath)
+			await this.initializeModule(discovered.module)
 		}
+	}
+
+	private async initializeModule(module: ModuleType): Promise<void> {
+		const initialize = module.initialize as TypeModuleInitialize | undefined
+		if (typeof initialize !== 'function') {
+			return
+		}
+
+		await initialize()
 	}
 
 	private async loadShare(module: ModuleType, moduleFilePath: string): Promise<void> {

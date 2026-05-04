@@ -7,4 +7,7 @@ export default {
 			version: 1,
 		},
 	],
+	initialize: () => {
+		console.info('hola mundo, soy operators')
+	},
 }
