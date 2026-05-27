@@ -55,10 +55,10 @@ Bloques funcionales (`src/`):
 | 8 | Cobertura de tests muy baja | **3** | Calidad |
 | 9 | Sin abstracción de logging (55 `console.*`) | **3** | Operación |
 | 10 | Uso extendido de `any` que mina el `strict` | **3** | Tipado |
-| 11 | Lógica `translateMongoJsonToSql` duplicada | **3** | Mantenibilidad |
+| 11 | Lógica `translateMongoJsonToSql` duplicada | **3** | Mantenibilidad | ✅ Hecho |
 | 12 | After-hooks no pueden alterar la respuesta ya emitida | **3** | Diseño |
-| 13 | Falta archivo `LICENSE` (declarado MIT y en `files`) | **4** | Publicación |
-| 14 | Dependencia `jsonwebtoken` sin usar | **4** | Dependencias |
+| 13 | Falta archivo `LICENSE` (declarado MIT y en `files`) | **4** | Publicación | ✅ Hecho |
+| 14 | Dependencia `jsonwebtoken` sin usar | **4** | Dependencias | ✅ Hecho |
 | 15 | CHANGELOG/ROADMAP desactualizados; `TODO.md` inexistente | **4** | Documentación |
 | 16 | Singletons ignoran config tras la 1ª inicialización | **4** | Diseño |
 | 17 | Parseo de query params naïve (`split('=')`) | **4** | Correctitud | ✅ Hecho |
@@ -178,7 +178,10 @@ niveles ni forma de silenciar en producción.
 casts en `Server.start`. Debilita el valor de `strict`.
 **Recomendación:** tipar resultados por motor; eliminar `as any` donde sea posible.
 
-#### 11. `translateMongoJsonToSql` duplicada
+#### 11. `translateMongoJsonToSql` duplicada — ✅ RESUELTO
+> **Estado:** resuelto en el punto 1. Definición única en `src/SQL/identifiers.ts`,
+> re-exportada por `SQL` y `SQLite`. Tests en `src/SQL/identifiers.test.ts`.
+
 Implementada dos veces, casi idéntica, en `src/SQL/index.ts:12` y `src/SQLite/index.ts:38`.
 Riesgo de divergencia (y ambas comparten el problema de identificadores del punto 1).
 **Recomendación:** extraer a un único helper compartido y testeado.

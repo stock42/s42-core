@@ -71,7 +71,6 @@
 	"license": "MIT",
 	"dependencies": {
 		"@aws-sdk/client-sqs": "^3.1041.0",
-		"jsonwebtoken": "^9.0.3",
 		"mongodb": "^6.21.0",
 		"zod": "^4.4.3"
 	},

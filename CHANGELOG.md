@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **LICENSE:** added the MIT license file (already declared in `package.json` and listed in
+  `files`, but previously missing from the repo/package).
+
+### Removed
+- **Dependency:** removed the unused `jsonwebtoken` dependency (not referenced anywhere in
+  `src/`).
+
 ### Fixed
 - **RouteControllers — query parsing:** `getQueryParams` no longer truncates query string
   values that contain `=` (e.g. base64 / JWT). Decoding semantics are unchanged. Added tests
