@@ -43,7 +43,11 @@ export class MongoDBStorage {
 	}
 
 	public getObjectId() {
-		return Dependencies.get<MongoClient>('db')?.ObjectId!
+		const db = Dependencies.get<MongoClient>('db')
+		if (!db) {
+			throw new Error('MongoDB client not found in dependencies')
+		}
+		return db.ObjectId
 	}
 
 	static createIndex(collectionName: string, index: IndexSpecification) {
@@ -113,7 +117,10 @@ export class MongoDBStorage {
 		sort?: Record<string, 1 | -1>,
 	) {
 		const db = Dependencies.get<MongoClient>('db') as MongoClient
-		const options: { projection?: object; sort?: Record<string, 1 | -1> } = { projection, sort }
+		const options: { projection?: object; sort?: Record<string, 1 | -1> } = {
+			projection,
+			sort,
+		}
 		const collection = db.getCollection(collectionName)
 		const result = await collection.findOne<T>(query, options)
 		return result

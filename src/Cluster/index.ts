@@ -143,7 +143,7 @@ export class Cluster {
 
 	private handleWorkerMessage(
 		message: string,
-		childProc: ReturnType<typeof spawn>,
+		_childProc: ReturnType<typeof spawn>,
 	): void {
 		if (message.startsWith('>>.<<|')) {
 			this.sendCommandToWorkers({

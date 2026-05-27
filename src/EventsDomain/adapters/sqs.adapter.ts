@@ -32,7 +32,10 @@ export class SQSEventsAdapter implements EventsAdapter {
 
 	private running = false
 	private stopRequested = false
-	private readonly handlers = new Map<string, Array<(payload: any, channel: string) => void>>()
+	private readonly handlers = new Map<
+		string,
+		Array<(payload: any, channel: string) => void>
+	>()
 
 	constructor(options: SQSEventsAdapterOptions) {
 		this.queueUrl = options.queueUrl
@@ -63,7 +66,10 @@ export class SQSEventsAdapter implements EventsAdapter {
 		await this.client.send(command)
 	}
 
-	public subscribe(channel: string, handler: (payload: any, channel: string) => void): void {
+	public subscribe(
+		channel: string,
+		handler: (payload: any, channel: string) => void,
+	): void {
 		const list = this.handlers.get(channel) ?? []
 		list.push(handler)
 		this.handlers.set(channel, list)

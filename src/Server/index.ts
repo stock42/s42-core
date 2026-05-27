@@ -79,7 +79,8 @@ export class Server {
 				if (error) {
 					return error(err)
 				}
-				const message = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
+				const message =
+					err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
 				return new Response(`<pre>${message}</pre>`, {
 					status: 500,
 					headers: {

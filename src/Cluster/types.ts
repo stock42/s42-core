@@ -3,7 +3,6 @@ export type TypeConstructor = {
 	maxCPU?: number
 }
 
-
 export type TypeCommandToWorkers = {
 	command: string
 	message: string

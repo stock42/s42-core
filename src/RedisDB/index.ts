@@ -24,16 +24,16 @@ export class RedisClient implements RedisInterface {
 			return
 		}
 
-			this.connecting = (async () => {
-				await this.redis.connect()
-				const redisSub = await this.redis.duplicate()
-				const redisPub = await this.redis.duplicate()
-				await redisSub.connect()
-				await redisPub.connect()
-				this.redisSub = redisSub
-				this.redisPub = redisPub
-				this.connected = true
-			})()
+		this.connecting = (async () => {
+			await this.redis.connect()
+			const redisSub = await this.redis.duplicate()
+			const redisPub = await this.redis.duplicate()
+			await redisSub.connect()
+			await redisPub.connect()
+			this.redisSub = redisSub
+			this.redisPub = redisPub
+			this.connected = true
+		})()
 
 		try {
 			await this.connecting

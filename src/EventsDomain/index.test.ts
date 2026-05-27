@@ -26,11 +26,16 @@ describe('EventsDomain — dead instance eviction', () => {
 	test('evicts a remote instance that stopped sending heartbeats', () => {
 		const eventName = 'TEST.DEAD.INSTANCE'
 		// Simulate a remote instance registering as a listener (as if via the control channel).
-		;(domain as any).registerListenerInstance(eventName, 'REMOTE', 'dead-1', 'TEST', false)
+		;(domain as any).registerListenerInstance(
+			eventName,
+			'REMOTE',
+			'dead-1',
+			'TEST',
+			false,
+		)
 
 		const before = domain.getAllRegisteredEvents()[eventName]
 		expect(before.listeners['REMOTE'].instances.length).toBe(1)
-
 		;(domain as any).evictStaleInstances(Date.now() + FAR_FUTURE_OFFSET)
 
 		const after = domain.getAllRegisteredEvents()[eventName]
@@ -52,7 +57,6 @@ describe('EventsDomain — dead instance eviction', () => {
 			(i: any) => i.instanceId === 'dead-2',
 		)
 		deadTwo.lastSeen = Date.now() - FAR_FUTURE_OFFSET
-
 		;(domain as any).evictStaleInstances(Date.now())
 
 		const after = domain.getAllRegisteredEvents()[eventName]
@@ -64,7 +68,6 @@ describe('EventsDomain — dead instance eviction', () => {
 	test('never evicts the local instance', () => {
 		const eventName = 'TEST.LOCAL.ALIVE'
 		domain.listen({ eventName }, () => {})
-
 		;(domain as any).evictStaleInstances(Date.now() + FAR_FUTURE_OFFSET * 10)
 
 		const clusterId = (domain as any).clusterId as string

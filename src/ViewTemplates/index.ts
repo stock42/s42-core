@@ -27,7 +27,7 @@ export async function ViewTemplates(
 					return blockContent.replace(
 						/{{this\.(.*?)}}/g,
 						(_match: string, thisPath: string) => {
-						return String(getValueFromPath(item, thisPath))
+							return String(getValueFromPath(item, thisPath))
 						},
 					)
 				})

@@ -2,11 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { clearControllersStats, Controller, getControllersStats } from '../Controller'
 import { clearModulesStats } from '../Modules'
 import { RouteControllers } from '../RouteControllers'
-import {
-	CoreStats,
-	type CoreStatsCommand,
-	type CoreStatsCommandResult,
-} from './index'
+import { CoreStats, type CoreStatsCommand, type CoreStatsCommandResult } from './index'
 
 const commandOutputs: Record<CoreStatsCommand, CoreStatsCommandResult> = {
 	'free -m': {

@@ -12,9 +12,10 @@ export type TYPE_HTTP_METHOD =
 
 export type ControllerRequest = Request | Record<string, unknown>
 
-export type MiddlewareReturn = Response | void | unknown | Promise<Response | void | unknown>
+export type MiddlewareReturn =
+	| Response
+	| void
+	| unknown
+	| Promise<Response | void | unknown>
 
-export type Middleware =  (
-	req: ControllerRequest,
-	res: Res,
-) => MiddlewareReturn
+export type Middleware = (req: ControllerRequest, res: Res) => MiddlewareReturn

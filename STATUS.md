@@ -51,7 +51,7 @@ Bloques funcionales (`src/`):
 | 4 | CORS abierto y hardcodeado, no configurable | **2** | Seguridad |
 | 5 | Valores de retorno de `insert/update/delete` poco fiables | **2** | Robustez | ✅ Hecho |
 | 6 | `EventsDomain` sin expiración de instancias muertas | **2** | Fiabilidad | ✅ Hecho |
-| 7 | `bun run lint` roto (ESLint 9 vs `.eslintrc.cjs`) | **3** | Tooling |
+| 7 | `bun run lint` roto (ESLint 9 vs `.eslintrc.cjs`) | **3** | Tooling | ✅ Hecho |
 | 8 | Cobertura de tests muy baja | **3** | Calidad |
 | 9 | Sin abstracción de logging (55 `console.*`) | **3** | Operación |
 | 10 | Uso extendido de `any` que mina el `strict` | **3** | Tipado |
@@ -154,7 +154,11 @@ single-listener pueden enrutarse a un `firstListener` muerto → eventos perdido
 
 ### 🟡 Criticidad 3 — Mantenibilidad y tooling
 
-#### 7. `bun run lint` está roto
+#### 7. `bun run lint` está roto — ✅ RESUELTO
+> **Estado:** resuelto. Migrado a flat config `eslint.config.js` (ESLint 9); se eliminó
+> `.eslintrc.cjs`. Se corrigieron todos los hallazgos (formato prettier, vars muertas,
+> try/catch inútiles, alias de `this` en SSE). `bun run lint` ahora pasa limpio.
+
 **Archivos:** `package.json:47`, `.eslintrc.cjs`
 ESLint 9.39.4 ya no lee `.eslintrc.cjs` por defecto; el comando falla con
 "couldn't find an eslint.config file". El lint del proyecto no se ejecuta.

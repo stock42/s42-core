@@ -1,6 +1,8 @@
 import { type Res } from '../Response'
 
-export type TypeReturnCallback = (req: Request) => Response | Promise<Response> | void | Promise<void>
+export type TypeReturnCallback = (
+	req: Request,
+) => Response | Promise<Response> | void | Promise<void>
 
 export type RouteCheckResult = {
 	exists: boolean
@@ -9,7 +11,10 @@ export type RouteCheckResult = {
 }
 
 export type TypeRoutesMapCache = {
-	[key: string]: (req: any, res: Res) => void | Promise<void> | Response | Promise<Response>
+	[key: string]: (
+		req: any,
+		res: Res,
+	) => void | Promise<void> | Response | Promise<Response>
 }
 
 export type TypeRequestInternalObject = {

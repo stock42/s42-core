@@ -13,7 +13,10 @@ export class RedisEventsAdapter implements EventsAdapter {
 		this.redis.publish(channel, payload)
 	}
 
-	public subscribe(channel: string, handler: (payload: any, channel: string) => void): void {
+	public subscribe(
+		channel: string,
+		handler: (payload: any, channel: string) => void,
+	): void {
 		this.redis.subscribe(channel, (payload: any) => {
 			handler(payload, channel)
 		})

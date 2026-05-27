@@ -108,16 +108,12 @@ export class SQL {
 			finalQuery += ' RETURNING *' // Or specific ID column if known, but * is safer for generic return
 		}
 
-		try {
-			const result = await this.executeQuery(finalQuery, values)
-			const affectedRows = extractAffectedRows(result)
-			return {
-				lastInsertRowId: extractLastInsertId(result),
-				changes: affectedRows,
-				affectedRows,
-			}
-		} catch (err) {
-			throw err
+		const result = await this.executeQuery(finalQuery, values)
+		const affectedRows = extractAffectedRows(result)
+		return {
+			lastInsertRowId: extractLastInsertId(result),
+			changes: affectedRows,
+			affectedRows,
 		}
 	}
 
@@ -227,12 +223,8 @@ export class SQL {
 	public async dropTable(tableName: string): Promise<boolean | null> {
 		assertValidIdentifier(tableName, 'table name')
 		const query = `DROP TABLE IF EXISTS ${tableName}`
-		try {
-			await this.executeQuery(query)
-			return true
-		} catch (err) {
-			throw err
-		}
+		await this.executeQuery(query)
+		return true
 	}
 
 	public async delete(tableName: string, whereClause?: object): Promise<number | null> {
@@ -245,12 +237,8 @@ export class SQL {
 			whereArgs = splited.values
 		}
 		const query = `DELETE FROM ${tableName} ${whereSentence}`
-		try {
-			const result = await this.executeQuery(query, whereArgs)
-			return extractAffectedRows(result)
-		} catch (err) {
-			throw err
-		}
+		const result = await this.executeQuery(query, whereArgs)
+		return extractAffectedRows(result)
 	}
 
 	public async deleteById(
@@ -285,12 +273,8 @@ export class SQL {
 		}
 
 		const query = `UPDATE ${tableName} SET ${setClause} ${whereSentence}`
-		try {
-			const result = await this.executeQuery(query, [...values, ...whereArgs])
-			return extractAffectedRows(result)
-		} catch (err) {
-			throw err
-		}
+		const result = await this.executeQuery(query, [...values, ...whereArgs])
+		return extractAffectedRows(result)
 	}
 
 	public async updateById(
@@ -318,13 +302,9 @@ export class SQL {
 		}
 
 		const query = `SELECT COUNT(*) as total FROM ${tableName} ${whereSentence}`
-		try {
-			const result = await this.executeQuery(query, whereArgs)
-			const total = result[0].total || result[0]['COUNT(*)'] || 0
-			return Number(total)
-		} catch (err) {
-			throw err
-		}
+		const result = await this.executeQuery(query, whereArgs)
+		const total = result[0].total || result[0]['COUNT(*)'] || 0
+		return Number(total)
 	}
 
 	public async select<T>({

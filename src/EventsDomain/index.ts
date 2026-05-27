@@ -95,7 +95,9 @@ export class EventsDomain implements EventsDomainsInterface {
 
 		const fromModuleName = EventsDomain.getModuleFromEventName(normalizedName)
 		if (!entry.emitters.includes(fromModuleName)) {
-			console.warn(`Emitter module "${fromModuleName}" is not registered for "${normalizedName}"`)
+			console.warn(
+				`Emitter module "${fromModuleName}" is not registered for "${normalizedName}"`,
+			)
 			return false
 		}
 
@@ -150,10 +152,7 @@ export class EventsDomain implements EventsDomainsInterface {
 		eventName: string,
 		callback: (payload: TypePayload) => void,
 	): void {
-		this.listen(
-			{ eventName },
-			(event) => callback(event.payload as TypePayload),
-		)
+		this.listen({ eventName }, event => callback(event.payload as TypePayload))
 	}
 
 	public async emitEvent(eventName: string, payload: object): Promise<boolean> {
@@ -311,7 +310,8 @@ export class EventsDomain implements EventsDomainsInterface {
 			multiple,
 		)
 
-		const moduleMap = this.localListenerRegistry.get(eventName) ?? new Map<string, boolean>()
+		const moduleMap =
+			this.localListenerRegistry.get(eventName) ?? new Map<string, boolean>()
 		moduleMap.set(normalizedModule, multiple)
 		this.localListenerRegistry.set(eventName, moduleMap)
 
@@ -373,7 +373,9 @@ export class EventsDomain implements EventsDomainsInterface {
 		}
 
 		const cluster = entry.listeners[clusterId] ?? { instances: [], cursor: 0 }
-		const existing = cluster.instances.find(instance => instance.instanceId === instanceId)
+		const existing = cluster.instances.find(
+			instance => instance.instanceId === instanceId,
+		)
 		if (existing) {
 			existing.moduleName = normalizedModule
 			existing.lastSeen = Date.now()
@@ -397,7 +399,9 @@ export class EventsDomain implements EventsDomainsInterface {
 			if (!cluster) {
 				continue
 			}
-			cluster.instances = cluster.instances.filter(instance => instance.instanceId !== instanceId)
+			cluster.instances = cluster.instances.filter(
+				instance => instance.instanceId !== instanceId,
+			)
 			if (!cluster.instances.length) {
 				delete entry.listeners[clusterId]
 			}
@@ -470,7 +474,11 @@ export class EventsDomain implements EventsDomainsInterface {
 			targets.map(target =>
 				Promise.resolve(
 					this.adapter.publish(
-						this.getInstanceChannel(payload.eventName, target.clusterId, target.instanceId),
+						this.getInstanceChannel(
+							payload.eventName,
+							target.clusterId,
+							target.instanceId,
+						),
 						payload,
 					),
 				),
@@ -535,7 +543,11 @@ export class EventsDomain implements EventsDomainsInterface {
 		}
 	}
 
-	private getInstanceChannel(eventName: string, clusterId: string, instanceId: string): string {
+	private getInstanceChannel(
+		eventName: string,
+		clusterId: string,
+		instanceId: string,
+	): string {
 		return `${eventName}::${clusterId}::${instanceId}`
 	}
 
@@ -544,7 +556,8 @@ export class EventsDomain implements EventsDomainsInterface {
 			return eventName
 		}
 		const cleanedEvent = eventName.replace(/\$/g, '.').replace(/\s+/g, '')
-		const cleanedModule = moduleName ? moduleName.replace(/\$/g, '.').replace(/\s+/g, '') : ''
+		const cleanedModule =
+			moduleName ? moduleName.replace(/\$/g, '.').replace(/\s+/g, '') : ''
 		const upperEvent = cleanedEvent.toUpperCase()
 		if (!cleanedModule) {
 			return upperEvent

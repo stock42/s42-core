@@ -77,17 +77,19 @@ export class SQLite {
 	public createTable(tableName: string, schema: TypeTableSchema): Changes {
 		try {
 			if (!tableName || typeof tableName !== 'string') {
-				throw new Error('Invalid table name');
+				throw new Error('Invalid table name')
 			}
 			this.tableMatch(tableName)
 			Object.keys(schema).forEach(column => assertValidIdentifier(column, 'column'))
 
 			schema['added'] = 'integer'
 			const columns = Object.entries(schema)
-					.map(([columnName, type]) => `${columnName} ${type.toUpperCase()}`)
-					.join(', ');
+				.map(([columnName, type]) => `${columnName} ${type.toUpperCase()}`)
+				.join(', ')
 
-			const query = this.database.query(`CREATE TABLE IF NOT EXISTS ${tableName} (${columns})`)
+			const query = this.database.query(
+				`CREATE TABLE IF NOT EXISTS ${tableName} (${columns})`,
+			)
 			return query.run()
 		} catch (err) {
 			throw new Error(`Error creating table: ${String(err)}`)
@@ -138,14 +140,8 @@ export class SQLite {
 			whereArgs = splited.values as SQLQueryBindings[]
 		}
 		const query = this.database.prepare(`DELETE FROM ${tableName} ${whereSentence}`)
-		try {
-			const result = query.run(...whereArgs)
-			return result
-		} catch (err) {
-			throw err
-		}
+		return query.run(...whereArgs)
 	}
-
 
 	public insert(tableName: string, data: { [key: string]: SQLQueryBindings }) {
 		try {
@@ -170,7 +166,9 @@ export class SQLite {
 		try {
 			this.tableMatch(tableName)
 			assertValidIdentifier(columnName, 'column')
-			const query = this.database.query(`CREATE INDEX IF NOT EXISTS idx_${tableName}_${columnName} ON ${tableName} (${columnName})`)
+			const query = this.database.query(
+				`CREATE INDEX IF NOT EXISTS idx_${tableName}_${columnName} ON ${tableName} (${columnName})`,
+			)
 			return query.run()
 		} catch (err) {
 			console.info('Error creating index: ', err)
@@ -212,14 +210,8 @@ export class SQLite {
 		}
 
 		const query = `UPDATE ${tableName} SET ${setClause} ${whereSentence}`
-		try {
-			const result = this.database.prepare(query).run(...values, ...whereArgs)
-			return result
-		} catch (err) {
-			throw err
-		}
+		return this.database.prepare(query).run(...values, ...whereArgs)
 	}
-
 
 	public async select<T>(
 		tableName: string,
@@ -262,7 +254,7 @@ export class SQLite {
 			const result = this.database.prepare(query).all(...whereArgs) as T[]
 			return result
 		} catch (err: any) {
-			throw new Error(`Failed to execute SELECT query: ${err.message}`);
+			throw new Error(`Failed to execute SELECT query: ${err.message}`)
 		}
 	}
 }

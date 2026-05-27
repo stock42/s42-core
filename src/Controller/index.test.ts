@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import {
-	clearControllersStats,
-	Controller,
-	getControllersStats,
-} from './index'
+import { clearControllersStats, Controller, getControllersStats } from './index'
 
 describe('getControllersStats', () => {
 	beforeEach(() => {

@@ -8,6 +8,12 @@ All notable changes to this project will be documented in this file.
 - **LICENSE:** added the MIT license file (already declared in `package.json` and listed in
   `files`, but previously missing from the repo/package).
 
+### Tooling
+- **ESLint 9 flat config:** migrated `.eslintrc.cjs` to `eslint.config.js` so `bun run lint`
+  works again (ESLint 9 no longer reads the legacy config). Applied the existing rules and
+  fixed all resulting findings (prettier formatting, dead vars, useless try/catch, `this`
+  aliasing in SSE); `bun run lint` now passes clean.
+
 ### Removed
 - **Dependency:** removed the unused `jsonwebtoken` dependency (not referenced anywhere in
   `src/`).

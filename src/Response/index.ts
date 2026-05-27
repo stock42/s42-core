@@ -1,5 +1,3 @@
-
-
 type TypeResponseConstructor = {
 	headers?: Record<string, string>
 }
@@ -8,9 +6,7 @@ export class Res {
 	private headers: Record<string, string> = {}
 	private httpStatus: number = 200
 
-	constructor({
-		headers,
-	}: TypeResponseConstructor) {
+	constructor({ headers }: TypeResponseConstructor) {
 		this.headers = headers ?? {}
 	}
 
@@ -23,7 +19,7 @@ export class Res {
 		this.headers[key] = value
 	}
 
-	public json(data: object): Response	{
+	public json(data: object): Response {
 		this.setHeader('Content-Type', 'application/json')
 		return new Response(JSON.stringify(data), {
 			status: this.httpStatus,

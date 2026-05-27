@@ -1,4 +1,3 @@
-
 export type TypeSSEventToSend = {
 	eventName: string
 	eventPayload: Record<string, any>
@@ -8,39 +7,38 @@ export class SSE {
 	private response: Response
 	private readonly uuid: string
 	private localID: number = 0
-	private controller: ReadableStreamDirectController | null = null;
+	private controller: ReadableStreamDirectController | null = null
 
 	constructor(req: Request) {
 		this.uuid = crypto.randomUUID()
 
-		const signal = req.signal;
-		const _this = this;
+		const signal = req.signal
 		this.response = new Response(
 			new ReadableStream({
-				type: "direct",
+				type: 'direct',
 				// The stream stays open until the client disconnects (request signal
 				// aborts). We flush once per second so buffered events are pushed
 				// promptly; this interval also acts as the keep-alive heartbeat.
-				async pull(controller: ReadableStreamDirectController) {
-					_this.controller = controller
+				// Arrow fn keeps `this` bound to the SSE instance.
+				pull: async (controller: ReadableStreamDirectController) => {
+					this.controller = controller
 					while (!signal?.aborted) {
-						await controller.flush();
-						await Bun.sleep(1000);
+						await controller.flush()
+						await Bun.sleep(1000)
 					}
-					controller.close();
+					controller.close()
 				},
 			}),
-			{ status: 200, headers: { "Content-Type": "text/event-stream" } },
-		);
-
+			{ status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+		)
 	}
 
 	public getResponse(): Response {
-		return this.response;
+		return this.response
 	}
 
 	private sendSSEMessage(data: string) {
-		return this?.controller?.write(data);
+		return this?.controller?.write(data)
 	}
 
 	public getUUID(): string {
@@ -69,5 +67,4 @@ export class SSE {
 			data.eventPayload,
 		)}\n\n`
 	}
-
 }

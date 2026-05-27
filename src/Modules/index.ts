@@ -129,7 +129,7 @@ type TypeRegisteredMiddleware = {
 export class Modules {
 	private readonly controllers: Controller[] = []
 	private readonly hooks: TypeHook[] = []
-	private readonly middlewareModules: Map<string, TypeRegisteredMiddleware> = new Map()
+	private readonly middlewareModules = new Map<string, TypeRegisteredMiddleware>()
 	private readonly fullModules: ModuleType[] = []
 	private readonly sharedModules: ModuleType[] = []
 	private readonly services: ServiceType[] = []
