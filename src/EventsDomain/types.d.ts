@@ -21,6 +21,8 @@ export type EventEmitInput<TPayload extends EventPayload = EventPayload> = {
 export type TypeEventInstance = {
 	instanceId: string
 	moduleName: string
+	/** Epoch ms of the last heartbeat seen for this instance; used to evict dead instances. */
+	lastSeen?: number
 }
 
 export type TypeEventClusterListeners = {

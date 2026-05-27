@@ -61,6 +61,14 @@ await events.emit({
 - `RedisEventsAdapter`: publish/subscribe over Redis channels.
 - `SQSEventsAdapter`: queue-based pub/sub behavior over AWS SQS.
 
+## Instance liveness
+
+Each instance re-announces its listeners/emitters every 5s over the control channel. Instances
+that go silent for longer than 3 heartbeats (15s) — e.g. after a crash with no `removeInstance`
+command — are evicted from the registry, and a new `firstListener` is selected for
+single-listener events so they are not routed to a dead instance. The local instance is never
+evicted by this mechanism.
+
 ## Notes
 
 - Keep payloads serializable JSON objects.

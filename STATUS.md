@@ -50,7 +50,7 @@ Bloques funcionales (`src/`):
 | 3 | Identificadores sin validar en `SQLite` (columnas/sort/índices) | **2** | Seguridad | ✅ Hecho |
 | 4 | CORS abierto y hardcodeado, no configurable | **2** | Seguridad |
 | 5 | Valores de retorno de `insert/update/delete` poco fiables | **2** | Robustez | ✅ Hecho |
-| 6 | `EventsDomain` sin expiración de instancias muertas | **2** | Fiabilidad |
+| 6 | `EventsDomain` sin expiración de instancias muertas | **2** | Fiabilidad | ✅ Hecho |
 | 7 | `bun run lint` roto (ESLint 9 vs `.eslintrc.cjs`) | **3** | Tooling |
 | 8 | Cobertura de tests muy baja | **3** | Calidad |
 | 9 | Sin abstracción de logging (55 `console.*`) | **3** | Operación |
@@ -138,7 +138,11 @@ suposiciones ("we can't easily know the PK", "let's assume standard behavior"). 
 devolver `undefined` según el driver.
 **Recomendación:** normalizar el resultado por motor con tipos concretos y tests por driver.
 
-#### 6. `EventsDomain` sin expiración de instancias muertas
+#### 6. `EventsDomain` sin expiración de instancias muertas — ✅ RESUELTO
+> **Estado:** resuelto. Cada instancia guarda `lastSeen` (refrescado por el heartbeat de 5s);
+> `evictStaleInstances` purga las que superan 3 heartbeats (15s) y re-selecciona `firstListener`.
+> La instancia local nunca se elimina. Tests: `src/EventsDomain/index.test.ts`.
+
 **Archivo:** `src/EventsDomain/index.ts:220-245, 337-355`
 El *heartbeat* reanuncia listeners/emitters cada 5 s, pero no hay TTL: si una instancia
 muere sin enviar `removeInstance` (crash), queda registrada y los eventos en modo

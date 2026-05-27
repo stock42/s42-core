@@ -61,6 +61,14 @@ await events.emit({
 - `RedisEventsAdapter`: publish/subscribe con canales Redis.
 - `SQSEventsAdapter`: comportamiento pub/sub sobre colas AWS SQS.
 
+## Liveness de instancias
+
+Cada instancia reanuncia sus listeners/emitters cada 5s por el canal de control. Las instancias
+que quedan en silencio por mas de 3 heartbeats (15s) — p. ej. tras un crash sin comando
+`removeInstance` — se eliminan del registro, y se selecciona un nuevo `firstListener` para los
+eventos de listener unico, de modo que no se enruten a una instancia muerta. La instancia local
+nunca es eliminada por este mecanismo.
+
 ## Notas
 
 - Mantener payloads serializables JSON.

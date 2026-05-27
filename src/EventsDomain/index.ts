@@ -19,6 +19,12 @@ type LocalHandler = {
 const CONTROL_CHANNEL = '$$S42-EVENTS-REGISTRY$$'
 const GLOBAL_DEBUG_EVENT = '$$GLOBAL-S42-EVENTS-EMIT$$'
 
+// Each instance re-announces its listeners/emitters on this cadence; an instance
+// is considered dead (and evicted) once it has been silent for TTL_MULTIPLIER
+// heartbeats, e.g. after a crash with no `removeInstance` command.
+const HEARTBEAT_INTERVAL_MS = 5000
+const INSTANCE_TTL_MS = HEARTBEAT_INTERVAL_MS * 3
+
 export class EventsDomain implements EventsDomainsInterface {
 	private static instance: EventsDomain
 	private adapter: EventsAdapter
@@ -241,7 +247,53 @@ export class EventsDomain implements EventsDomainsInterface {
 					moduleName,
 				})
 			}
-		}, 5000)
+			this.evictStaleInstances()
+		}, HEARTBEAT_INTERVAL_MS)
+	}
+
+	/**
+	 * Removes listener instances that have not been seen within INSTANCE_TTL_MS
+	 * (e.g. an instance that crashed without sending `removeInstance`). The local
+	 * instance is never evicted, since its own heartbeat is not echoed back to it.
+	 */
+	private evictStaleInstances(now: number = Date.now()): void {
+		for (const entry of Object.values(this.registeredEvents)) {
+			let changed = false
+
+			for (const [clusterId, cluster] of Object.entries(entry.listeners)) {
+				const survivors = cluster.instances.filter(instance => {
+					if (clusterId === this.clusterId && instance.instanceId === this.processUUID) {
+						return true
+					}
+					return now - (instance.lastSeen ?? now) <= INSTANCE_TTL_MS
+				})
+
+				if (survivors.length === cluster.instances.length) {
+					continue
+				}
+
+				changed = true
+				cluster.instances = survivors
+				if (cluster.cursor >= survivors.length) {
+					cluster.cursor = 0
+				}
+				if (!survivors.length) {
+					delete entry.listeners[clusterId]
+				}
+			}
+
+			if (changed) {
+				const firstListenerStillValid =
+					!!entry.firstListener &&
+					(entry.listeners[entry.firstListener.clusterId]?.instances.some(
+						instance => instance.instanceId === entry.firstListener!.instanceId,
+					) ??
+						false)
+				if (!firstListenerStillValid) {
+					entry.firstListener = this.findFirstListener(entry)
+				}
+			}
+		}
 	}
 
 	private registerListenerLocal(
@@ -324,8 +376,13 @@ export class EventsDomain implements EventsDomainsInterface {
 		const existing = cluster.instances.find(instance => instance.instanceId === instanceId)
 		if (existing) {
 			existing.moduleName = normalizedModule
+			existing.lastSeen = Date.now()
 		} else {
-			cluster.instances.push({ instanceId, moduleName: normalizedModule })
+			cluster.instances.push({
+				instanceId,
+				moduleName: normalizedModule,
+				lastSeen: Date.now(),
+			})
 		}
 		entry.listeners[clusterId] = cluster
 

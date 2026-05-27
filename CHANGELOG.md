@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **EventsDomain — evict dead instances:** listener instances now carry a `lastSeen` timestamp
+  refreshed by the 5s heartbeat; instances silent for more than 3 heartbeats (15s) are purged
+  from the registry, and `firstListener` is re-selected so single-listener events are no longer
+  routed to a crashed instance. The local instance is never evicted. Added tests
+  (`src/EventsDomain/index.test.ts`).
+
 ### Changed
 - **SQL — reliable write return values:** `insert`, `update` and `delete` now normalize the
   heterogeneous driver results (sqlite / Postgres / MySQL) through `src/SQL/results.ts` instead
