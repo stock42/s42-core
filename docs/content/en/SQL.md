@@ -71,6 +71,18 @@ SQL is byte-identical, so legitimate queries keep working unchanged. Only unsafe
 rejected. Note that `columns` no longer accepts raw expressions or aliases (e.g.
 `COUNT(*) AS total`); pass plain column names or `*`.
 
+## Write return values
+
+`insert`, `update` and `delete` normalize the heterogeneous driver results into stable values:
+
+- `insert` returns `{ lastInsertRowId?, changes, affectedRows }`.
+- `update` / `delete` return the number of affected rows.
+
+`changes` and `affectedRows` carry the same affected-row count (both exposed for
+compatibility). `lastInsertRowId` may be `undefined` when the driver/table cannot report it
+(e.g. a table without an `id`/`ID` column on Postgres). Normalization lives in
+`src/SQL/results.ts`.
+
 ## Notes
 
 - Use strict schema ownership per module.

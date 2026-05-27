@@ -49,7 +49,7 @@ Bloques funcionales (`src/`):
 | 2 | Binding de parámetros frágil con `split('?')` (Postgres/MySQL) | **1** | Seguridad / Datos | Pendiente |
 | 3 | Identificadores sin validar en `SQLite` (columnas/sort/índices) | **2** | Seguridad | ✅ Hecho |
 | 4 | CORS abierto y hardcodeado, no configurable | **2** | Seguridad |
-| 5 | Valores de retorno de `insert/update/delete` poco fiables | **2** | Robustez |
+| 5 | Valores de retorno de `insert/update/delete` poco fiables | **2** | Robustez | ✅ Hecho |
 | 6 | `EventsDomain` sin expiración de instancias muertas | **2** | Fiabilidad |
 | 7 | `bun run lint` roto (ESLint 9 vs `.eslintrc.cjs`) | **3** | Tooling |
 | 8 | Cobertura de tests muy baja | **3** | Calidad |
@@ -126,7 +126,12 @@ permitidos. Es un *default* inseguro (además, navegadores rechazan esa combinac
 **Recomendación:** hacer CORS configurable (lista de orígenes, métodos, credenciales) vía
 opciones del `Server`/`RouteControllers`; default restrictivo.
 
-#### 5. Valores de retorno de `insert/update/delete` poco fiables
+#### 5. Valores de retorno de `insert/update/delete` poco fiables — ✅ RESUELTO
+> **Estado:** resuelto. La normalización de resultados se centralizó en `src/SQL/results.ts`
+> (`extractAffectedRows` / `extractLastInsertId`), con precedencia determinista por forma de
+> resultado (sqlite/postgres/mysql) y tests por shape en `src/SQL/results.test.ts`. Se
+> eliminaron los `as any` y suposiciones de `insert`/`update`/`delete`.
+
 **Archivo:** `src/SQL/index.ts:155-180, 307-317, 357-362`
 El mapeo de `lastInsertRowId`/`changes`/`affectedRows`/`rowCount` se hace con `as any` y
 suposiciones ("we can't easily know the PK", "let's assume standard behavior"). Puede

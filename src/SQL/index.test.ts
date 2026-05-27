@@ -16,7 +16,10 @@ describe('SQL (sqlite) — legitimate usage is unchanged', () => {
 			category: 'TEXT',
 		})
 
-		await db.insert('items', { name: 'a', category: 'A' })
+		const inserted = await db.insert('items', { name: 'a', category: 'A' })
+		expect(inserted?.changes).toBe(1)
+		expect(inserted?.affectedRows).toBe(1)
+		expect(inserted?.lastInsertRowId).toBe(1)
 		await db.insert('items', { name: 'b', category: 'A' })
 		await db.insert('items', { name: 'c', category: 'B' })
 

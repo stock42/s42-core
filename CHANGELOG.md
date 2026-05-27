@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **SQL — reliable write return values:** `insert`, `update` and `delete` now normalize the
+  heterogeneous driver results (sqlite / Postgres / MySQL) through `src/SQL/results.ts` instead
+  of per-branch `as any` guesses. `insert` returns `{ lastInsertRowId?, changes, affectedRows }`
+  (`changes`/`affectedRows` carry the same count); `update`/`delete` return the affected-row
+  count. Added per-driver-shape unit tests (`src/SQL/results.test.ts`).
+
 ### Security
 - **SQL / SQLite — identifier hardening:** SQL identifiers (table, column and `WHERE` field
   names, plus `sort` keys) are now validated against a strict allow-list before being

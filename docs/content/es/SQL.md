@@ -72,6 +72,19 @@ generado es byte-identico, por lo que las consultas legitimas siguen funcionando
 rechaza la entrada insegura. Nota: `columns` ya no acepta expresiones ni alias crudos (p. ej.
 `COUNT(*) AS total`); pasa nombres de columna o `*`.
 
+## Valores de retorno de escritura
+
+`insert`, `update` y `delete` normalizan los resultados heterogeneos de cada driver a valores
+estables:
+
+- `insert` devuelve `{ lastInsertRowId?, changes, affectedRows }`.
+- `update` / `delete` devuelven la cantidad de filas afectadas.
+
+`changes` y `affectedRows` llevan el mismo conteo de filas afectadas (ambos se exponen por
+compatibilidad). `lastInsertRowId` puede ser `undefined` cuando el driver/tabla no puede
+reportarlo (p. ej. una tabla sin columna `id`/`ID` en Postgres). La normalizacion vive en
+`src/SQL/results.ts`.
+
 ## Notas
 
 - Mantener ownership de esquemas por modulo.

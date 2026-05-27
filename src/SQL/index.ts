@@ -14,6 +14,7 @@ import {
 	assertValidSortKeys,
 	translateMongoJsonToSql,
 } from './identifiers'
+import { extractAffectedRows, extractLastInsertId } from './results'
 
 export { translateMongoJsonToSql }
 
@@ -109,37 +110,11 @@ export class SQL {
 
 		try {
 			const result = await this.executeQuery(finalQuery, values)
-
-			if (this.dbType === 'sqlite') {
-				return {
-					lastInsertRowId: result.lastInsertRowid,
-					changes: result.changes,
-				}
-			} else if (this.dbType === 'postgres') {
-				// Postgres returns rows.
-				if (result && result.length > 0) {
-					// Assuming the first column or 'id' is the PK.
-					// We can't easily know the PK without schema info, but usually it's the first one or we return the whole object.
-					// The user expects `lastInsertRowId`.
-					// We'll try to find an 'id' field or return 0.
-					const row = result[0]
-					return {
-						lastInsertRowId: row.id || row.ID || 0,
-						changes: 1,
-					}
-				}
-				return { changes: 0 }
-			} else {
-				// MySQL
-				// Bun SQL for MySQL result structure?
-				// Usually it returns an OkPacket-like object for inserts.
-				// If it returns an array, it might be empty.
-				// Let's assume standard behavior or check result properties.
-				// If result has `insertId`, use it.
-				return {
-					lastInsertRowId: (result as any).insertId,
-					changes: (result as any).affectedRows,
-				}
+			const affectedRows = extractAffectedRows(result)
+			return {
+				lastInsertRowId: extractLastInsertId(result),
+				changes: affectedRows,
+				affectedRows,
 			}
 		} catch (err) {
 			throw err
@@ -272,19 +247,7 @@ export class SQL {
 		const query = `DELETE FROM ${tableName} ${whereSentence}`
 		try {
 			const result = await this.executeQuery(query, whereArgs)
-			if (this.dbType === 'sqlite') {
-				return result.changes
-			} else if (this.dbType === 'postgres') {
-				// Postgres DELETE returns empty array usually unless RETURNING
-				// But bun:sql might return a command tag?
-				// Let's assume we can't easily get changes without RETURNING or driver specific result
-				// We will return null or 0 if unknown.
-				// Actually, for Postgres, we can do `DELETE ... RETURNING 1` and count rows.
-				// But let's stick to basic.
-				return (result as any).rowCount || 0
-			} else {
-				return (result as any).affectedRows
-			}
+			return extractAffectedRows(result)
 		} catch (err) {
 			throw err
 		}
@@ -324,14 +287,7 @@ export class SQL {
 		const query = `UPDATE ${tableName} SET ${setClause} ${whereSentence}`
 		try {
 			const result = await this.executeQuery(query, [...values, ...whereArgs])
-			if (this.dbType === 'sqlite') {
-				return result.changes
-			} else if (this.dbType === 'postgres') {
-				// Similar issue with rowCount
-				return (result as any).rowCount || 0
-			} else {
-				return (result as any).affectedRows
-			}
+			return extractAffectedRows(result)
 		} catch (err) {
 			throw err
 		}
