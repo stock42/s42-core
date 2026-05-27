@@ -59,9 +59,20 @@ const products = await sql.select<{ id: number; name: string }>({
 })
 ```
 
+## Identifier safety
+
+Values passed to `whereClause`, `insert`, `update`, etc. are always sent to the driver as
+bound parameters (`?`). SQL identifiers (table/column/field names and `sort` keys) cannot be
+bound, so since `3.x` they are validated against a strict allow-list (`[A-Za-z0-9_]`,
+dot-separated for schema-qualified names) before interpolation. Invalid identifiers throw.
+
+This is a **validate-only** safeguard: for any identifier that was already valid the generated
+SQL is byte-identical, so legitimate queries keep working unchanged. Only unsafe input is
+rejected. Note that `columns` no longer accepts raw expressions or aliases (e.g.
+`COUNT(*) AS total`); pass plain column names or `*`.
+
 ## Notes
 
-- Keep table/column naming sanitized before interpolation.
 - Use strict schema ownership per module.
 - Validate generated SQL behavior across all three drivers before production.
 

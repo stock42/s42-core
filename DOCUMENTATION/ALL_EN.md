@@ -769,6 +769,13 @@ Main API:
 - data: `insert`, `select`, `selectPaginate`, `update`, `updateById`, `delete`, `deleteById`, `count`
 - utility: `translateMongoJsonToSql`
 
+> **Identifier safety (3.x):** values are always bound as parameters (`?`), and SQL
+> identifiers (table/column/field names and `sort` keys) are validated against a strict
+> allow-list (`[A-Za-z0-9_]`, dot-separated for schema-qualified names) before interpolation.
+> This is validate-only — valid identifiers produce byte-identical SQL — but `columns` no
+> longer accepts raw expressions/aliases (e.g. `COUNT(*) AS total`); pass plain names or `*`.
+> The same guarantees apply to the `SQLite` class.
+
 Example:
 
 ```ts

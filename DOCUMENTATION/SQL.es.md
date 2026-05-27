@@ -59,9 +59,21 @@ const products = await sql.select<{ id: number; name: string }>({
 })
 ```
 
+## Seguridad de identificadores
+
+Los valores de `whereClause`, `insert`, `update`, etc. siempre se envian al driver como
+parametros (`?`). Los identificadores SQL (nombres de tabla/columna/campo y claves de `sort`)
+no pueden parametrizarse, asi que desde `3.x` se validan contra una lista blanca estricta
+(`[A-Za-z0-9_]`, con puntos para nombres calificados por esquema) antes de interpolar. Un
+identificador invalido lanza error.
+
+Es una proteccion **solo-validacion**: para cualquier identificador que ya era valido, el SQL
+generado es byte-identico, por lo que las consultas legitimas siguen funcionando igual. Solo se
+rechaza la entrada insegura. Nota: `columns` ya no acepta expresiones ni alias crudos (p. ej.
+`COUNT(*) AS total`); pasa nombres de columna o `*`.
+
 ## Notas
 
-- Sanitizar nombres de tabla/columna antes de interpolar.
 - Mantener ownership de esquemas por modulo.
 - Validar comportamiento SQL generado en los tres drivers antes de produccion.
 

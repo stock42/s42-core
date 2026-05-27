@@ -48,9 +48,16 @@ db.createTable('operators', {
 await db.select('operators', ['uuid', 'email'], { email: { $like: '%@stock42.com' } })
 ```
 
+## Seguridad de identificadores
+
+Los nombres de tabla/columna/campo y las claves de `sort` se validan contra una lista blanca
+estricta (`[A-Za-z0-9_]`, con puntos para nombres calificados por esquema) antes de interpolar;
+un identificador invalido lanza error. Los valores siempre se pasan como binds parametrizados.
+Es una proteccion solo-validacion, asi que las consultas legitimas no se ven afectadas;
+`columns` ya no acepta expresiones crudas.
+
 ## Notas
 
-- Validar identificadores de tabla/columna antes de interpolar.
 - Preferir binds parametrizados para valores dinamicos.
 - Cerrar base en shutdown graceful.
 

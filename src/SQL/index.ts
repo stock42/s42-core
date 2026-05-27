@@ -8,55 +8,14 @@ import type {
 	tableInternalSchema,
 	tableRowSchema,
 } from './types'
+import {
+	assertValidColumns,
+	assertValidIdentifier,
+	assertValidSortKeys,
+	translateMongoJsonToSql,
+} from './identifiers'
 
-export function translateMongoJsonToSql(query: object) {
-	const operatorsMap: { [key: string]: string } = {
-		$eq: '=',
-		$gt: '>',
-		$gte: '>=',
-		$lt: '<',
-		$lte: '<=',
-		$ne: '!=',
-		$in: 'IN',
-		$nin: 'NOT IN',
-		$like: 'LIKE',
-	}
-
-	const whereClauses = []
-	const values = []
-
-	for (const [field, condition] of Object.entries(query)) {
-		if (typeof condition === 'object' && condition !== null) {
-			for (const [operator, value] of Object.entries(condition)) {
-				const sqlOperator = operatorsMap[operator]
-				if (sqlOperator) {
-					if (operator === '$in' || operator === '$nin') {
-						if (Array.isArray(value)) {
-							const placeholders = value.map(() => '?').join(', ')
-							whereClauses.push(`${field} ${sqlOperator} (${placeholders})`)
-							values.push(...value)
-						} else {
-							throw new Error(`Value for ${operator} must be an array`)
-						}
-					} else {
-						whereClauses.push(`${field} ${sqlOperator} ?`)
-						values.push(value)
-					}
-				} else {
-					throw new Error(`Unsupported operator: ${operator}`)
-				}
-			}
-		} else {
-			// If the condition is a direct value, assume equality
-			whereClauses.push(`${field} = ?`)
-			values.push(condition)
-		}
-	}
-
-	const whereStatement =
-		whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
-	return { whereStatement, values }
-}
+export { translateMongoJsonToSql }
 
 export class SQL {
 	private dbInstance: any
@@ -113,6 +72,8 @@ export class SQL {
 	}
 
 	public async createTable(tableName: string, data: ColumnDefinition): Promise<boolean> {
+		assertValidIdentifier(tableName, 'table name')
+		Object.keys(data).forEach(column => assertValidIdentifier(column, 'column'))
 		const columns = Object.entries(data)
 			.map(([columnName, type]) => `${columnName} ${type.toUpperCase()}`)
 			.join(', ')
@@ -131,7 +92,9 @@ export class SQL {
 		tableName: string,
 		data: KeyValueData,
 	): Promise<TypeReturnQuery | null> {
+		assertValidIdentifier(tableName, 'table name')
 		const keys = Object.keys(data)
+		keys.forEach(column => assertValidIdentifier(column, 'column'))
 		const values = Object.values(data)
 
 		const placeholders = keys.map(() => '?').join(', ')
@@ -184,6 +147,8 @@ export class SQL {
 	}
 
 	public async createIndex(tableName: string, columnName: string): Promise<void> {
+		assertValidIdentifier(tableName, 'table name')
+		assertValidIdentifier(columnName, 'column')
 		try {
 			const query = `CREATE INDEX IF NOT EXISTS idx_${tableName}_${columnName} ON ${tableName} (${columnName})`
 			await this.executeQuery(query)
@@ -197,6 +162,8 @@ export class SQL {
 		tableName: string,
 		changes: ColumnDefinition,
 	): Promise<boolean> {
+		assertValidIdentifier(tableName, 'table name')
+		Object.keys(changes).forEach(column => assertValidIdentifier(column, 'column'))
 		try {
 			const alterClauses = Object.entries(changes).map(
 				([column, type]) => `ADD COLUMN ${column} ${type.toUpperCase()}`,
@@ -239,12 +206,13 @@ export class SQL {
 	}
 
 	public async getTableSchema(tableName: string): Promise<tableRowSchema[]> {
+		assertValidIdentifier(tableName, 'table name')
 		if (this.dbType === 'sqlite') {
 			const query = `PRAGMA table_info(${tableName})`
 			return await this.executeQuery(query)
 		} else if (this.dbType === 'postgres') {
-			const query = `SELECT column_name as name, data_type as type, is_nullable as notnull, column_default as dflt_value FROM information_schema.columns WHERE table_name = '${tableName}'`
-			const result = await this.executeQuery(query)
+			const query = `SELECT column_name as name, data_type as type, is_nullable as notnull, column_default as dflt_value FROM information_schema.columns WHERE table_name = ?`
+			const result = await this.executeQuery(query, [tableName])
 			// Map to tableRowSchema
 			return result.map((row: any) => ({
 				name: row.name,
@@ -282,6 +250,7 @@ export class SQL {
 	}
 
 	public async dropTable(tableName: string): Promise<boolean | null> {
+		assertValidIdentifier(tableName, 'table name')
 		const query = `DROP TABLE IF EXISTS ${tableName}`
 		try {
 			await this.executeQuery(query)
@@ -292,6 +261,7 @@ export class SQL {
 	}
 
 	public async delete(tableName: string, whereClause?: object): Promise<number | null> {
+		assertValidIdentifier(tableName, 'table name')
 		let whereSentence = ''
 		let whereArgs: any[] = []
 		if (whereClause) {
@@ -336,6 +306,8 @@ export class SQL {
 		whereClause: object
 		data: KeyValueData
 	}): Promise<number | null> {
+		assertValidIdentifier(tableName, 'table name')
+		Object.keys(data).forEach(column => assertValidIdentifier(column, 'column'))
 		const setClause = Object.keys(data)
 			.map(key => `${key} = ?`)
 			.join(', ')
@@ -380,6 +352,7 @@ export class SQL {
 		tableName: string
 		whereClause?: object
 	}): Promise<number> {
+		assertValidIdentifier(tableName, 'table name')
 		let whereSentence = ''
 		let whereArgs: any[] = []
 		if (whereClause) {
@@ -413,6 +386,11 @@ export class SQL {
 		limit?: number
 		page?: number
 	}): Promise<T[] | null> {
+		assertValidIdentifier(tableName, 'table name')
+		assertValidColumns(columns)
+		if (sort) {
+			assertValidSortKeys(sort)
+		}
 		let whereSentence = ''
 		let whereArgs: any[] = []
 		if (whereClause) {

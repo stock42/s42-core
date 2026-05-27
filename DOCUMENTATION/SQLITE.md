@@ -48,9 +48,15 @@ db.createTable('operators', {
 await db.select('operators', ['uuid', 'email'], { email: { $like: '%@stock42.com' } })
 ```
 
+## Identifier safety
+
+Table/column/field names and `sort` keys are validated against a strict allow-list
+(`[A-Za-z0-9_]`, dot-separated for schema-qualified names) before interpolation; invalid
+identifiers throw. Values are always passed as parameterized binds. This is a validate-only
+safeguard, so legitimate queries are unaffected; `columns` no longer accepts raw expressions.
+
 ## Notes
 
-- Validate table/column identifiers before dynamic query interpolation.
 - Prefer parameterized binds for runtime values.
 - Close database on graceful shutdown.
 

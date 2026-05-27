@@ -1,4 +1,12 @@
 import { Database, type SQLQueryBindings } from 'bun:sqlite'
+import {
+	assertValidColumns,
+	assertValidIdentifier,
+	assertValidSortKeys,
+	translateMongoJsonToSql,
+} from '../SQL/identifiers'
+
+export { translateMongoJsonToSql }
 
 export type TypeTableSchema = { [key: string]: string }
 
@@ -35,55 +43,6 @@ export type Changes = {
 	changes: number | bigint
 }
 
-export function translateMongoJsonToSql(query: object) {
-	const operatorsMap: { [key: string]: string } = {
-		$eq: '=',
-		$gt: '>',
-		$gte: '>=',
-		$lt: '<',
-		$lte: '<=',
-		$ne: '!=',
-		$in: 'IN',
-		$nin: 'NOT IN',
-		$like: 'LIKE',
-	}
-
-	const whereClauses = []
-	const values = []
-
-	for (const [field, condition] of Object.entries(query)) {
-		if (typeof condition === 'object' && condition !== null) {
-			for (const [operator, value] of Object.entries(condition)) {
-				const sqlOperator = operatorsMap[operator]
-				if (sqlOperator) {
-					if (operator === '$in' || operator === '$nin') {
-						if (Array.isArray(value)) {
-							const placeholders = value.map(() => '?').join(', ')
-							whereClauses.push(`${field} ${sqlOperator} (${placeholders})`)
-							values.push(...value)
-						} else {
-							throw new Error(`Value for ${operator} must be an array`)
-						}
-					} else {
-						whereClauses.push(`${field} ${sqlOperator} ?`)
-						values.push(value)
-					}
-				} else {
-					throw new Error(`Unsupported operator: ${operator}`)
-				}
-			}
-		} else {
-			// If the condition is a direct value, assume equality
-			whereClauses.push(`${field} = ?`)
-			values.push(condition)
-		}
-	}
-
-	const whereStatement =
-		whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
-	return { whereStatement, values }
-}
-
 export class SQLite {
 	private type: string
 	private database: Database
@@ -111,9 +70,7 @@ export class SQLite {
 	}
 
 	private tableMatch(tableName: string) {
-		if (!tableName.match(/^[a-zA-Z0-9_]+$/)) {
-			throw new Error(`Invalid table name: ${tableName}`);
-		}
+		assertValidIdentifier(tableName, 'table name')
 		return true
 	}
 
@@ -123,6 +80,7 @@ export class SQLite {
 				throw new Error('Invalid table name');
 			}
 			this.tableMatch(tableName)
+			Object.keys(schema).forEach(column => assertValidIdentifier(column, 'column'))
 
 			schema['added'] = 'integer'
 			const columns = Object.entries(schema)
@@ -140,6 +98,8 @@ export class SQLite {
 		tableName: string,
 		changes: ColumnDefinition,
 	): Promise<Changes[]> {
+		this.tableMatch(tableName)
+		Object.keys(changes).forEach(column => assertValidIdentifier(column, 'column'))
 		try {
 			const alterClauses = Object.entries(changes).map(
 				([column, type]) => `ADD COLUMN ${column} ${type.toUpperCase()}`,
@@ -190,6 +150,7 @@ export class SQLite {
 	public insert(tableName: string, data: { [key: string]: SQLQueryBindings }) {
 		try {
 			this.tableMatch(tableName)
+			Object.keys(data).forEach(column => assertValidIdentifier(column, 'column'))
 			data['added'] = new Date().getTime()
 			const values = Object.values(data)
 
@@ -208,6 +169,7 @@ export class SQLite {
 	public async createIndex(tableName: string, columnName: string): Promise<Changes> {
 		try {
 			this.tableMatch(tableName)
+			assertValidIdentifier(columnName, 'column')
 			const query = this.database.query(`CREATE INDEX IF NOT EXISTS idx_${tableName}_${columnName} ON ${tableName} (${columnName})`)
 			return query.run()
 		} catch (err) {
@@ -223,6 +185,7 @@ export class SQLite {
 	}
 
 	public async getTableSchema(tableName: string): Promise<tableRowSchema[]> {
+		this.tableMatch(tableName)
 		const query = this.database.query(`PRAGMA table_info(${tableName})`)
 		const result: tableRowSchema[] = query.all() as tableRowSchema[]
 		return result
@@ -234,6 +197,7 @@ export class SQLite {
 		data: KeyValueData,
 	): Promise<Changes> {
 		this.tableMatch(tableName)
+		Object.keys(data).forEach(column => assertValidIdentifier(column, 'column'))
 		const setClause = Object.keys(data)
 			.map(key => `${key} = ?`)
 			.join(', ')
@@ -266,6 +230,10 @@ export class SQLite {
 		offset?: number,
 	): Promise<T[] | null> {
 		this.tableMatch(tableName)
+		assertValidColumns(columns)
+		if (sort) {
+			assertValidSortKeys(sort)
+		}
 		let whereSentence = ''
 		let whereArgs: SQLQueryBindings[] = []
 		if (whereClause) {

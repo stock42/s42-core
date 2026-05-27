@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Security
+- **SQL / SQLite — identifier hardening:** SQL identifiers (table, column and `WHERE` field
+  names, plus `sort` keys) are now validated against a strict allow-list before being
+  interpolated into queries, closing SQL-injection vectors through identifiers. Values were
+  already parameterized. Centralized in `src/SQL/identifiers.ts` and shared by both classes;
+  the duplicated `translateMongoJsonToSql` was deduplicated.
+  - Backwards compatibility: **validate-only** — for any already-valid identifier the generated
+    SQL is byte-identical. Breaking only for callers passing raw expressions/aliases in
+    `columns` (e.g. `COUNT(*) AS total`); pass plain column names or `*`.
+  - `SQL.getTableSchema` (Postgres) no longer interpolates the table name as a string literal;
+    it is passed as a bound parameter.
+  - Added tests: `src/SQL/identifiers.test.ts` and `src/SQL/index.test.ts`.
+
 ## [2.0.10] - 2025-11-20
 
 ### Added
