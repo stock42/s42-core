@@ -6,7 +6,7 @@ bun.lock
 .env
 .env.example
 
-AGENTS.md
+# AGENTS.md
 TODO.md
 modules
 .vscode
