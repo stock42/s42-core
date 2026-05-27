@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 ### Removed
 - **Dependency:** removed the unused `jsonwebtoken` dependency (not referenced anywhere in
   `src/`).
+- **SSE:** removed the dead, unused private `sendSSECustom` method; documented the 1s flush
+  cadence as the keep-alive heartbeat.
 
 ### Fixed
 - **RouteControllers — query parsing:** `getQueryParams` no longer truncates query string

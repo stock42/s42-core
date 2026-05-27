@@ -18,6 +18,9 @@ export class SSE {
 		this.response = new Response(
 			new ReadableStream({
 				type: "direct",
+				// The stream stays open until the client disconnects (request signal
+				// aborts). We flush once per second so buffered events are pushed
+				// promptly; this interval also acts as the keep-alive heartbeat.
 				async pull(controller: ReadableStreamDirectController) {
 					_this.controller = controller
 					while (!signal?.aborted) {
@@ -34,10 +37,6 @@ export class SSE {
 
 	public getResponse(): Response {
 		return this.response;
-	}
-
-	private sendSSECustom( eventName: string, data: string) {
-		return this?.controller?.write(`event: ${eventName}\ndata:${JSON.stringify(data)}\n\n`);
 	}
 
 	private sendSSEMessage(data: string) {

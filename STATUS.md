@@ -62,7 +62,7 @@ Bloques funcionales (`src/`):
 | 15 | CHANGELOG/ROADMAP desactualizados; `TODO.md` inexistente | **4** | Documentación |
 | 16 | Singletons ignoran config tras la 1ª inicialización | **4** | Diseño |
 | 17 | Parseo de query params naïve (`split('=')`) | **4** | Correctitud | ✅ Hecho |
-| 18 | `SSE`: código muerto y busy-wait de flush | **5** | Limpieza |
+| 18 | `SSE`: código muerto y busy-wait de flush | **5** | Limpieza | ✅ Hecho (parcial) |
 | 19 | Helpers de path hechos a mano en `Modules` | **5** | Limpieza |
 | 20 | Duplicación de documentación (alto coste de mantenimiento) | **5** | Documentación |
 | 21 | CLI de scaffolding de proyectos (roadmap) | **5** | Feature |
@@ -230,11 +230,15 @@ maneja claves repetidas.
 
 ### 🔵 Criticidad 5 — Pulido / nice-to-have
 
-#### 18. `SSE`: código muerto y busy-wait
+#### 18. `SSE`: código muerto y busy-wait — ✅ RESUELTO (parcial)
+> **Estado:** se eliminó el método muerto `sendSSECustom` y se documentó la cadencia de
+> `flush` (1s) como heartbeat/keep-alive. El bucle de flush por segundo se mantiene (es la
+> estrategia de keep-alive); si se quisiera optimizar a futuro se podría reemplazar por flush
+> dirigido por evento, pero queda fuera de este cambio para no alterar comportamiento.
+
 **Archivo:** `src/SSE/index.ts`
 `sendSSECustom` es privado y nunca se usa; el `pull` hace `flush()` + `sleep(1000)` en bucle
 sin keep-alive/heartbeat explícito.
-**Recomendación:** eliminar lo muerto y documentar la cadencia de flush / keep-alive.
 
 #### 19. Helpers de path hechos a mano en `Modules`
 **Archivo:** `src/Modules/index.ts:458-518`
