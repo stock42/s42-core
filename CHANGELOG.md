@@ -54,6 +54,24 @@ All notable changes to this project will be documented in this file.
     it is passed as a bound parameter.
   - Added tests: `src/SQL/identifiers.test.ts` and `src/SQL/index.test.ts`.
 
+## [3.0.0] – [3.0.6]
+
+> Consolidated from git history (the `3.x` line shipped without per-release notes).
+
+### Added
+- **Module-oriented v3:** the framework became 100% module-oriented — modules are discovered
+  by convention (`__module__.ts`) and bundle controllers, events and lifecycle. Module types
+  `full` / `mws` / `share`, `enabled` flag, and `initialize` lifecycle hooks.
+- **CoreStats:** optional `/core/stats` endpoint (enabled via `ENABLE_CORE_STATS`) reporting
+  controllers, modules and system metrics.
+- **TLS support** for SQL connections.
+- **SQS events adapter** alongside the Redis adapter for `EventsDomain`.
+- Event object exposed in the handler/controller scope.
+- LLM-oriented documentation (`DOCUMENTATION/ALL_EN.md`).
+
+### Fixed
+- Multiple P0 runtime and typing fixes across server / modules / storage.
+
 ## [2.0.10] - 2025-11-20
 
 ### Added

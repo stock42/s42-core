@@ -40,7 +40,7 @@ Su objetivo es ofrecer una base común para construir APIs y servicios con:
   - `Dependencies/`: contenedor DI estático.
   - `Mailgun/`, `ViewTemplates/`, `Test/`: utilidades complementarias.
 - Convención de eventos en `EventsDomain`: `A.B.C` en mayúsculas; módulo inferido desde el primer segmento.
-- Estado actual: hay deuda técnica relevante en SQL/SQLite, tipos TS y robustez de APIs (ver `TODO.md`).
+- Estado actual: el backlog de mejoras y deuda técnica vive en `STATUS.md` (priorizado por criticidad 1–5).
 - Criterio de contribución: mantener enfoque **Bun-first** (usar APIs nativas de Bun antes que `node:*` o librerías extra cuando sea viable).
 
 

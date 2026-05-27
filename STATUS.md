@@ -59,7 +59,7 @@ Bloques funcionales (`src/`):
 | 12 | After-hooks no pueden alterar la respuesta ya emitida | **3** | Diseño |
 | 13 | Falta archivo `LICENSE` (declarado MIT y en `files`) | **4** | Publicación | ✅ Hecho |
 | 14 | Dependencia `jsonwebtoken` sin usar | **4** | Dependencias | ✅ Hecho |
-| 15 | CHANGELOG/ROADMAP desactualizados; `TODO.md` inexistente | **4** | Documentación |
+| 15 | CHANGELOG/ROADMAP desactualizados; `TODO.md` inexistente | **4** | Documentación | ✅ Hecho |
 | 16 | Singletons ignoran config tras la 1ª inicialización | **4** | Diseño |
 | 17 | Parseo de query params naïve (`split('=')`) | **4** | Correctitud | ✅ Hecho |
 | 18 | `SSE`: código muerto y busy-wait de flush | **5** | Limpieza | ✅ Hecho (parcial) |
@@ -216,10 +216,15 @@ no existe → `npm publish` lo omite. **Fix trivial:** añadir `LICENSE` (MIT).
 Declarada en `dependencies` pero sin uso en `src/` (lib CJS en proyecto Bun-first).
 **Recomendación:** eliminarla o, si se necesita JWT, usar `Bun`/Web Crypto.
 
-#### 15. Documentación de estado desincronizada
+#### 15. Documentación de estado desincronizada — ✅ RESUELTO
+> **Estado:** resuelto. Se añadió al `CHANGELOG.md` una sección `[Unreleased]` (cambios de esta
+> sesión) y una entrada consolidada `[3.0.0]–[3.0.6]` reconstruida del historial git. La
+> referencia colgante a `TODO.md` en `AGENTS.md` ahora apunta a `STATUS.md` (backlog vivo).
+> `ROADMAP.md` se deja como hoja de ruta de features (no es deuda).
+
+#### 15bis. Detalle original
 `CHANGELOG.md` se detiene en `2.0.13` (la versión actual es `3.0.6`); `ROADMAP.md` es
 mínimo; `AGENTS.md` referencia un `TODO.md` que no existe.
-**Recomendación:** actualizar CHANGELOG hasta 3.x y crear/eliminar `TODO.md` según corresponda.
 
 #### 16. Singletons ignoran configuración posterior
 `MongoClient`, `RedisClient` y `EventsDomain` (`getInstance(...)`) devuelven la primera
