@@ -61,7 +61,7 @@ Bloques funcionales (`src/`):
 | 14 | Dependencia `jsonwebtoken` sin usar | **4** | Dependencias |
 | 15 | CHANGELOG/ROADMAP desactualizados; `TODO.md` inexistente | **4** | Documentación |
 | 16 | Singletons ignoran config tras la 1ª inicialización | **4** | Diseño |
-| 17 | Parseo de query params naïve (`split('=')`) | **4** | Correctitud |
+| 17 | Parseo de query params naïve (`split('=')`) | **4** | Correctitud | ✅ Hecho |
 | 18 | `SSE`: código muerto y busy-wait de flush | **5** | Limpieza |
 | 19 | Helpers de path hechos a mano en `Modules` | **5** | Limpieza |
 | 20 | Duplicación de documentación (alto coste de mantenimiento) | **5** | Documentación |
@@ -212,7 +212,12 @@ mínimo; `AGENTS.md` referencia un `TODO.md` que no existe.
 instancia y **descartan silenciosamente** args distintos en llamadas posteriores.
 **Recomendación:** avisar/error si se pasa config distinta, o soportar instancias con clave.
 
-#### 17. Parseo de query params naïve
+#### 17. Parseo de query params naïve — ✅ RESUELTO (sin cambio de comportamiento)
+> **Estado:** resuelto. Se corrigió la truncación de valores con `=` usando `indexOf` (primer
+> `=`). Se mantuvieron deliberadamente las semánticas de `decodeURIComponent` para no alterar el
+> comportamiento actual: `URLSearchParams` puro habría cambiado `+`→espacio y el manejo de `%`
+> malformado, por eso no se adoptó. Tests: `src/RouteControllers/index.test.ts`.
+
 **Archivo:** `src/RouteControllers/index.ts:179-189`
 `getQueryParams` parte por `=` tomando solo 2 partes (un valor con `=` se trunca) y no
 maneja claves repetidas.

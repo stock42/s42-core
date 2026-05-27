@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **RouteControllers — query parsing:** `getQueryParams` no longer truncates query string
+  values that contain `=` (e.g. base64 / JWT). Decoding semantics are unchanged. Added tests
+  (`src/RouteControllers/index.test.ts`).
 - **EventsDomain — evict dead instances:** listener instances now carry a `lastSeen` timestamp
   refreshed by the 5s heartbeat; instances silent for more than 3 heartbeats (15s) are purged
   from the registry, and `firstListener` is re-selected so single-listener events are no longer

@@ -181,8 +181,13 @@ export class RouteControllers {
         const [, query] = url.split('?')
         if (query) {
             query.split('&').forEach(param => {
-                const [key, value] = param.split('=')
-                queryParams[key] = decodeURIComponent(value || '')
+                // Split on the FIRST '=' only, so values containing '=' (e.g. base64,
+                // JWTs) are no longer truncated. Decoding semantics are kept identical
+                // to the previous implementation to avoid any behavior change.
+                const separatorIndex = param.indexOf('=')
+                const key = separatorIndex === -1 ? param : param.slice(0, separatorIndex)
+                const value = separatorIndex === -1 ? '' : param.slice(separatorIndex + 1)
+                queryParams[key] = decodeURIComponent(value)
             })
         }
         return queryParams
