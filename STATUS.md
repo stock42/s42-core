@@ -53,7 +53,7 @@ Bloques funcionales (`src/`):
 | 6 | `EventsDomain` sin expiración de instancias muertas | **2** | Fiabilidad | ✅ Hecho |
 | 7 | `bun run lint` roto (ESLint 9 vs `.eslintrc.cjs`) | **3** | Tooling | ✅ Hecho |
 | 8 | Cobertura de tests muy baja | **3** | Calidad |
-| 9 | Sin abstracción de logging (55 `console.*`) | **3** | Operación |
+| 9 | Sin abstracción de logging (55 `console.*`) | **3** | Operación | ✅ Hecho |
 | 10 | Uso extendido de `any` que mina el `strict` | **3** | Tipado |
 | 11 | Lógica `translateMongoJsonToSql` duplicada | **3** | Mantenibilidad | ✅ Hecho |
 | 12 | After-hooks no pueden alterar la respuesta ya emitida | **3** | Diseño |
@@ -172,7 +172,14 @@ Solo hay tests para `Controller`, `CoreStats` y `Modules` (6 tests). **Sin tests
 **Recomendación:** priorizar tests de `SQL`/`SQLite` (incl. casos de inyección), matching
 de rutas y enrutado de eventos.
 
-#### 9. Sin abstracción de logging
+#### 9. Sin abstracción de logging — ✅ RESUELTO
+> **Estado:** resuelto. Nuevo `logger` con niveles en `src/Logger/index.ts` (exportado en la API
+> pública). Reemplaza los `console.*` de runtime (excepto el reporter `Test/`). Default `debug`
+> (todo activado → sin cambio de comportamiento); nivel vía `S42_LOG_LEVEL`/`LOG_LEVEL` o
+> `setLogLevel(...)`; sink reemplazable con `setLogSink(...)`. Docs: `DOCUMENTATION/LOGGER.md`.
+> Tests: `src/Logger/index.test.ts`.
+
+#### 9bis. Detalle original
 55 llamadas `console.*` repartidas por `src/`. La carga de módulos imprime siempre, sin
 niveles ni forma de silenciar en producción.
 **Recomendación:** introducir un logger inyectable con niveles (debug/info/warn/error).

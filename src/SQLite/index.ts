@@ -5,6 +5,7 @@ import {
 	assertValidSortKeys,
 	translateMongoJsonToSql,
 } from '../SQL/identifiers'
+import { logger } from '../Logger'
 
 export { translateMongoJsonToSql }
 
@@ -65,7 +66,7 @@ export class SQLite {
 		try {
 			this.database.close()
 		} catch (err) {
-			console.error('Error closing database:', err)
+			logger.error('Error closing database:', err)
 		}
 	}
 
@@ -115,7 +116,7 @@ export class SQLite {
 			}
 			return results
 		} catch (err) {
-			console.info('Error addTableColums: ', err)
+			logger.info('Error addTableColums: ', err)
 			throw err
 		}
 	}
@@ -171,7 +172,7 @@ export class SQLite {
 			)
 			return query.run()
 		} catch (err) {
-			console.info('Error creating index: ', err)
+			logger.info('Error creating index: ', err)
 			throw err
 		}
 	}

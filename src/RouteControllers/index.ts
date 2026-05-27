@@ -1,4 +1,5 @@
 import { type Controller } from '../Controller/index.js'
+import { logger } from '../Logger'
 import { getCoreStatsController, getCoreStatsPath } from '../CoreStats/index.js'
 import { Res } from '../Response/index.js'
 import type { TypeHook } from '../Server/types.js'
@@ -350,7 +351,7 @@ export class RouteControllers {
 		try {
 			await this.executeHooks(beforeHooks, req, response)
 		} catch (hookError) {
-			console.error('Error executing before hooks:', hookError)
+			logger.error('Error executing before hooks:', hookError)
 			return this.hookError(hookError)
 		}
 
@@ -360,7 +361,7 @@ export class RouteControllers {
 			await this.executeHooks(afterHooks, req, response)
 		} catch (hookError) {
 			// Keep response path healthy even if post-processing hook fails
-			console.error('Error executing after hooks:', hookError)
+			logger.error('Error executing after hooks:', hookError)
 		}
 
 		return finalResponse
@@ -404,7 +405,7 @@ export class RouteControllers {
 
 				return this.notFound()
 			} catch (err) {
-				console.error('Internal RouteControllers Error:', err)
+				logger.error('Internal RouteControllers Error:', err)
 				return this.serverError()
 			}
 		}

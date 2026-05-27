@@ -1,5 +1,6 @@
 import { Glob } from 'bun'
 import { z } from 'zod'
+import { logger } from '../Logger'
 import { Controller } from '../Controller'
 import type { EventsDomain } from '../EventsDomain'
 import type { TypeHook } from '../Server/types'
@@ -144,7 +145,7 @@ export class Modules {
 	}
 
 	async load() {
-		console.log('🔎 Scanning for modules in', this.path)
+		logger.debug('🔎 Scanning for modules in', this.path)
 		const discoveredModules = await this.discoverModules()
 
 		const middlewareModules = discoveredModules.filter(
@@ -193,7 +194,7 @@ export class Modules {
 		for (const dirName of unsupportedShareDirs) {
 			const fullDirPath = this.joinPath(moduleDir, dirName)
 			if (await this.directoryExists(fullDirPath)) {
-				console.warn(
+				logger.warn(
 					`⭕️ Share module ${module.name}@${module.version} ignores "${dirName}" directory (${fullDirPath}).`,
 				)
 			}
@@ -209,13 +210,13 @@ export class Modules {
 				continue
 			}
 
-			console.log('📦 Loading module:', file)
+			logger.debug('📦 Loading module:', file)
 			const moduleFilePath = this.toAbsolutePath(this.joinPath(this.path, file))
 			const completedPath = this.toFileImportURL(moduleFilePath)
 			const loadedModule = await import(completedPath)
 			const module = Module.parse(loadedModule.default)
 			if (!module.enabled) {
-				console.log('⏭️  Skipping disabled module:', module.name)
+				logger.debug('⏭️  Skipping disabled module:', module.name)
 				continue
 			}
 			modulesFound.push({ module, moduleFilePath })
@@ -297,7 +298,7 @@ export class Modules {
 	async loadControllers(module: ModuleType, moduleFilePath: string) {
 		registerModuleStats(module)
 		this.trackModule(this.fullModules, module)
-		console.log(
+		logger.debug(
 			`⚙️ Loading all controllers for ${module.name}@${module.version} - ${moduleFilePath}`,
 		)
 		const glob = new Glob('**/*.ts')
@@ -305,7 +306,7 @@ export class Modules {
 		const controllersDir = this.joinPath(this.dirname(moduleFilePath), 'controllers')
 		try {
 			for await (const file of glob.scan(controllersDir)) {
-				console.log('🧩 Loading controller:', file)
+				logger.debug('🧩 Loading controller:', file)
 				const controllerPath = this.joinPath(controllersDir, file)
 				const completedPath = this.toFileImportURL(controllerPath)
 				const controllerModule = await import(completedPath)
@@ -432,7 +433,7 @@ export class Modules {
 
 			const middleware = this.middlewareModules.get(reference)
 			if (!middleware) {
-				console.warn(`❗️ Middleware reference "${reference}" not found.`)
+				logger.warn(`❗️ Middleware reference "${reference}" not found.`)
 				continue
 			}
 
@@ -552,7 +553,7 @@ export class Modules {
 
 	private async loadEvents(module: ModuleType, moduleFilePath: string) {
 		if (!this.eventsDomain) {
-			console.warn('EventsDomain not configured. Skipping events registration.')
+			logger.warn('EventsDomain not configured. Skipping events registration.')
 			return
 		}
 

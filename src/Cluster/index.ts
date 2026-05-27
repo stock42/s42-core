@@ -1,5 +1,7 @@
 import { spawn } from 'bun'
 
+import { logger } from '../Logger'
+
 import { type TypeConstructor, type TypeCommandToWorkers } from './types.ts'
 
 export class Cluster {
@@ -35,13 +37,13 @@ export class Cluster {
 
 	public start(file: string, fallback: (err: Error) => void): void {
 		if (this.buns.length > 0 && this.buns.some(bun => bun?.pid)) {
-			console.warn('Workers are already running.')
+			logger.warn('Workers are already running.')
 			return
 		}
 
 		try {
 			this.file = file
-			console.info(`Spawning ${this.maxCPU} worker(s) for ${this.name}`)
+			logger.info(`Spawning ${this.maxCPU} worker(s) for ${this.name}`)
 
 			// Use current Bun executable to avoid env/path inconsistencies across hosts.
 			const cmd = [
@@ -58,7 +60,7 @@ export class Cluster {
 					stderr: 'inherit',
 					stdin: 'inherit',
 					onExit(code) {
-						console.info(`Worker exited with code ${code}`)
+						logger.info(`Worker exited with code ${code}`)
 					},
 					ipc: (message, childProc) => {
 						this.handleWorkerMessage(message, childProc)
@@ -82,7 +84,7 @@ export class Cluster {
 
 	private sendCommandToWorkers(command: TypeCommandToWorkers): void {
 		if (!this.buns.length) {
-			console.warn('No active workers to send the command.')
+			logger.warn('No active workers to send the command.')
 			return
 		}
 
@@ -98,7 +100,7 @@ export class Cluster {
 
 	public sendMessageToWorkers(message: string): void {
 		if (!this.buns.length) {
-			console.warn('No active workers to send the message.')
+			logger.warn('No active workers to send the message.')
 			return
 		}
 
@@ -121,15 +123,15 @@ export class Cluster {
 		}
 
 		this.shuttingDown = true
-		console.info(`Shutting down ${this.name} workers (${reason})...`)
+		logger.info(`Shutting down ${this.name} workers (${reason})...`)
 
 		for (const bun of this.buns) {
 			if (bun?.pid) {
-				console.info(`Killing worker ${bun.pid}`)
+				logger.info(`Killing worker ${bun.pid}`)
 				try {
 					bun.kill()
 				} catch (error) {
-					console.error(`Error killing worker ${bun.pid}:`, error)
+					logger.error(`Error killing worker ${bun.pid}:`, error)
 				}
 			}
 		}
@@ -138,7 +140,7 @@ export class Cluster {
 		process.off('SIGINT', this.handleSigint)
 		process.off('SIGTERM', this.handleSigterm)
 		this.shuttingDown = false
-		console.info('All workers have been terminated.')
+		logger.info('All workers have been terminated.')
 	}
 
 	private handleWorkerMessage(

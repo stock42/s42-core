@@ -5,6 +5,7 @@ import {
 	type Collection,
 	type Document,
 } from 'mongodb'
+import { logger } from '../Logger'
 import {
 	type TypeMongoDBdatabaseConnection,
 	type TypeMongoQueryPagination,
@@ -36,9 +37,9 @@ export class MongoClient {
 		try {
 			await this.mongoClient.connect()
 			this.db = this.mongoClient.db(this.databaseName)
-			console.info(`Connected to MongoDB: ${this.databaseName}`)
+			logger.info(`Connected to MongoDB: ${this.databaseName}`)
 		} catch (error) {
-			console.error('MongoDB connection error:', error)
+			logger.error('MongoDB connection error:', error)
 			throw new Error('Failed to connect to MongoDB')
 		}
 	}
@@ -53,9 +54,9 @@ export class MongoClient {
 	public async close(): Promise<void> {
 		try {
 			await this.mongoClient.close()
-			console.info('MongoDB connection closed.')
+			logger.info('MongoDB connection closed.')
 		} catch (error) {
-			console.error('Error closing MongoDB connection:', error)
+			logger.error('Error closing MongoDB connection:', error)
 		}
 	}
 

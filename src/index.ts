@@ -21,6 +21,14 @@ export {
 	type SQSEventsAdapterOptions,
 } from './EventsDomain/adapters/sqs.adapter'
 export { Dependencies } from './Dependencies'
+export {
+	logger,
+	setLogLevel,
+	getLogLevel,
+	setLogSink,
+	type LogLevel,
+	type LogSink,
+} from './Logger'
 export { MongoClient } from './MongoDB'
 export { RedisClient } from './RedisDB'
 export {

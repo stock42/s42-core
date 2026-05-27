@@ -1,4 +1,5 @@
 import { RedisClient as BunRedisClient } from 'bun'
+import { logger } from '../Logger'
 import { type RedisInterface } from './Redis.interface.js'
 
 export class RedisClient implements RedisInterface {
@@ -83,11 +84,11 @@ export class RedisClient implements RedisInterface {
 				try {
 					callback(JSON.parse(message) as T)
 				} catch (error) {
-					console.error(`Error parsing message from channel "${channelName}":`, error)
+					logger.error(`Error parsing message from channel "${channelName}":`, error)
 				}
 			})
 		})().catch(error => {
-			console.error(`Error subscribing to channel "${channelName}":`, error)
+			logger.error(`Error subscribing to channel "${channelName}":`, error)
 		})
 	}
 
@@ -101,7 +102,7 @@ export class RedisClient implements RedisInterface {
 			this.subscribedChannels.delete(channelName)
 			await this.redisSub.unsubscribe(channelName)
 		})().catch(error =>
-			console.error(`Error unsubscribing from channel "${channelName}":`, error),
+			logger.error(`Error unsubscribing from channel "${channelName}":`, error),
 		)
 	}
 
@@ -110,7 +111,7 @@ export class RedisClient implements RedisInterface {
 		try {
 			message = JSON.stringify(payload)
 		} catch (error) {
-			console.error(`Error serializing payload for channel "${channelName}":`, error)
+			logger.error(`Error serializing payload for channel "${channelName}":`, error)
 			return
 		}
 
@@ -121,7 +122,7 @@ export class RedisClient implements RedisInterface {
 			}
 			await this.redisPub.publish(channelName, message)
 		})().catch(error =>
-			console.error(`Error publishing to channel "${channelName}":`, error),
+			logger.error(`Error publishing to channel "${channelName}":`, error),
 		)
 	}
 
@@ -155,9 +156,9 @@ export class RedisClient implements RedisInterface {
 			this.redisPub = null
 			this.connected = false
 			this.connecting = null
-			console.log('Redis connections closed')
+			logger.debug('Redis connections closed')
 		} catch (error) {
-			console.error('Error closing Redis connections:', error)
+			logger.error('Error closing Redis connections:', error)
 		}
 	}
 
@@ -224,7 +225,7 @@ export class RedisClient implements RedisInterface {
 			}
 			return Boolean(this.redisSub && this.redisPub)
 		} catch (error) {
-			console.error('Error ensuring Redis pub/sub connections:', error)
+			logger.error('Error ensuring Redis pub/sub connections:', error)
 			return false
 		}
 	}

@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { SQL as BunSQL } from 'bun'
+import { logger } from '../Logger'
 import type {
 	ColumnDefinition,
 	KeyValueData,
@@ -84,7 +85,7 @@ export class SQL {
 			await this.executeQuery(query)
 			return true
 		} catch (err) {
-			console.error(err)
+			logger.error(err)
 			throw err
 		}
 	}
@@ -124,7 +125,7 @@ export class SQL {
 			const query = `CREATE INDEX IF NOT EXISTS idx_${tableName}_${columnName} ON ${tableName} (${columnName})`
 			await this.executeQuery(query)
 		} catch (err) {
-			console.info('Error creating index: ', err)
+			logger.info('Error creating index: ', err)
 			throw err
 		}
 	}
@@ -145,7 +146,7 @@ export class SQL {
 			}
 			return true
 		} catch (err) {
-			console.info('Error addTableColums: ', err)
+			logger.info('Error addTableColums: ', err)
 			throw err
 		}
 	}

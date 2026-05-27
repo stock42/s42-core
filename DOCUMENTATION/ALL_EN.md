@@ -957,6 +957,21 @@ Supports:
 
 Use for quick script logs; use `bun:test` for real automated tests.
 
+## 8.7 `logger` (leveled logging)
+
+`logger` is the framework's internal leveled logger (`debug` < `info` < `warn` < `error` <
+`silent`). It defaults to `debug` (everything on, byte-identical to the previous raw
+`console.*` output). Raise the threshold with the `S42_LOG_LEVEL` (or `LOG_LEVEL`) env var, or
+at runtime with `setLogLevel(...)`. Replace the output sink with `setLogSink(...)` to ship
+structured logs. See `LOGGER.md`.
+
+```ts
+import { logger, setLogLevel } from 's42-core'
+
+setLogLevel('warn') // silence debug/info in production
+logger.error('boom')
+```
+
 ## 9. Complete Modular Backend Blueprint
 
 This is the recommended architecture sequence for real projects.

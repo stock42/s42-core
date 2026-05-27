@@ -1,4 +1,5 @@
 import type { EventsAdapter } from '../types.d.js'
+import { logger } from '../../Logger'
 import {
 	DeleteMessageCommand,
 	ReceiveMessageCommand,
@@ -111,7 +112,7 @@ export class SQSEventsAdapter implements EventsAdapter {
 					await this.handleMessage(message)
 				}
 			} catch (error) {
-				console.error('SQS adapter poll error:', error)
+				logger.error('SQS adapter poll error:', error)
 				await Bun.sleep(this.pollIntervalMs)
 			}
 		}
@@ -130,7 +131,7 @@ export class SQSEventsAdapter implements EventsAdapter {
 				try {
 					handler(payload, resolvedChannel)
 				} catch (error) {
-					console.error('SQS adapter handler error:', error)
+					logger.error('SQS adapter handler error:', error)
 				}
 			}
 		}

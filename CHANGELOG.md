@@ -7,6 +7,10 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **LICENSE:** added the MIT license file (already declared in `package.json` and listed in
   `files`, but previously missing from the repo/package).
+- **Leveled logger:** new injectable `logger` (exported from the package) replaces raw
+  `console.*` across the framework. Defaults to `debug` (everything on — no behavior change);
+  set `S42_LOG_LEVEL`/`LOG_LEVEL` or call `setLogLevel(...)` to control verbosity, and
+  `setLogSink(...)` to redirect output. See `DOCUMENTATION/LOGGER.md`.
 
 ### Tooling
 - **ESLint 9 flat config:** migrated `.eslintrc.cjs` to `eslint.config.js` so `bun run lint`

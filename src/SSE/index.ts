@@ -1,3 +1,5 @@
+import { logger } from '../Logger'
+
 export type TypeSSEventToSend = {
 	eventName: string
 	eventPayload: Record<string, any>
@@ -50,7 +52,7 @@ export class SSE {
 		try {
 			this.sendSSEMessage(formattedData)
 		} catch (error) {
-			console.error('Error sending SSE data:', error)
+			logger.error('Error sending SSE data:', error)
 		}
 	}
 
@@ -58,7 +60,7 @@ export class SSE {
 		try {
 			this.controller?.close()
 		} catch (error) {
-			console.error('Error closing SSE connection:', error)
+			logger.error('Error closing SSE connection:', error)
 		}
 	}
 

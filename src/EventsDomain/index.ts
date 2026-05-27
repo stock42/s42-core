@@ -10,6 +10,7 @@ import type {
 	TypeEventCommand,
 } from './types.d.js'
 import { RedisEventsAdapter } from './adapters/redis.adapter.js'
+import { logger } from '../Logger'
 
 type LocalHandler = {
 	handler: (event: EventType) => void | Promise<void>
@@ -89,13 +90,13 @@ export class EventsDomain implements EventsDomainsInterface {
 
 		const entry = this.registeredEvents[normalizedName]
 		if (!entry) {
-			console.warn(`Event "${normalizedName}" is not registered`)
+			logger.warn(`Event "${normalizedName}" is not registered`)
 			return false
 		}
 
 		const fromModuleName = EventsDomain.getModuleFromEventName(normalizedName)
 		if (!entry.emitters.includes(fromModuleName)) {
-			console.warn(
+			logger.warn(
 				`Emitter module "${fromModuleName}" is not registered for "${normalizedName}"`,
 			)
 			return false
@@ -318,7 +319,7 @@ export class EventsDomain implements EventsDomainsInterface {
 		if (handler) {
 			const handlers = this.localHandlers.get(eventName) ?? []
 			if (!multiple && handlers.length > 0) {
-				console.warn(`Event "${eventName}" is single-listen. Ignoring extra handler.`)
+				logger.warn(`Event "${eventName}" is single-listen. Ignoring extra handler.`)
 			} else {
 				handlers.push({ handler, moduleName: normalizedModule })
 				this.localHandlers.set(eventName, handlers)
@@ -354,7 +355,7 @@ export class EventsDomain implements EventsDomainsInterface {
 			try {
 				await handler(payload)
 			} catch (error) {
-				console.error(`Error handling event "${payload.eventName}":`, error)
+				logger.error(`Error handling event "${payload.eventName}":`, error)
 			}
 		}
 	}

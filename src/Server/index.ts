@@ -1,5 +1,6 @@
 import { serve, sleep, type Server as ServerBun } from 'bun'
 import { type RouteControllers } from '../RouteControllers'
+import { logger } from '../Logger'
 
 import { type TypeHook } from './types.ts'
 import { type TypeCommandToWorkers } from '../Cluster/types.ts'
@@ -41,7 +42,7 @@ export class Server {
 					}
 				}
 			} catch (error) {
-				console.error('Error parsing message from worker:', error)
+				logger.error('Error parsing message from worker:', error)
 			}
 		})
 	}
@@ -59,7 +60,7 @@ export class Server {
 			awaitForCluster = false,
 		} = properties
 
-		console.info('🚀 Starting server on port:', port)
+		logger.info('🚀 Starting server on port:', port)
 		const callback =
 			RouteControllers ?
 				RouteControllers.getCallback(hooks)
@@ -116,7 +117,7 @@ export class Server {
 
 	public sendMessageToCluster(message: string) {
 		if (typeof process.send !== 'function') {
-			console.warn('sendMessageToCluster called outside cluster worker context.')
+			logger.warn('sendMessageToCluster called outside cluster worker context.')
 			return
 		}
 		process.send(message)
@@ -124,7 +125,7 @@ export class Server {
 
 	public sendMessageToWorkers(message: string) {
 		if (typeof process.send !== 'function') {
-			console.warn('sendMessageToWorkers called outside cluster worker context.')
+			logger.warn('sendMessageToWorkers called outside cluster worker context.')
 			return
 		}
 		process.send(`>>.<<|${message}`)
