@@ -118,7 +118,19 @@ columna en `insert`/`update`, ni el array `columns` o las claves de `sort` en `s
 (líneas 196-202, 237-239, 279-286), ni `columnName` en `createIndex` (línea 211).
 **Recomendación:** aplicar la misma validación de identificadores a columnas, sort e índices.
 
-#### 4. CORS abierto y hardcodeado
+#### 4. CORS abierto y hardcodeado — 📐 DISEÑO PROPUESTO (sin implementar aún)
+> **Propuesta retrocompatible (opt-in, default = comportamiento actual):**
+> 1. Añadir una opción opcional `cors` a `RouteControllers` (constructor) y/o `Server.start`.
+>    Si **no** se pasa, `setHeaders()` produce headers byte-idénticos a hoy (`origin '*'`,
+>    `credentials true`, mismos métodos/headers) → cero impacto en proyectos existentes.
+> 2. Nuevo método/opción para endurecer: `cors: { origins: string[]; credentials?; methods?;
+>    headers?; maxAge? }`. Cuando `origins` es una allowlist (no `*`), reflejar el `Origin` de
+>    la request solo si está permitido (`Access-Control-Allow-Origin: <origin>` + `Vary: Origin`)
+>    y recién ahí enviar `Allow-Credentials: true` (corrige la combinación insegura `*`+creds).
+> 3. **Recomendación fuerte en docs:** por defecto CORS es permisivo; en producción configurar
+>    una allowlist explícita de orígenes.
+> Pendiente de aprobación para implementar.
+
 **Archivo:** `src/RouteControllers/index.ts:153-167`
 `setHeaders()` fija `Access-Control-Allow-Origin: *` junto con
 `Access-Control-Allow-Credentials: true`, sin posibilidad de configurar orígenes
