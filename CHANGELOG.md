@@ -35,6 +35,10 @@ All notable changes to this project will be documented in this file.
   (`src/EventsDomain/index.test.ts`).
 
 ### Changed
+- **SQL — fewer `any`:** typed the result/row access in `count`, `getAllTables` and
+  `getTableSchema` (`Record<string, unknown>` rows instead of `(row: any)` + `as any`). The
+  driver instance (`bun:sqlite` vs `Bun.SQL` union) and `Bun.serve` casts remain by necessity
+  and are now documented in code.
 - **SQL — reliable write return values:** `insert`, `update` and `delete` now normalize the
   heterogeneous driver results (sqlite / Postgres / MySQL) through `src/SQL/results.ts` instead
   of per-branch `as any` guesses. `insert` returns `{ lastInsertRowId?, changes, affectedRows }`

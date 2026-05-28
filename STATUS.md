@@ -54,7 +54,7 @@ Bloques funcionales (`src/`):
 | 7 | `bun run lint` roto (ESLint 9 vs `.eslintrc.cjs`) | **3** | Tooling | ✅ Hecho |
 | 8 | Cobertura de tests muy baja | **3** | Calidad |
 | 9 | Sin abstracción de logging (55 `console.*`) | **3** | Operación | ✅ Hecho |
-| 10 | Uso extendido de `any` que mina el `strict` | **3** | Tipado |
+| 10 | Uso extendido de `any` que mina el `strict` | **3** | Tipado | ✅ Hecho (parcial) |
 | 11 | Lógica `translateMongoJsonToSql` duplicada | **3** | Mantenibilidad | ✅ Hecho |
 | 12 | After-hooks no pueden alterar la respuesta ya emitida | **3** | Diseño |
 | 13 | Falta archivo `LICENSE` (declarado MIT y en `files`) | **4** | Publicación | ✅ Hecho |
@@ -184,10 +184,17 @@ de rutas y enrutado de eventos.
 niveles ni forma de silenciar en producción.
 **Recomendación:** introducir un logger inyectable con niveles (debug/info/warn/error).
 
-#### 10. Uso extendido de `any`
+#### 10. Uso extendido de `any` — ✅ RESUELTO (parcial)
+> **Estado:** se tiparon los accesos a resultados en `count`, `getAllTables` y `getTableSchema`
+> (filas como `Record<string, unknown>` en vez de `(row: any)` + `as any`). Quedan a propósito,
+> documentados en código: `SQL.dbInstance`/`executeQuery` (unión real de `bun:sqlite` y
+> `Bun.SQL` con invocaciones incompatibles → requeriría una capa de driver tipada) y los casts
+> en `Server.start` (fricción de tipos de `Bun.serve` con `routes`). Eliminación completa =
+> refactor mayor (capa de driver), pendiente.
+
+**Archivo:** `src/SQL/index.ts`
 `SQL.dbInstance: any`, múltiples `as any` en resultados de queries, `result[0].total`,
 casts en `Server.start`. Debilita el valor de `strict`.
-**Recomendación:** tipar resultados por motor; eliminar `as any` donde sea posible.
 
 #### 11. `translateMongoJsonToSql` duplicada — ✅ RESUELTO
 > **Estado:** resuelto en el punto 1. Definición única en `src/SQL/identifiers.ts`,

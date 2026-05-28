@@ -20,6 +20,10 @@ import { extractAffectedRows, extractLastInsertId } from './results'
 export { translateMongoJsonToSql }
 
 export class SQL {
+	// `any` on purpose: the instance is either a bun:sqlite `Database` (used via
+	// `.prepare()`/`.query()`) or a `Bun.SQL` client (invoked as a tagged template).
+	// These have incompatible call shapes, so a typed union would force casts in every
+	// branch; a typed driver abstraction is tracked as future work in STATUS.md.
 	private dbInstance: any
 	private dbType: 'mysql' | 'postgres' | 'sqlite'
 
@@ -164,16 +168,21 @@ export class SQL {
 
 		const result = await this.executeQuery(query)
 
+		const rows = (result ?? []) as Array<Record<string, unknown>>
 		if (this.dbType === 'sqlite') {
-			return result as tableInternalSchema[]
+			return rows as unknown as tableInternalSchema[]
 		} else if (this.dbType === 'postgres') {
 			// Map to tableInternalSchema
-			return result.map((row: any) => ({ name: row.name, type: 'table' }) as any)
+			return rows.map(row => ({
+				name: row.name,
+				type: 'table',
+			})) as unknown as tableInternalSchema[]
 		} else {
 			// MySQL returns { Tables_in_dbname: 'tablename' }
-			return result.map(
-				(row: any) => ({ name: Object.values(row)[0], type: 'table' }) as any,
-			)
+			return rows.map(row => ({
+				name: Object.values(row)[0],
+				type: 'table',
+			})) as unknown as tableInternalSchema[]
 		}
 	}
 
@@ -184,28 +193,30 @@ export class SQL {
 			return await this.executeQuery(query)
 		} else if (this.dbType === 'postgres') {
 			const query = `SELECT column_name as name, data_type as type, is_nullable as notnull, column_default as dflt_value FROM information_schema.columns WHERE table_name = ?`
-			const result = await this.executeQuery(query, [tableName])
+			const rows = (await this.executeQuery(query, [tableName])) as Array<
+				Record<string, unknown>
+			>
 			// Map to tableRowSchema
-			return result.map((row: any) => ({
+			return rows.map(row => ({
 				name: row.name,
 				type: row.type,
 				notnull: row.notnull === 'NO' ? 1 : 0,
 				dflt_value: row.dflt_value,
 				pk: 0, // Hard to get PK simply in one query without joins
 				cid: 0,
-			}))
+			})) as unknown as tableRowSchema[]
 		} else {
 			// MySQL
 			const query = `DESCRIBE ${tableName}`
-			const result = await this.executeQuery(query)
-			return result.map((row: any) => ({
+			const rows = (await this.executeQuery(query)) as Array<Record<string, unknown>>
+			return rows.map(row => ({
 				name: row.Field,
 				type: row.Type,
 				notnull: row.Null === 'NO' ? 1 : 0,
 				dflt_value: row.Default,
 				pk: row.Key === 'PRI' ? 1 : 0,
 				cid: 0,
-			}))
+			})) as unknown as tableRowSchema[]
 		}
 	}
 
@@ -303,8 +314,10 @@ export class SQL {
 		}
 
 		const query = `SELECT COUNT(*) as total FROM ${tableName} ${whereSentence}`
-		const result = await this.executeQuery(query, whereArgs)
-		const total = result[0].total || result[0]['COUNT(*)'] || 0
+		const rows = (await this.executeQuery(query, whereArgs)) as Array<
+			Record<string, unknown>
+		>
+		const total = rows[0]?.total ?? rows[0]?.['COUNT(*)'] ?? 0
 		return Number(total)
 	}
 
