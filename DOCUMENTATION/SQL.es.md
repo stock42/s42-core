@@ -1,93 +1,120 @@
 # SQL
 
-## Proposito
+## Propósito
 
-`SQL` ofrece una interfaz unificada para PostgreSQL, MySQL y SQLite en S42-Core.
+`SQL` ofrece una única API CRUD/schema sobre PostgreSQL, MySQL y SQLite.
 
-Soporta:
+Drivers:
 
-- helpers de esquema y migracion
-- helpers CRUD
-- filtros con sintaxis tipo Mongo
-- paginacion
+- PostgreSQL/MySQL: `SQL` nativo de Bun.
+- SQLite: `bun:sqlite`.
 
 ## Constructor
 
 ```ts
+import { SQL } from 's42-core'
+
 const sql = new SQL({
-  type: 'postgres', // 'mysql' | 'sqlite'
-  url: process.env.DB_URL,
+	type: 'postgres', // 'mysql' | 'sqlite'
+	url: process.env.DATABASE_URL,
+	tls: { rejectUnauthorized: true },
 })
 ```
 
-## API principal
+Para SQLite, `url` es el nombre del archivo y su default es `db.sqlite`. Usar
+`:memory:` para una base en memoria. PostgreSQL/MySQL sin `url` usan los
+defaults de entorno de Bun SQL.
+
+## API
+
+Schema:
 
 - `createTable(tableName, schema)`
 - `addTableColumns(tableName, changes)`
 - `createIndex(tableName, columnName)`
+- `dropTable(tableName)`
 - `getAllTables()`
 - `getTableSchema(tableName)`
 - `validateTableSchema(tableName, expectedSchema)`
+
+Datos:
+
 - `insert(tableName, data)`
-- `select({ ... })`
-- `selectPaginate({ ... })`
+- `select({ tableName, columns?, whereClause?, sort?, limit?, page? })`
+- `selectPaginate({ tableName, columns?, whereClause?, sort?, limit?, page? })`
 - `update({ tableName, whereClause, data })`
+- `updateById(tableName, id, data)`
 - `delete(tableName, whereClause?)`
+- `deleteById(tableName, id)`
 - `count({ tableName, whereClause? })`
-- `dropTable(tableName)`
 
-## Helper de traduccion
+`select()` usa por default `columns: ['*']`, `limit: 100` y `page: 1`.
+`selectPaginate()` usa `limit: 10` y devuelve datos más el total.
 
-`translateMongoJsonToSql(query)` convierte operadores:
+## Filtros estilo Mongo
+
+El export `translateMongoJsonToSql(query)` soporta:
 
 - `$eq`, `$ne`
 - `$gt`, `$gte`, `$lt`, `$lte`
 - `$in`, `$nin`
 - `$like`
 
-en clausulas SQL `WHERE` con arrays de parametros.
-
-## Ejemplo
-
 ```ts
 const products = await sql.select<{ id: number; name: string }>({
-  tableName: 'products',
-  whereClause: { enabled: true, price: { $gte: 100 } },
-  sort: { added: -1 },
-  page: 1,
-  limit: 20,
+	tableName: 'products',
+	whereClause: {
+		enabled: true,
+		price: { $gte: 100 },
+	},
+	sort: { added: -1 },
+	page: 1,
+	limit: 20,
 })
 ```
 
-## Seguridad de identificadores
+## Seguridad de identificadores y valores
 
-Los valores de `whereClause`, `insert`, `update`, etc. siempre se envian al driver como
-parametros (`?`). Los identificadores SQL (nombres de tabla/columna/campo y claves de `sort`)
-no pueden parametrizarse, asi que desde `3.x` se validan contra una lista blanca estricta
-(`[A-Za-z0-9_]`, con puntos para nombres calificados por esquema) antes de interpolar. Un
-identificador invalido lanza error.
+Los identificadores de tabla, columna, campo de filtro y sort se validan antes
+de interpolar:
 
-Es una proteccion **solo-validacion**: para cualquier identificador que ya era valido, el SQL
-generado es byte-identico, por lo que las consultas legitimas siguen funcionando igual. Solo se
-rechaza la entrada insegura. Nota: `columns` ya no acepta expresiones ni alias crudos (p. ej.
-`COUNT(*) AS total`); pasa nombres de columna o `*`.
+- segmento aceptado: `[A-Za-z0-9_]+`;
+- se aceptan nombres calificados separados por puntos;
+- `*` se acepta como proyección;
+- expresiones y aliases como `COUNT(*) AS total` se rechazan.
 
-## Valores de retorno de escritura
+Los valores de filtros y escrituras se envían como parámetros.
 
-`insert`, `update` y `delete` normalizan los resultados heterogeneos de cada driver a valores
-estables:
+Los strings de tipos de schema son fragmentos DDL provistos por código confiable
+de la aplicación y no se validan como identificadores. Nunca construirlos desde
+input de requests.
 
-- `insert` devuelve `{ lastInsertRowId?, changes, affectedRows }`.
-- `update` / `delete` devuelven la cantidad de filas afectadas.
+Validar `page` y `limit` como números positivos y acotados en la frontera HTTP;
+están tipados como números pero se renderizan en el SQL generado.
 
-`changes` y `affectedRows` llevan el mismo conteo de filas afectadas (ambos se exponen por
-compatibilidad). `lastInsertRowId` puede ser `undefined` cuando el driver/tabla no puede
-reportarlo (p. ej. una tabla sin columna `id`/`ID` en Postgres). La normalizacion vive en
-`src/SQL/results.ts`.
+## Resultados de escritura
+
+- `insert()` devuelve `{ lastInsertRowId?, changes, affectedRows }`.
+- `update()` / `updateById()` devuelven el total de filas afectadas.
+- `delete()` / `deleteById()` devuelven el total de filas afectadas.
+
+`changes` y `affectedRows` contienen el mismo total normalizado.
+`lastInsertRowId` puede ser `undefined` si el driver o tabla no expone `id`/`ID`.
+
+## Restricción actual de placeholders PostgreSQL/MySQL
+
+El puente de Bun SQL separa el query completo por `?` para construir una llamada
+tagged-template. Un signo de pregunta literal dentro del SQL generado puede
+desalinear parámetros.
+
+Mantener la generación dentro de los helpers provistos y no incluir `?`
+literales en fragmentos confiables de schema/tipos usados por esos queries. Para
+eliminar esta limitación se requiere una futura abstracción de drivers.
 
 ## Notas
 
-- Mantener ownership de esquemas por modulo.
-- Validar comportamiento SQL generado en los tres drivers antes de produccion.
-
-S42-Core fue desarrollado por Cesar Casas y Stock42 LLC con ingenieria asistida por AI (Codex).
+- Probar el comportamiento contra cada motor usado en producción; sus drivers
+  devuelven formas de resultado diferentes.
+- La clase no expone hoy un método público para cerrar la conexión.
+- `dropTable()` y `delete()` sin filtro son destructivos; mantener nombres y
+  filtros bajo control de código confiable.

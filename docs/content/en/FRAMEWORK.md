@@ -1,59 +1,41 @@
-![s42-core](./DOCUMENTATION/assets/3.png)
+![S42-Core](./DOCUMENTATION/assets/3.png)
 
 # S42-Core
 
-S42-Core is a Bun-first backend framework for building professional APIs, services, and modular cells.
-It is built around dynamic modules, high-performance HTTP primitives, and event-driven communication.
+[Español](./README.es.md) · [Documentation](./DOCUMENTATION/ALL_EN.md) · [Website](https://s42core.com)
 
-Developed by **Cesar Casas** (CEO & Head of Engineering at **Stock42 LLC**) with AI-assisted engineering workflows (Codex).
+S42-Core `3.0.10` is a Bun-first TypeScript backend framework for HTTP APIs,
+module-oriented services, distributed domain events, and common persistence
+workloads.
 
-## What S42-Core Solves
+It is developed by **Cesar Casas** and **Stock42 LLC** with AI-assisted
+engineering workflows.
 
-- Fast HTTP backends on Bun (`Bun.serve`, Web `Request/Response`).
-- Modular architecture with convention-based loading.
-- Event-driven communication for distributed cells/services.
-- Built-in utilities for Redis, MongoDB, SQL, SQLite, SSE, and dependency container patterns.
-- Cluster orchestration and IPC for multi-worker runtimes.
+## Requirements
 
-## Bun-First Architecture
+- Bun `>=1.3.0`
+- TypeScript/ESM projects
+- Redis/Valkey, MongoDB, PostgreSQL, MySQL, SQLite, or SQS only when the
+  corresponding component is used
 
-Core runtime choices follow Bun APIs first:
-
-- HTTP server: `Bun.serve`
-- Route registration: `Bun.serve({ routes })` + fallback matcher for wildcard patterns
-- Process/workers: `Bun.spawn` + IPC
-- File/module discovery: `Bun.Glob`
-- SQL/SQLite: `Bun.SQL` and `bun:sqlite`
-- Redis: `Bun.RedisClient`
-
-## Module System
-
-S42-Core supports three module types:
-
-1. `full`
-Domain modules with `controllers/` and optional `events/`.
-2. `mws`
-Middleware modules with `mws/index.ts` contract (`default`, `beforeRequest`, `afterRequest`).
-3. `share`
-Shared modules for reusable code (`services`, `types`, `utils`, etc.) with no route/event registration.
-
-Load order:
-
-1. `mws`
-2. `share`
-3. `full`
-
-Middleware execution is on-demand at controller level (`requireBefore`, `requireAfter`, `beforeRequest`, `afterRequest`).
-
-## Quick Start
-
-Install:
+Install the public package:
 
 ```bash
 bun add s42-core
 ```
 
-Minimal bootstrap:
+## What It Provides
+
+- HTTP bootstrap over `Bun.serve` with native route maps and a fallback matcher.
+- Convention-based module discovery with `Bun.Glob`.
+- Three module types: `mws`, `share`, and `full`.
+- Controller-level middleware selection.
+- Distributed events through Redis or SQS adapters.
+- MongoDB, Redis/Valkey, multi-engine SQL, and direct SQLite helpers.
+- SSE, worker clustering, runtime statistics, dependency injection, and
+  leveled logging.
+
+## Quick Start
 
 ```ts
 import { Modules, RouteControllers, Server } from 's42-core'
@@ -63,81 +45,146 @@ await modules.load()
 
 const server = new Server()
 await server.start({
-  port: 5678,
-  RouteControllers: new RouteControllers(modules.getControllers()),
-  hooks: modules.getHooks(),
+	port: 5678,
+	RouteControllers: new RouteControllers(modules.getControllers()),
+	hooks: modules.getHooks(),
 })
+
+console.info(server.getURL())
 ```
 
-Run local module demo in this repo:
+The repository includes a module demo entrypoint:
 
 ```bash
 bun run modules/server.ts
 ```
 
-## Module Folder Conventions
+In the current checkout, that demo and `bun run typecheck:modules` stop on a
+known fixture issue: `modules/operators/controllers/operatorList.ts` imports the
+missing `../events/emit` file. The package bootstrap above is unaffected.
+
+## Module Model
+
+S42-Core discovers `**/__module__.ts` files and loads enabled modules in this
+order:
+
+1. `mws`: on-demand request middleware from `mws/index.ts`.
+2. `share`: reusable code and contracts; no automatic controller/event loading.
+3. `full`: controllers and optional events.
+
+Minimal manifest:
+
+```ts
+export default {
+	name: 'operators',
+	version: '1.0.0',
+	type: 'full',
+	enabled: true,
+	initialize: async () => {
+		// Runs after this module has loaded.
+	},
+}
+```
+
+Typical layout:
 
 ```text
 modules/
   auth/
-    __module__.ts          # type: "mws"
+    __module__.ts
     mws/index.ts
   share/
-    __module__.ts          # type: "share"
+    __module__.ts
     services/
     types/
   operators/
-    __module__.ts          # type: "full"
+    __module__.ts
     controllers/
     events/
 ```
 
-## Documentation Index
+`dependencies` in a manifest is metadata; the current loader does not resolve
+or enforce dependency versions. See [MODULES](./DOCUMENTATION/MODULES.md) for
+the complete runtime contract.
 
-English:
+## Public Package API
 
-- [SERVER](./DOCUMENTATION/SERVER.md)
-- [ROUTECONTROLLERS](./DOCUMENTATION/ROUTECONTROLLERS.md)
-- [CONTROLLER](./DOCUMENTATION/CONTROLLER.md)
-- [MODULES](./DOCUMENTATION/MODULES.md)
-- [CLUSTER](./DOCUMENTATION/CLUSTER.md)
-- [EVENTSDOMAIN](./DOCUMENTATION/EVENTSDOMAIN.md)
-- [REDISDB](./DOCUMENTATION/REDISDB.md)
-- [MONGODB](./DOCUMENTATION/MONGODB.md)
-- [SQL](./DOCUMENTATION/SQL.md)
-- [SQLITE](./DOCUMENTATION/SQLITE.md)
-- [SSE](./DOCUMENTATION/SSE.md)
-- [DEPENDENCIES](./DOCUMENTATION/DEPENDENCIES.md)
-- [MAILGUN](./DOCUMENTATION/MAILGUN.md)
-- [VIEWTEMPLATE](./DOCUMENTATION/VIEWTEMPLATE.md)
-- [TEST](./DOCUMENTATION/TEST.md)
+Only exports from [`src/index.ts`](./src/index.ts) are supported package imports.
 
-Spanish:
+| Area            | Public exports                                                            |
+| --------------- | ------------------------------------------------------------------------- |
+| HTTP            | `Server`, `RouteControllers`, `Controller`, `Res`, `getControllersStats`  |
+| Modules         | `Modules`, `Module`, `Model`, `Service`, `Controllers`, `getModulesStats` |
+| Events          | `EventsDomain`, `RedisEventsAdapter`, `SQSEventsAdapter`                  |
+| Data            | `MongoClient`, `RedisClient`, `SQL`, `SQLite`, `Dependencies`             |
+| Runtime         | `Cluster`, `SSE`, `CoreStats`                                             |
+| Logging/testing | `logger`, `setLogLevel`, `getLogLevel`, `setLogSink`, `Test`              |
 
-- [SERVER.es](./DOCUMENTATION/SERVER.es.md)
-- [ROUTECONTROLLERS.es](./DOCUMENTATION/ROUTECONTROLLERS.es.md)
-- [CONTROLLER.es](./DOCUMENTATION/CONTROLLER.es.md)
-- [MODULES.es](./DOCUMENTATION/MODULES.es.md)
-- [CLUSTER.es](./DOCUMENTATION/CLUSTER.es.md)
-- [EVENTSDOMAIN.es](./DOCUMENTATION/EVENTSDOMAIN.es.md)
-- [REDISDB.es](./DOCUMENTATION/REDISDB.es.md)
-- [MONGODB.es](./DOCUMENTATION/MONGODB.es.md)
-- [SQL.es](./DOCUMENTATION/SQL.es.md)
-- [SQLITE.es](./DOCUMENTATION/SQLITE.es.md)
-- [SSE.es](./DOCUMENTATION/SSE.es.md)
-- [DEPENDENCIES.es](./DOCUMENTATION/DEPENDENCIES.es.md)
-- [MAILGUN.es](./DOCUMENTATION/MAILGUN.es.md)
-- [VIEWTEMPLATE.es](./DOCUMENTATION/VIEWTEMPLATE.es.md)
-- [TEST.es](./DOCUMENTATION/TEST.es.md)
+The package also exports the TypeScript types declared by the root entrypoint,
+including module, event, SQL, logger, SSE, CoreStats, and statistics contracts.
 
-## Current Priorities
+`MongoDBStorage`, `sendEmail` (`src/Mailgun`), and `ViewTemplates` exist in the
+repository but are **internal utilities**. They are not exported by the package,
+and imports such as `s42-core/dist/...` are unsupported.
 
-See [TODO.md](./TODO.md) for prioritized engineering backlog (P0-P3) based on full `src/` analysis and Bun docs alignment.
+## Documentation
+
+Start with the consolidated, source-aligned guide:
+
+- [Master documentation (English)](./DOCUMENTATION/ALL_EN.md)
+
+Component references:
+
+- Runtime: [SERVER](./DOCUMENTATION/SERVER.md),
+  [ROUTECONTROLLERS](./DOCUMENTATION/ROUTECONTROLLERS.md),
+  [CONTROLLER](./DOCUMENTATION/CONTROLLER.md),
+  [RESPONSE](./DOCUMENTATION/RESPONSE.md),
+  [MODULES](./DOCUMENTATION/MODULES.md), and
+  [CLUSTER](./DOCUMENTATION/CLUSTER.md)
+- Events: [EVENTSDOMAIN](./DOCUMENTATION/EVENTSDOMAIN.md)
+- Data: [REDISDB](./DOCUMENTATION/REDISDB.md),
+  [MONGODB](./DOCUMENTATION/MONGODB.md), [SQL](./DOCUMENTATION/SQL.md), and
+  [SQLITE](./DOCUMENTATION/SQLITE.md)
+- Utilities: [SSE](./DOCUMENTATION/SSE.md),
+  [CORESTATS](./DOCUMENTATION/CORESTATS.md),
+  [DEPENDENCIES](./DOCUMENTATION/DEPENDENCIES.md),
+  [LOGGER](./DOCUMENTATION/LOGGER.md), and
+  [TEST](./DOCUMENTATION/TEST.md)
+- Internal reference only: [MAILGUN](./DOCUMENTATION/MAILGUN.md) and
+  [VIEWTEMPLATE](./DOCUMENTATION/VIEWTEMPLATE.md)
+
+Spanish component references use the `.es.md` suffix, beginning with
+[SERVER.es](./DOCUMENTATION/SERVER.es.md) and
+[MODULES.es](./DOCUMENTATION/MODULES.es.md).
+
+## Operational Notes
+
+- `CoreStats` is disabled by default. When enabled, it exposes host and process
+  information and does not add authentication; protect the route before using it
+  outside a trusted network.
+- `RouteControllers` currently emits permissive, fixed CORS headers. Review the
+  [routing security notes](./DOCUMENTATION/ROUTECONTROLLERS.md) before production
+  exposure.
+- `SSE` requires the raw Web `Request`; the normalized controller request does
+  not currently preserve its abort signal.
+- MongoDB, Redis, and EventsDomain use process-wide singletons: the first
+  configuration passed to `getInstance()` wins.
+
+## Development
+
+```bash
+bun run typecheck
+bun run typecheck:modules
+bun run lint
+bun test
+```
+
+All gates except `typecheck:modules` pass in the current checkout; its known
+fixture failure is described above.
+
+See [CHANGELOG.md](./CHANGELOG.md) for shipped changes and
+[ROADMAP.md](./ROADMAP.md) for planned features.
 
 ## License
 
-MIT
-
-## Credits
-
-S42-Core is developed by **Cesar Casas** and the engineering team at **Stock42 LLC**, a company focused on AI solutions, AI agents, and production-grade backend systems.
+[MIT](./LICENSE)

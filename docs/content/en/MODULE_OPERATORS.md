@@ -1,87 +1,72 @@
-# Operators Module (`type: "full"`)
+# Operators Example (`type: "full"`)
 
-`operators` is a domain module in S42-Core (`full` type).
-S42-Core is a Bun-first framework for professional backend architecture based on modular cells.
+The repository includes `modules/operators` as a small `full` module example.
 
-## Recommended structure
+## Structure
 
 ```text
 operators/
   __module__.ts
   controllers/
     operatorList.ts
-    operatorCreate.ts
-  events/
-    emit.ts
-    operator.created.ts
-  models/
-  services/
 ```
 
-## `__module__.ts`
+There is no tracked `events/` directory in the current checkout.
+
+## Current repository caveat
+
+The checked-in controller contains `import {} from '../events/emit'`, but
+`events/emit.ts` does not exist. Consequently, `bun run typecheck:modules`
+currently fails with `TS2307`. The controller below shows the intended public
+contract rather than copying that stale import.
+
+## Manifest
 
 ```ts
 export default {
-  name: 'operators',
-  version: '1.0.0',
-  type: 'full', // optional, defaults to full
-  dependencies: [{ module: 'auth', version: 1 }],
-  initialize: () => {
-    console.info('hola mundo, soy operators')
-  },
+	name: 'operators',
+	version: '1.0.0',
+	type: 'full', // optional; full is the default
+	dependencies: [{ module: 'auth', version: 1 }],
+	initialize: () => {
+		console.info('operators ready')
+	},
 }
 ```
 
-## Controller contract
+`dependencies` is metadata only. The example can load even when no auth module
+exists because the loader does not resolve it.
 
-Each controller exports a `ControllerType` object:
+## Controller
 
 ```ts
-import type { ControllerType } from '@/Modules'
+import type { ControllerType } from 's42-core'
 
 export default {
-  name: 'operatorList',
-  version: '1.0.0',
-  method: 'GET',
-  path: '/operators/list',
-  enabled: true,
-  requireBefore: ['auth'],
-  handler: async (req, res, { events }) => {
-    events.emit('Operator$List$Completed', { ok: true })
-    return res.json({ ok: true })
-  },
-  handleError: async (req, res, err) => res.status(500).json({ ok: false, error: 'Error' }),
-} as ControllerType
+	name: 'operatorList',
+	version: '1.0.0',
+	method: 'GET',
+	path: '/operators/list',
+	handler: async (_req, res, { events }) => {
+		events.emit('Operator$List$Completed', { ok: true })
+		return res.json({ ok: true, docs: [] })
+	},
+	handleError: async (_req, res, error) => {
+		return res.status(500).json({ ok: false, error: String(error) })
+	},
+} satisfies ControllerType
 ```
 
-The third argument is a runtime context object. Right now it exposes `{ events }`.
+When an `EventsDomain` is configured, the event becomes:
 
-## On-demand middleware
+```text
+OPERATORS.OPERATOR.LIST.COMPLETED
+```
 
-`full` controllers activate middleware explicitly per endpoint.
-Supported props:
+## Runtime behavior
 
-- `requireBefore?: string[]`
-- `requireAfter?: string[]`
-- `beforeRequest?: string[]` (alias)
-- `afterRequest?: string[]` (alias)
-
-Reference modes:
-
-- `['mws']`: all loaded `mws` modules
-- `['auth']`: specific module by name
-
-## Runtime order
-
-1. `mws` modules initialize first
-2. `share` modules register
-3. `full` modules load controllers/events
-4. module `initialize` hooks run after each module load
-
-## Professional recommendations
-
-- Keep handlers lean; move business logic to services.
-- Use `handleError` for stable error shape.
-- Keep event contracts explicit and version-safe.
-
-S42-Core was developed by Cesar Casas (CEO & Head of Engineering at Stock42 LLC) with AI-assisted engineering workflows (Codex).
+- Every TypeScript file under `controllers/` is imported.
+- The controller-level `enabled` field is not currently enforced.
+- `requireBefore`/`requireAfter` opt into loaded `mws` modules.
+- `initialize` runs after controllers and events have loaded.
+- A missing `controllers/` or `events/` directory is allowed.

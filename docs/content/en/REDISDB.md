@@ -2,23 +2,38 @@
 
 ## Purpose
 
-`RedisClient` is the S42-Core Redis wrapper built on `Bun.RedisClient`.
-It provides cache helpers, hash helpers, counters, and pub/sub utilities.
+`RedisClient` wraps Bun's native `RedisClient` with a process-wide singleton,
+cache/hash helpers, counters, and dedicated pub/sub connections. It can be used
+with Redis or Valkey-compatible endpoints.
 
-## Singleton access
+## Singleton and URI resolution
 
 ```ts
+import { RedisClient } from 's42-core'
+
 const redis = RedisClient.getInstance('redis://localhost:6379')
 await redis.connect()
 ```
 
-## Main API
+The first call creates the singleton. Later URIs do not reconfigure it.
+
+URI resolution:
+
+1. explicit argument;
+2. `REDIS_URL`;
+3. `VALKEY_URL`;
+4. Bun client defaults.
+
+A host without a scheme is normalized to `redis://host:6379`, unless a port is
+already present.
+
+## API
 
 - `connect()`
 - `close()`
 - `isConnected()`
 - `hset(key, value)`
-- `hget(key, subkey)`
+- `hget(key, field)`
 - `hgetall(key)`
 - `setCache(key, value)`
 - `getCache<T>(key)`
@@ -27,25 +42,28 @@ await redis.connect()
 - `unsubscribe(channel)`
 - `publish(channel, payload)`
 
-## Pub/Sub model
+## Serialization
 
-The implementation uses dedicated duplicated connections for pub/sub lifecycle:
+- Cache and pub/sub payloads use JSON.
+- `getCache()` returns `null` for a missing key or invalid cached JSON.
+- `hset()` preserves string values, JSON-serializes other defined values, and
+  skips `undefined`.
+- `hgetall()` returns `{}` for a missing hash.
 
-- `redisSub` for subscriptions
-- `redisPub` for publishing
+## Pub/sub
 
-This avoids mixing commands and subscribe mode in a single connection.
+The implementation duplicates the main connection:
 
-## Example
+- `redisSub` handles subscriptions;
+- `redisPub` handles publications.
+
+`subscribe()` and `publish()` return `void`. They ensure their connections
+asynchronously and log failures; callers cannot await subscription readiness or
+delivery through these methods.
 
 ```ts
-import { RedisClient } from 's42-core'
-
-const redis = RedisClient.getInstance('redis://localhost:6379')
-await redis.connect()
-
-redis.subscribe<{ ok: boolean }>('OPS', (payload) => {
-  console.info(payload.ok)
+redis.subscribe<{ ok: boolean }>('OPS', payload => {
+	console.info(payload.ok)
 })
 
 redis.publish('OPS', { ok: true })
@@ -53,8 +71,7 @@ redis.publish('OPS', { ok: true })
 
 ## Notes
 
-- `getCache` safely handles JSON parse failures and returns `null`.
-- `hgetall` returns `{}` when key is not found.
-- Keep payloads JSON-serializable in pub/sub.
-
-S42-Core is developed by Cesar Casas and Stock42 LLC with AI-assisted engineering (Codex).
+- Call `connect()` during bootstrap and `close()` during shutdown.
+- Keep payloads JSON-serializable.
+- Use the native Bun client directly if one process requires independently
+  configured Redis connections.

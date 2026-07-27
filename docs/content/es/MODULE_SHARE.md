@@ -1,42 +1,46 @@
-# Modulo Share (`type: "share"`)
+# Módulo Share (`type: "share"`)
 
-`share` es el modulo para codigo compartido reutilizable entre dominios.
+Un módulo `share` registra metadata de código reutilizable sin imports
+automáticos de runtime.
 
-## Objetivo
-
-Centralizar:
-
-- services
-- types
-- enums
-- constants
-- helpers
-- hooks
-- models
-- utils
-
-## Contrato
+## Manifest
 
 ```ts
 export default {
-  name: 'share',
-  version: '1.0.0',
-  type: 'share',
-  dependencies: [],
+	name: 'share',
+	version: '1.0.0',
+	type: 'share',
+	enabled: true,
 }
+```
+
+## Estructura sugerida
+
+```text
+share/
+  __module__.ts
+  constants/
+  helpers/
+  services/
+  types/
+  utils/
 ```
 
 ## Comportamiento
 
-- Se registra luego de `mws` y antes de `full`.
-- No carga `controllers`.
-- No carga `events`.
-- No registra hooks HTTP.
+- Carga después de `mws` y antes de `full`.
+- Registra el manifest normalizado en estadísticas de módulos.
+- Ejecuta `initialize` opcional.
+- No importa automáticamente services, types, models u otras carpetas.
+- Ignora `controllers/`, `events/` y `mws/` con un warning.
 
-Si existen carpetas `controllers/`, `events/` o `mws/`, se ignoran.
+Los consumidores acceden al código compartido mediante imports normales del
+proyecto.
 
-## Recomendaciones
+`dependencies` continúa siendo metadata; el loader no lo exige.
 
-- Usarlo para contratos y utilidades transversales.
-- Evitar side-effects ocultos.
-- Versionar cambios en tipos compartidos.
+## Guía
+
+- Mantener contratos compartidos versionados y sin side effects.
+- Conservar lógica de negocio de dominio en un módulo `full`.
+- Usar `initialize` solamente para un side effect one-time intencional.

@@ -1,41 +1,56 @@
 # CONTROLLER
 
-## Proposito
+## Propósito
 
-`Controller` define handlers de endpoints y composicion de middlewares por ruta.
+`Controller` representa un path, uno o más métodos HTTP y una cadena local de
+middlewares.
 
-Mantiene:
-
-- un `path`
-- uno o mas metodos HTTP
-- una cadena de middlewares ejecutada en orden
+Esta clase es distinta de los objetos metadata `ControllerType` cargados desde
+el directorio `controllers/` de un módulo.
 
 ## Constructor
 
 ```ts
-const c = new Controller(method, path, callback)
+const controller = new Controller(method, path, callback)
 ```
 
-- `method: TYPE_HTTP_METHOD`
+- `method`: `GET`, `POST`, `PUT`, `DELETE`, `UPDATE`, `PATCH`, `OPTIONS` o `*`
 - `path: string`
-- `callback: Middleware`
+- `callback(req, res)`
 
-## Metodos
+La construcción también registra el controlador en el registro de estadísticas
+del proceso usado por `getControllersStats()` y `CoreStats`.
 
-- `setPath(path)`
-- `getPath()`
-- `getMethods()`
+## API
+
+- `setPath(path): this`
+- `getPath(): string`
+- `getMethods(): TYPE_HTTP_METHOD[]`
 - `get()`, `post()`, `put()`, `patch()`, `delete()`, `options()`, `update()`
-- `use(callback)`
+- `use(callback): this`
 - `getCallback()`
+
+Los helpers de métodos agregan otro método aceptado sobre el mismo path:
+
+```ts
+const users = new Controller('GET', '/users', listUsers).post()
+```
+
+`UPDATE` es un método de compatibilidad, no un método HTTP estándar, y queda
+fuera del mapa de rutas nativas de Bun.
 
 ## Comportamiento de middleware
 
-`use(callback)` inserta al inicio (`LIFO`):
+`use(callback)` antepone un callback:
 
-- el ultimo `use()` corre primero.
-- si un middleware retorna `Response`, la cadena se corta.
-- si retorna `void`, continua el siguiente middleware.
+- el último `use()` se ejecuta primero;
+- retornar un `Response` corta la cadena;
+- cualquier otro valor avanza al callback siguiente;
+- los errores lanzados se convierten en una respuesta JSON `500`;
+- una cadena que termina sin respuesta devuelve `End without response`.
+
+El callback del constructor se agrega mediante `use()`, por lo que llamadas
+posteriores a `use()` corren antes.
 
 ## Ejemplo
 
@@ -43,21 +58,49 @@ const c = new Controller(method, path, callback)
 import { Controller } from 's42-core'
 
 const usersList = new Controller('GET', '/users', async (_req, res) => {
-  return res.json({ ok: true, items: [] })
+	return res.json({ ok: true, items: [] })
 })
 
 usersList.use(async (req, res) => {
-  if (!req.headers.get('authorization')) {
-    return res.status(401).json({ ok: false, error: 'Unauthorized' })
-  }
+	const headers = (req as { headers: Headers }).headers
+	if (!headers.get('authorization')) {
+		return res.status(401).json({ ok: false, error: 'Unauthorized' })
+	}
 })
 ```
 
-## Notas
+## Metadata de controlador de módulo
 
-- Retornar `Response` de forma explicita mejora la predictibilidad.
-- Mantener middlewares acotados (auth, validacion, normalizacion).
-- `update()` y `UPDATE` existen hoy en la API, pero conviene revisarlos por consistencia HTTP estandar.
-- Esta pagina documenta `new Controller(...)`. La metadata `ControllerType` cargada via `Modules` usa `handler(req, res, { events })`.
+`Modules` importa objetos con esta forma:
 
-S42-Core fue desarrollado por Cesar Casas y Stock42 LLC con ingenieria asistida por AI (Codex).
+```ts
+import type { ControllerType } from 's42-core'
+
+export default {
+	name: 'users.list',
+	version: '1.0.0',
+	method: 'GET',
+	path: '/users',
+	handler: async (_req, res, { events }) => {
+		events.emit('User$List$Completed', { ok: true })
+		return res.json({ ok: true })
+	},
+} satisfies ControllerType
+```
+
+El loader envuelve esta metadata en un `Controller`. El campo opcional
+`enabled` del controlador es solamente metadata y no se usa hoy para omitirlo.
+
+## Estadísticas
+
+`getControllersStats()` devuelve:
+
+```ts
+{
+	totalControllers: number
+	totalEndpoints: number
+	endpoints: Array<{ method: string; path: string }>
+}
+```
+
+Los pares método/path se deduplican y ordenan por path y método.

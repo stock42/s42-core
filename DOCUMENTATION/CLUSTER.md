@@ -2,62 +2,80 @@
 
 ## Purpose
 
-`Cluster` manages Bun workers using `Bun.spawn` and IPC messaging.
-It is intended for running the same service in multiple worker processes.
+`Cluster` starts multiple Bun worker processes with `Bun.spawn` and connects
+them through IPC.
 
 ## Constructor
 
 ```ts
+import { Cluster } from 's42-core'
+
 const cluster = new Cluster({
-  name: 'api',
-  maxCPU: 4,
-  watchMode: false,
-  args: [],
+	name: 'api',
+	maxCPU: 4,
+	watchMode: false,
+	args: [],
 })
 ```
 
-## Features
+- `name: string`
+- `maxCPU?: number` (capped at `navigator.hardwareConcurrency`)
+- `watchMode?: boolean`
+- `args?: string[]` (inserted as Bun arguments before `--watch` and the file)
 
-- Uses `process.execPath` to spawn the current Bun runtime.
-- Supports `--watch` mode when enabled.
-- Broadcast command/message delivery to all workers.
-- Worker message callback registration (`onWorkerMessage`).
-- Graceful shutdown trigger on `SIGINT` / `SIGTERM`.
+## API
 
-## Public API
+- `start(file, fallback): void`
+- `onWorkerMessage(callback): void`
+- `sendMessageToWorkers(message): void`
+- `getCurrentFile(): string`
+- `getCurrentWorkers(): Array<Subprocess>`
 
-- `start(file, fallback)`
-- `onWorkerMessage(callback)`
-- `sendMessageToWorkers(message)`
-- `getCurrentFile()`
-- `getCurrentWorkers()`
+`start()` avoids spawning a second set while tracked workers still have PIDs.
+The fallback receives synchronous setup errors.
 
 ## IPC contract
 
-Cluster sends JSON commands to workers:
+The parent sends JSON commands:
 
 - `start`
 - `setName`
 - `sendMessageToCluster`
 
-Workers can send broadcast payloads to cluster using the `>>.<<|` prefix.
+A worker can ask the parent to broadcast to all workers by sending a string with
+the `>>.<<|` prefix. Other worker messages are delivered to callbacks registered
+through `onWorkerMessage()`.
+
+The worker-side helpers live on `Server`.
 
 ## Example
 
 ```ts
-import { Cluster } from 's42-core'
-
 const cluster = new Cluster({ name: 's42-api', maxCPU: 2 })
-cluster.onWorkerMessage((msg) => console.info('worker:', msg))
-cluster.start('./modules/server.ts', (err) => {
-  console.error('cluster failed', err)
+
+cluster.onWorkerMessage(message => {
+	console.info('worker:', message)
+})
+
+cluster.start('./modules/server.ts', error => {
+	console.error('cluster setup failed', error)
 })
 ```
 
-## Notes
+The worker server must set `clustering: true` so Bun enables `reusePort`.
 
-- Keep worker bootstrap idempotent.
-- Avoid long blocking tasks in worker startup path.
-- Integrate health checks/load balancer on top for production HA.
+## Shutdown and current limits
 
-S42-Core is developed by Cesar Casas and Stock42 LLC with AI-assisted engineering (Codex).
+The parent installs one-time `SIGINT` and `SIGTERM` handlers and kills all
+tracked workers when either signal arrives.
+
+Current limits:
+
+- no public `stop()` method;
+- no automatic restart after worker exit;
+- no readiness or health coordination;
+- no rolling restart;
+- worker stdout/stderr/stdin inherit the parent.
+
+Add external supervision, readiness checks, and a load-balancer policy for
+production high availability.

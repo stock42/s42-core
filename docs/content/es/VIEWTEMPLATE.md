@@ -1,51 +1,58 @@
-# VIEWTEMPLATE
+# VIEWTEMPLATE (INTERNO)
 
-## Proposito
+## Estado de API pública
 
-`ViewTemplates` es un renderer minimo para interpolacion de strings en servidor.
+`src/ViewTemplates` contiene un renderer pequeño de templates de texto, pero
+`ViewTemplates` no está exportado por `src/index.ts` ni por el export map.
+
+No existe un import `s42-core/...` soportado para consumidores. Esta página es
+referencia exclusiva para maintainers del repositorio.
+
+## API interna
+
+```ts
+ViewTemplates(
+  templateFilePath: string,
+  data: Record<string, unknown>,
+): Promise<string>
+```
 
 Patrones soportados:
 
 - `{{key}}`
-- acceso por ruta (`{{user.name}}`)
+- paths anidados como `{{user.name}}`
 - `{{#each list}} ... {{/each}}`
-- acceso interno `{{this.field}}` para items de listas
+- `{{this.field}}` dentro de each
 
-## API
+## Ejemplo solo para el repositorio
 
 ```ts
-const html = await ViewTemplates(templateFilePath, data)
+import { ViewTemplates } from './src/ViewTemplates'
+
+const html = await ViewTemplates('./views/users.html', {
+	title: 'Operators',
+	users: [{ name: 'Ada' }, { name: 'Linus' }],
+})
 ```
-
-- `templateFilePath: string`
-- `data: Record<string, any>`
-
-## Ejemplo
 
 Template:
 
 ```html
 <h1>{{title}}</h1>
 <ul>
-  {{#each users}}
-    <li>{{this.name}}</li>
-  {{/each}}
+	{{#each users}}
+	<li>{{this.name}}</li>
+	{{/each}}
 </ul>
 ```
 
-Runtime:
+Los paths inexistentes se renderizan como string vacío.
 
-```ts
-const html = await ViewTemplates('./views/users.html', {
-  title: 'Operators',
-  users: [{ name: 'Ada' }, { name: 'Linus' }],
-})
-```
+## Seguridad
 
-## Notas
+El renderer no escapa HTML. Valores provenientes de usuarios, APIs externas o
+bases de datos pueden producir XSS al insertarse en HTML.
 
-- Rutas inexistentes se resuelven a string vacio.
-- Este renderer no escapa HTML por defecto.
-- Usarlo para templates internos controlados.
-
-S42-Core fue desarrollado por Cesar Casas y Stock42 LLC con ingenieria asistida por AI (Codex).
+Usar solamente contenido controlado o aplicar una capa aprobada de escaping
+contextual. No tratar este helper como un template engine HTML seguro de
+propósito general.

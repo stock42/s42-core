@@ -1,51 +1,57 @@
-# VIEWTEMPLATE
+# VIEWTEMPLATE (INTERNAL)
 
-## Purpose
+## Public API status
 
-`ViewTemplates` is a minimal template renderer for server-side string interpolation.
+`src/ViewTemplates` contains a small string template renderer, but
+`ViewTemplates` is not exported by `src/index.ts` or the package export map.
+
+There is no supported `s42-core/...` import for package consumers. This page is
+repository-maintainer reference only.
+
+## Internal API
+
+```ts
+ViewTemplates(
+  templateFilePath: string,
+  data: Record<string, unknown>,
+): Promise<string>
+```
 
 Supported patterns:
 
 - `{{key}}`
-- dot path access (`{{user.name}}`)
+- nested paths such as `{{user.name}}`
 - `{{#each list}} ... {{/each}}`
-- inner `{{this.field}}` access for list items
+- `{{this.field}}` inside each blocks
 
-## API
+## Repository-only example
 
 ```ts
-const html = await ViewTemplates(templateFilePath, data)
+import { ViewTemplates } from './src/ViewTemplates'
+
+const html = await ViewTemplates('./views/users.html', {
+	title: 'Operators',
+	users: [{ name: 'Ada' }, { name: 'Linus' }],
+})
 ```
-
-- `templateFilePath: string`
-- `data: Record<string, any>`
-
-## Example
 
 Template:
 
 ```html
 <h1>{{title}}</h1>
 <ul>
-  {{#each users}}
-    <li>{{this.name}}</li>
-  {{/each}}
+	{{#each users}}
+	<li>{{this.name}}</li>
+	{{/each}}
 </ul>
 ```
 
-Runtime:
+Missing paths render as an empty string.
 
-```ts
-const html = await ViewTemplates('./views/users.html', {
-  title: 'Operators',
-  users: [{ name: 'Ada' }, { name: 'Linus' }],
-})
-```
+## Security
 
-## Notes
+The renderer performs no HTML escaping. Values from users, external APIs, or
+databases can create XSS when inserted into HTML.
 
-- Missing paths resolve to empty string.
-- This renderer does not provide HTML escaping by default.
-- Use for controlled internal templates.
-
-S42-Core is developed by Cesar Casas and Stock42 LLC with AI-assisted engineering (Codex).
+Use only controlled content or apply an approved context-aware escaping layer.
+Do not treat this helper as a general-purpose safe HTML template engine.

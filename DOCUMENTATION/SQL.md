@@ -2,90 +2,119 @@
 
 ## Purpose
 
-`SQL` provides a unified interface for PostgreSQL, MySQL, and SQLite in S42-Core.
+`SQL` provides one CRUD/schema API over PostgreSQL, MySQL, and SQLite.
 
-It supports:
+Drivers:
 
-- schema creation and migration helpers
-- CRUD helpers
-- filtering via Mongo-like query syntax
-- pagination
+- PostgreSQL/MySQL: Bun's native `SQL`.
+- SQLite: `bun:sqlite`.
 
 ## Constructor
 
 ```ts
+import { SQL } from 's42-core'
+
 const sql = new SQL({
-  type: 'postgres', // 'mysql' | 'sqlite'
-  url: process.env.DB_URL,
+	type: 'postgres', // 'mysql' | 'sqlite'
+	url: process.env.DATABASE_URL,
+	tls: { rejectUnauthorized: true },
 })
 ```
 
-## Main API
+For SQLite, `url` is the database filename and defaults to `db.sqlite`. Use
+`:memory:` for an in-memory database. PostgreSQL/MySQL without `url` use Bun SQL
+environment defaults.
+
+## API
+
+Schema:
 
 - `createTable(tableName, schema)`
 - `addTableColumns(tableName, changes)`
 - `createIndex(tableName, columnName)`
+- `dropTable(tableName)`
 - `getAllTables()`
 - `getTableSchema(tableName)`
 - `validateTableSchema(tableName, expectedSchema)`
+
+Data:
+
 - `insert(tableName, data)`
-- `select({ ... })`
-- `selectPaginate({ ... })`
+- `select({ tableName, columns?, whereClause?, sort?, limit?, page? })`
+- `selectPaginate({ tableName, columns?, whereClause?, sort?, limit?, page? })`
 - `update({ tableName, whereClause, data })`
+- `updateById(tableName, id, data)`
 - `delete(tableName, whereClause?)`
+- `deleteById(tableName, id)`
 - `count({ tableName, whereClause? })`
-- `dropTable(tableName)`
 
-## Query translation helper
+`select()` defaults to `columns: ['*']`, `limit: 100`, and `page: 1`.
+`selectPaginate()` defaults to `limit: 10` and returns data plus total count.
 
-`translateMongoJsonToSql(query)` converts operators like:
+## Mongo-style filters
+
+The exported `translateMongoJsonToSql(query)` supports:
 
 - `$eq`, `$ne`
 - `$gt`, `$gte`, `$lt`, `$lte`
 - `$in`, `$nin`
 - `$like`
 
-into SQL `WHERE` clauses and parameter arrays.
-
-## Example
-
 ```ts
 const products = await sql.select<{ id: number; name: string }>({
-  tableName: 'products',
-  whereClause: { enabled: true, price: { $gte: 100 } },
-  sort: { added: -1 },
-  page: 1,
-  limit: 20,
+	tableName: 'products',
+	whereClause: {
+		enabled: true,
+		price: { $gte: 100 },
+	},
+	sort: { added: -1 },
+	page: 1,
+	limit: 20,
 })
 ```
 
-## Identifier safety
+## Identifier and value safety
 
-Values passed to `whereClause`, `insert`, `update`, etc. are always sent to the driver as
-bound parameters (`?`). SQL identifiers (table/column/field names and `sort` keys) cannot be
-bound, so since `3.x` they are validated against a strict allow-list (`[A-Za-z0-9_]`,
-dot-separated for schema-qualified names) before interpolation. Invalid identifiers throw.
+Table, column, filter-field, and sort identifiers are validated before
+interpolation:
 
-This is a **validate-only** safeguard: for any identifier that was already valid the generated
-SQL is byte-identical, so legitimate queries keep working unchanged. Only unsafe input is
-rejected. Note that `columns` no longer accepts raw expressions or aliases (e.g.
-`COUNT(*) AS total`); pass plain column names or `*`.
+- accepted segment: `[A-Za-z0-9_]+`;
+- dot-separated qualified names are accepted;
+- `*` is accepted as a projection;
+- expressions and aliases such as `COUNT(*) AS total` are rejected.
 
-## Write return values
+Filter and write values are bound as parameters.
 
-`insert`, `update` and `delete` normalize the heterogeneous driver results into stable values:
+Schema type strings are DDL fragments supplied by trusted application code and
+are not identifier-validated. Never build them from request input.
 
-- `insert` returns `{ lastInsertRowId?, changes, affectedRows }`.
-- `update` / `delete` return the number of affected rows.
+Validate `page` and `limit` as positive, bounded numbers at the request boundary;
+they are typed as numbers but rendered into generated SQL.
 
-`changes` and `affectedRows` carry the same affected-row count (both exposed for
-compatibility). `lastInsertRowId` may be `undefined` when the driver/table cannot report it
-(e.g. a table without an `id`/`ID` column on Postgres). Normalization lives in
-`src/SQL/results.ts`.
+## Write results
+
+- `insert()` returns `{ lastInsertRowId?, changes, affectedRows }`.
+- `update()` / `updateById()` return the affected-row count.
+- `delete()` / `deleteById()` return the affected-row count.
+
+`changes` and `affectedRows` contain the same normalized count.
+`lastInsertRowId` can be `undefined` when the driver or table does not expose an
+`id`/`ID`.
+
+## Current PostgreSQL/MySQL placeholder constraint
+
+The Bun SQL bridge splits the completed query string on `?` to construct a
+tagged-template call. A literal question mark inside generated SQL can
+desynchronize parameters.
+
+Keep SQL generation inside the provided helpers and do not place literal `?`
+characters in trusted schema/type fragments used by those queries. A future
+driver abstraction is required to remove this limitation.
 
 ## Notes
 
-- Use strict schema ownership per module.
-- Validate generated SQL behavior across all three drivers before production.
-
-S42-Core is developed by Cesar Casas and Stock42 LLC with AI-assisted engineering (Codex).
+- Test behavior against every database engine used in production; the drivers
+  return different result shapes.
+- The class does not currently expose a public connection `close()` method.
+- `dropTable()` and `delete()` without a filter are destructive; keep table
+  names and filters owned by trusted application code.

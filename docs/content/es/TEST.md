@@ -1,21 +1,24 @@
 # TEST
 
-## Proposito
+## Propósito
 
-`Test` exporta helpers de consola livianos para flujos manuales de prueba y diagnostico CLI.
+El namespace público `Test` contiene helpers de consola con colores para scripts
+de smoke manuales y diagnósticos CLI.
 
-Exports:
+No es un test runner ni reemplaza `bun:test`.
 
-- `Init(message)`
-- `Ok(message)`
-- `Error(message, error?)`
-- `Request(method, url)`
-- `Finish()`
+## API
+
+- `Test.Init(message)`
+- `Test.Ok(message)`
+- `Test.Error(message, error?)`
+- `Test.Request(method, url)`
+- `Test.Finish()`
 
 ## Ejemplo
 
 ```ts
-import * as Test from 's42-core/dist/Test'
+import { Test } from 's42-core'
 
 Test.Init('Starting smoke test')
 Test.Request('GET', '/health')
@@ -23,10 +26,12 @@ Test.Ok('Health endpoint responded')
 Test.Finish()
 ```
 
+`Test.Error()` imprime el stack opcional. No pasar secretos ni valores con
+credenciales a estos helpers.
+
 ## Notas
 
-- No reemplaza `bun:test`.
-- Sirve para logs legibles en scripts o checks manuales.
-- Para calidad de nivel profesional, agregar suites automatizadas unitarias/integracion.
-
-S42-Core fue desarrollado por Cesar Casas y Stock42 LLC con ingenieria asistida por AI (Codex).
+- Los helpers escriben mediante `console.info`; no usan el logger configurable
+  del framework.
+- Usar `bun:test` para assertions, aislamiento y quality gates automatizados.
+- Imports como `s42-core/dist/Test` no están soportados por el export map.

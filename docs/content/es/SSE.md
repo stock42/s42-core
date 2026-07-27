@@ -1,46 +1,76 @@
 # SSE
 
-## Proposito
+## Propósito
 
-`SSE` facilita endpoints Server-Sent Events usando streams de lectura en Bun.
+`SSE` crea una respuesta `text/event-stream` respaldada por el controlador de
+stream directo de Bun.
 
-## Constructor
+Necesita el `Request` Web crudo para observar `request.signal`.
+
+## Constructor y API
 
 ```ts
-const sse = new SSE(request)
+const stream = new SSE(request)
 ```
 
-## API
+- `getResponse(): Response`
+- `getUUID(): string`
+- `send({ eventName, eventPayload }): void`
+- `close(): void`
 
-- `getResponse()`
-- `getUUID()`
-- `send({ eventName, eventPayload })`
-- `close()`
+Formato del evento:
 
-## Ejemplo de controlador
+```text
+id: 0
+event: tick
+data: {"now":123}
+
+```
+
+Los IDs incrementan por instancia `SSE`.
+
+## Ejemplo con ruta Bun cruda
 
 ```ts
-import { Controller, SSE } from 's42-core'
+import { SSE } from 's42-core'
 
-export default new Controller('GET', '/stream', async (req) => {
-  const sse = new SSE(req)
-  const timer = setInterval(() => {
-    sse.send({ eventName: 'tick', eventPayload: { now: Date.now() } })
-  }, 1000)
+Bun.serve({
+	port: 3000,
+	routes: {
+		'/stream': (request: Request) => {
+			const stream = new SSE(request)
+			const timer = setInterval(() => {
+				stream.send({
+					eventName: 'tick',
+					eventPayload: { now: Date.now() },
+				})
+			}, 1_000)
 
-  req.signal.addEventListener('abort', () => {
-    clearInterval(timer)
-    sse.close()
-  })
+			request.signal.addEventListener('abort', () => {
+				clearInterval(timer)
+				stream.close()
+			})
 
-  return sse.getResponse()
+			return stream.getResponse()
+		},
+	},
 })
 ```
 
-## Notas
+## Restricción de integración con RouteControllers
 
-- Evitar trabajo bloqueante dentro del ciclo de request SSE.
-- Liberar timers/recursos al `abort`.
-- Preferir eventos pequenos y frecuentes sobre payloads grandes.
+Los handlers normales de S42-Core reciben el objeto request normalizado por
+`RouteControllers`, no el `Request` crudo. Ese objeto no incluye hoy `signal`.
 
-S42-Core fue desarrollado por Cesar Casas y Stock42 LLC con ingenieria asistida por AI (Codex).
+Por eso, el patrón anterior `new SSE(req)` dentro de un `Controller` normal no
+puede detectar correctamente la desconexión del cliente. Usar `SSE` solamente
+desde una superficie de routing que conserve el request Web crudo hasta que ese
+contrato se extienda.
+
+## Notas de runtime
+
+- La respuesta define hoy solamente `Content-Type: text/event-stream`.
+- El stream directo hace flush cada segundo hasta que el request se aborta.
+- Un `send()` anterior a que Bun entregue el controlador directo puede perderse.
+- Detener timers y liberar recursos siempre al abortar.
+- `close()` captura y registra errores, incluso cierres repetidos.

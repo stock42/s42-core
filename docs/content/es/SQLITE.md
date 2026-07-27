@@ -1,64 +1,89 @@
 # SQLITE
 
-## Proposito
+## Propósito
 
-`SQLite` es el wrapper utilitario directo sobre `bun:sqlite` en S42-Core.
-
-Se usa para:
-
-- almacenamiento local
-- estado embebido del servicio
-- persistencia de baja latencia en nodo unico
+`SQLite` es el wrapper directo de `bun:sqlite`. Es independiente de la clase
+multi-motor `SQL` y está orientado a storage embebido, local o single-node.
 
 ## Constructor
 
 ```ts
-const db = new SQLite({ type: 'file', filename: './db.sqlite' })
-// o
-const mem = new SQLite({ type: 'memory' })
+import { SQLite } from 's42-core'
+
+const file = new SQLite({ type: 'file', filename: './service.sqlite' })
+const memory = new SQLite({ type: 'memory' })
 ```
 
-## API principal
+`filename` es requerido cuando `type` es `file`.
+
+## API
 
 - `createTable(tableName, schema)`
 - `addTableColumns(tableName, changes)`
 - `createIndex(tableName, columnName)`
 - `dropTable(tableName)`
 - `insert(tableName, data)`
-- `select(tableName, columns?, where?, sort?, limit?, offset?)`
+- `select(tableName, columns?, whereClause?, sort?, limit?, offset?)`
 - `update(tableName, whereClause, data)`
 - `delete(tableName, whereClause?)`
 - `getAllTables()`
 - `getTableSchema(tableName)`
 - `close()`
 
-## Helper de query
+La clase no expone `count`, `selectPaginate`, `updateById` ni `deleteById`.
 
-`translateMongoJsonToSql(query)` se comparte para mapear filtros tipo Mongo a clausulas SQL.
+## Campo `added` automático
+
+`createTable()` agrega `added: integer` al schema. `insert()` agrega el timestamp
+actual bajo `added`.
+
+Ambos métodos mutan el objeto recibido:
+
+```ts
+const schema = { uuid: 'text primary key' }
+db.createTable('items', schema)
+// schema ahora también contiene added
+```
+
+No reutilizar esos objetos cuando la mutación pueda resultar sorpresiva.
+
+## Filtros y seguridad de identificadores
+
+Se reexporta `translateMongoJsonToSql()`, con soporte para `$eq`, `$ne`, `$gt`,
+`$gte`, `$lt`, `$lte`, `$in`, `$nin` y `$like`.
+
+Los identificadores de tabla, columna, filtro y sort usan la misma validación
+estricta de `SQL`. `*` se permite como proyección; expresiones y aliases se
+rechazan. Los valores de runtime usan parámetros.
+
+Los strings de tipos del schema son fragmentos DDL confiables y no deben
+provenir de input de requests.
 
 ## Ejemplo
 
 ```ts
-const db = new SQLite({ type: 'file', filename: './ops.sqlite' })
+const db = new SQLite({ type: 'memory' })
+
 db.createTable('operators', {
-  uuid: 'text primary key',
-  email: 'text',
+	uuid: 'text primary key',
+	email: 'text',
 })
 
-await db.select('operators', ['uuid', 'email'], { email: { $like: '%@stock42.com' } })
+db.insert('operators', {
+	uuid: crypto.randomUUID(),
+	email: 'operator@stock42.com',
+})
+
+const rows = await db.select<{ uuid: string; email: string }>(
+	'operators',
+	['uuid', 'email'],
+	{ email: { $like: '%@stock42.com' } },
+)
 ```
-
-## Seguridad de identificadores
-
-Los nombres de tabla/columna/campo y las claves de `sort` se validan contra una lista blanca
-estricta (`[A-Za-z0-9_]`, con puntos para nombres calificados por esquema) antes de interpolar;
-un identificador invalido lanza error. Los valores siempre se pasan como binds parametrizados.
-Es una proteccion solo-validacion, asi que las consultas legitimas no se ven afectadas;
-`columns` ya no acepta expresiones crudas.
 
 ## Notas
 
-- Preferir binds parametrizados para valores dinamicos.
-- Cerrar base en shutdown graceful.
-
-S42-Core fue desarrollado por Cesar Casas y Stock42 LLC con ingenieria asistida por AI (Codex).
+- `insert()` devuelve `void`; create/update/delete devuelven objetos de cambios
+  nativos de `bun:sqlite`.
+- Validar `limit` y `offset` numéricos en la frontera HTTP.
+- Llamar a `close()` durante shutdown ordenado.

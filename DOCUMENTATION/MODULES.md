@@ -2,47 +2,69 @@
 
 ## Purpose
 
-`Modules` is the dynamic module loader in S42-Core.
-It discovers `__module__.ts` files, validates module manifests with `zod`, and loads runtime capabilities by module type.
+`Modules` discovers `**/__module__.ts` with `Bun.Glob`, validates module
+manifests with Zod, and loads behavior according to module type.
 
-## Supported module types
+## Manifest contract
 
-1. `mws`
-Middleware modules. Must provide `mws/index.ts` with:
-- `default` export (constructor/init)
-- `beforeRequest`
-- `afterRequest` (or `exportRequest` alias)
+```ts
+export default {
+	name: 'operators',
+	version: '1.0.0',
+	type: 'full',
+	enabled: true,
+	dependencies: [{ module: 'auth', version: 1 }],
+	initialize: async () => {
+		console.info('operators ready')
+	},
+}
+```
 
-2. `share`
-Shared modules for reusable code only. No controllers/events/hooks registration.
+- `name: string`
+- `version: string`
+- `type?: 'mws' | 'share' | 'full'` (default: `full`)
+- `enabled?: boolean` (default: `true`)
+- `initialize?: () => unknown | Promise<unknown>`
+- `dependencies?: Array<Record<string, unknown>>`
 
-3. `full`
-Domain modules with controllers and optional events.
+`dependencies` is metadata only. The loader does not resolve, order, or enforce
+dependency versions.
 
-## Load order
+## Module types and load order
 
-1. All `mws` modules
-2. All `share` modules
-3. All `full` modules
+Enabled modules load in this order:
 
-This guarantees middleware availability before full controllers are loaded.
-If a loaded module manifest provides `initialize`, the loader executes it immediately after that module finishes its own loading step.
-For `full` modules, that means after controllers and events are loaded.
+1. all `mws`;
+2. all `share`;
+3. all `full`.
 
-## Controller-level middleware activation
+Discovery order inside each group is not a dependency contract.
 
-Middleware is on-demand (not global by default).
-Controllers can request middleware using:
+### `mws`
 
-- `requireBefore?: string[]`
-- `requireAfter?: string[]`
-- `beforeRequest?: string[]` (alias)
-- `afterRequest?: string[]` (alias)
+Requires `mws/index.ts` with:
 
-Reference modes:
+- default initialization function;
+- `beforeRequest`;
+- `afterRequest`, or compatibility alias `exportRequest`.
 
-- `['mws']`: all middleware modules
-- `['auth']`: one specific middleware module by name
+Hooks may call `next(req, res)` directly. A compatibility form that returns a
+second hook function is also supported. The loader auto-advances if the hook
+does not call `next()`.
+
+### `share`
+
+Registers module metadata only. It does not automatically load services, types,
+models, controllers, events, or hooks. `controllers/`, `events/`, and `mws/`
+directories are ignored with a warning.
+
+### `full`
+
+Imports all TypeScript files under `controllers/` and optionally `events/`.
+Every controller file is expected to have a compatible default export.
+
+`initialize` is awaited after the type-specific load step. For `full`, this
+means after controllers and events.
 
 ## Constructor
 
@@ -50,67 +72,82 @@ Reference modes:
 const modules = new Modules('./modules', eventsDomain?)
 ```
 
-## Public API
+The path is normalized relative to `process.cwd()` unless it is absolute.
+
+## Controller metadata
+
+```ts
+import type { ControllerType } from 's42-core'
+
+export default {
+	name: 'operatorList',
+	version: '1.0.0',
+	method: 'GET',
+	path: '/operators/list',
+	requireBefore: ['auth'],
+	handler: async (_req, res, { events }) => {
+		events.emit('Operator$List$Completed', { ok: true })
+		return res.json({ ok: true })
+	},
+	handleError: async (_req, res, error) => {
+		return res.status(500).json({ ok: false, error: String(error) })
+	},
+} satisfies ControllerType
+```
+
+Supported middleware references:
+
+- `requireBefore?: string[]`
+- `requireAfter?: string[]`
+- `beforeRequest?: string[]` (alias)
+- `afterRequest?: string[]` (alias)
+- `['mws']` means every loaded middleware module
+- a module name such as `['auth']` selects that middleware
+
+Unknown names log a warning and are skipped. Duplicate references are removed.
+
+The handler context currently exposes `events.emit()`. The module name is
+prefixed before event normalization.
+
+## Event files
+
+When an `EventsDomain` is configured:
+
+- non-function named exports in `events/emit.ts` register emitters;
+- function exports in other files register listeners;
+- `EVENTS` can map handler names to `eventName`/`events` and `multiple`;
+- named functions fall back to their export name when no mapping exists.
+
+Prefer explicit `EVENTS` mappings for stable contracts.
+
+## Instance API
 
 - `load()`
-- `setEventsDomain(eventsDomain)`
+- `setEventsDomain(eventsDomain): this`
 - `getControllers()`
 - `getHooks()`
 - `getSharedModules()`
 - `getLoadedModules()`
-- `getModulesStats()`
 - `getServices()`
 - `getModels()`
 - `getTypes()`
 
-## Example manifest
+`getModulesStats()` is a standalone package export, not an instance method.
 
-```ts
-export default {
-  name: 'operators',
-  version: '1.0.0',
-  type: 'full',
-  enabled: true,
-  dependencies: [{ module: 'auth', version: 1 }],
-  initialize: async () => {
-    console.info('operators module ready')
-  },
-}
-```
+## Current compatibility behavior
 
-`enabled` defaults to `true`. If a module sets `enabled: false`, the loader skips it completely, including middleware, controllers, and events.
-`initialize` is optional, receives no arguments, and can be sync or async. `Modules.load()` awaits it before moving to the next module.
+- Module-level `enabled: false` skips the module.
+- Controller-level `enabled` metadata is not used to skip a controller.
+- Imported controller metadata is not parsed with the exported `Controllers`
+  schema by the loader.
+- `mws` middleware is attached directly to opted-in controllers, so
+  `getHooks()` is not populated by those modules.
+- Models, services, and types are not auto-discovered; their getters return
+  empty collections or `undefined`.
+- A missing `controllers/` or `events/` directory is allowed for `full`.
+- A missing or invalid `mws/index.ts` contract throws and stops `load()`.
 
-## Example controller using middleware on-demand
+## Statistics
 
-```ts
-export default {
-  name: 'operatorList',
-  version: '1.0.0',
-  method: 'GET',
-  path: '/operators/list',
-  requireBefore: ['mws'],
-  handler: async (req, res, { events }) => {
-    events.emit('Operator$List$Completed', { ok: true })
-    return res.json({ ok: true })
-  },
-}
-```
-
-Controller contract loaded by `Modules`:
-
-- `handler` must be a function.
-- Signature: `handler(req, res, { events })`.
-- The third argument exposes `{ events }`.
-- `events.emit(eventName, payload?)` is available there.
-- The emitted name is prefixed automatically with the module name at runtime.
-
-## Notes
-
-- `share` modules intentionally ignore `controllers/`, `events/`, and `mws/` folders.
-- Disabled modules (`enabled: false`) are ignored during discovery and never enter the load pipeline.
-- `initialize` only runs for enabled modules after their type-specific load completes.
-- Event files under `events/` are auto-registered when `EventsDomain` is configured.
-- Keep module contracts strict and versioned.
-
-S42-Core is developed by Cesar Casas and Stock42 LLC with AI-assisted engineering (Codex).
+`getModulesStats()` returns totals by type, module names, and the normalized
+loaded manifests. Its registry is process-wide.

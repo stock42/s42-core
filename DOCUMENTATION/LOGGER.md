@@ -2,64 +2,67 @@
 
 ## Purpose
 
-`logger` is the framework's internal leveled logger. It replaces the scattered raw `console.*`
-calls so framework output can be controlled in production without changing default behavior.
+S42-Core's public `logger` provides level filtering and an injectable output
+sink for framework and application diagnostics.
 
 ## Levels
 
-`debug` < `info` < `warn` < `error` < `silent`
+```text
+debug < info < warn < error < silent
+```
 
-A message is emitted when its level is `>=` the current level.
+A call is emitted when its level is at least the configured threshold.
+The default is `debug`.
 
-## Default behavior
+## Initial configuration
 
-The default level is **`debug`** (everything on), and each method forwards to the matching
-`console` method with the same arguments. Out of the box, output is identical to before — no
-behavior change.
+At module initialization, the logger reads:
 
-## Configuring the level
+1. `S42_LOG_LEVEL`;
+2. `LOG_LEVEL`;
+3. default `debug`.
 
-Set an environment variable (checked at startup):
+Accepted values are `debug`, `info`, `warn`, `error`, and `silent`.
 
 ```bash
-S42_LOG_LEVEL=warn   # or: debug | info | warn | error | silent
-# LOG_LEVEL is also accepted as a fallback
+S42_LOG_LEVEL=warn bun run src/server.ts
 ```
 
-Or change it at runtime:
+## Runtime API
 
 ```ts
-import { setLogLevel, getLogLevel } from 's42-core'
+import { getLogLevel, logger, setLogLevel, setLogSink } from 's42-core'
 
-setLogLevel('error') // now only error-level messages are emitted
-console.log(getLogLevel()) // 'error'
+setLogLevel('error')
+console.info(getLogLevel()) // error
+
+logger.debug('suppressed')
+logger.error('emitted')
 ```
 
-## Custom sink (injectable)
+- `logger.debug/info/warn/error(...args)`
+- `setLogLevel(level)`
+- `getLogLevel()`
+- `setLogSink(sink)`
+- types `LogLevel`, `LogSink`
 
-Redirect output (e.g. to ship structured logs) by replacing the sink:
+## Custom sink
 
 ```ts
-import { setLogSink } from 's42-core'
-
 setLogSink({
-  debug: (...a) => myTransport.debug(a),
-  info: (...a) => myTransport.info(a),
-  warn: (...a) => myTransport.warn(a),
-  error: (...a) => myTransport.error(a),
+	debug: (...args) => transport.debug(args),
+	info: (...args) => transport.info(args),
+	warn: (...args) => transport.warn(args),
+	error: (...args) => transport.error(args),
 })
 ```
 
-## API
-
-- `logger.debug/info/warn/error(...args)`
-- `setLogLevel(level)` / `getLogLevel()`
-- `setLogSink(sink)`
-- types: `LogLevel`, `LogSink`
+The default sink forwards to the matching console method, except `debug` uses
+`console.log` for compatibility with previous framework output.
 
 ## Notes
 
-- `console.log` is mapped to `debug` so the noisiest output (module/route discovery) can be
-  silenced by raising the level.
-
-S42-Core is developed by Cesar Casas and Stock42 LLC with AI-assisted engineering (Codex).
+- `setLogSink()` replaces the complete sink; provide all four methods.
+- The API does not currently expose a reset-to-default helper.
+- Never send secrets, tokens, or credential-bearing URLs to either the default
+  or a custom sink.

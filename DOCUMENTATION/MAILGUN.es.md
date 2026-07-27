@@ -1,57 +1,62 @@
-# MAILGUN
+# MAILGUN (INTERNO)
 
-## Proposito
+## Estado de API pública
 
-`sendEmail` es un helper liviano para enviar emails por Mailgun desde servicios S42-Core.
+`src/Mailgun` contiene el helper `sendEmail()`, pero no está exportado por
+`src/index.ts` ni por el export map del paquete.
 
-## API
+Los consumidores no pueden usar `s42-core/dist/Mailgun` ni otro deep import.
+Esta página es referencia exclusiva para maintainers del repositorio.
+
+## API interna
 
 ```ts
-await sendEmail({
+sendEmail({
   domainName,
   username,
   password,
   from,
   to,
   subject,
-  text,
-  html,
-  apiHost,
-})
+  text?,
+  html?,
+  apiHost?,
+}): Promise<{ id: string; message: string }>
 ```
 
-### `MailgunParams`
+`apiHost` usa por default `api.eu.mailgun.net`. A un host sin `http://` o
+`https://` se le antepone `https://`.
 
-- `domainName: string`
-- `username: string`
-- `password: string`
-- `from: string`
-- `to: string`
-- `subject: string`
-- `text?: string`
-- `html?: string`
-- `apiHost?: string` (default: `api.eu.mailgun.net`)
+## Ejemplo solo para el repositorio
 
-## Ejemplo
+Desde código que puede resolver directamente el source del repositorio:
 
 ```ts
-import { sendEmail } from 's42-core/dist/Mailgun'
+import { sendEmail } from './src/Mailgun'
 
 await sendEmail({
-  domainName: 'sandbox.example.mailgun.org',
-  username: 'api',
-  password: process.env.MAILGUN_KEY!,
-  from: 'noreply@example.com',
-  to: 'ops@example.com',
-  subject: 'S42-Core alert',
-  text: 'Service up',
+	domainName: 'sandbox.example.mailgun.org',
+	username: 'api',
+	password: process.env.MAILGUN_KEY!,
+	from: 'noreply@example.com',
+	to: 'ops@example.com',
+	subject: 'S42-Core alert',
+	text: 'Service up',
 })
 ```
 
-## Recomendaciones operativas
+## Comportamiento
 
-- Guardar credenciales en variables de entorno.
-- Validar host API y usar endpoint HTTPS.
-- Manejar respuestas no-2xx de forma explicita en servicios consumidores.
+- Envía un `POST` multipart a `/v3/{domainName}/messages`.
+- Usa autenticación HTTP Basic.
+- Lanza error ante respuestas no 2xx e incluye el body recibido.
+- Lanza error si una respuesta exitosa no es JSON.
 
-S42-Core fue desarrollado por Cesar Casas y Stock42 LLC con ingenieria asistida por AI (Codex).
+## Seguridad
+
+- Mantener la API key fuera del código fuente y logs.
+- Usar HTTPS; el helper acepta una URL HTTP explícita pero no fuerza TLS.
+- Sanitizar o restringir los bodies de error del provider antes de devolverlos
+  a clientes.
+- Exportar el helper sería una decisión de API del paquete y no está implícito
+  en esta documentación interna.

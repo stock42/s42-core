@@ -1,118 +1,152 @@
-# CoreStats
-
-`CoreStats` exposes a framework introspection endpoint automatically.
+# CORESTATS
 
 ## Purpose
 
-- Adds `GET /core/stats` when enabled.
-- Lists every exposed endpoint as `method + path`.
-- Lists every loaded module as `name + version + type`.
-- Includes lightweight runtime metadata.
+`CoreStats` reports S42-Core controller/module registries and host command
+output.
 
-## Enable it
+## Automatic route
 
-Set:
+Set the environment before constructing `RouteControllers`:
 
 ```bash
 ENABLE_CORE_STATS=true
 ```
 
-## Usage
+Accepted enabled values are `true` and `1` (case-insensitive after trimming).
+When enabled, `RouteControllers` injects `GET /core/stats` unless that exact
+method/path already exists.
+
+Normal bootstrap needs no explicit `CoreStats` instance:
 
 ```ts
-import { Modules, RouteControllers, Server } from 's42-core'
-
 const modules = new Modules('./modules')
 await modules.load()
 
-const server = new Server()
-await server.start({
-  port: 5678,
-  RouteControllers: new RouteControllers(modules.getControllers()),
-  hooks: modules.getHooks(),
+await new Server().start({
+	port: 5678,
+	RouteControllers: new RouteControllers(modules.getControllers()),
+	hooks: modules.getHooks(),
 })
 ```
 
-If `ENABLE_CORE_STATS=true`, `RouteControllers` injects `GET /core/stats` automatically.
+Changing the environment after `RouteControllers` construction does not add a
+route to the existing router.
 
-## Manual instantiation
+## Security
+
+`CoreStats` does not add authentication or authorization. Its response exposes:
+
+- every registered endpoint;
+- loaded module names, versions, types, and manifest data;
+- memory and disk output;
+- uptime;
+- connected-user output from `who`;
+- CPU frequency command output.
+
+Keep the feature disabled on public services unless the route is protected by a
+trusted authentication and network boundary. The framework's current global
+hooks cannot short-circuit by returning a response, so do not assume a returned
+hook response protects this endpoint.
+
+## Manual instance
 
 ```ts
-new CoreStats({
-  enabled?,
-  path?,
-  commandRunner?,
+const stats = new CoreStats({
+	enabled: true,
+	path: '/internal/core/stats',
+	commandRunner: async command => ({
+		command,
+		ok: true,
+		output: '',
+	}),
 })
 ```
 
-This is only needed for advanced customization or testing.
-
 Options:
-- `enabled`: overrides env detection.
-- `path`: custom path instead of `/core/stats`.
-- `commandRunner`: optional command executor override for testing/custom environments.
 
-## Main API
+- `enabled?: boolean` overrides environment detection for that instance.
+- `path?: string` sets that instance's normalized path.
+- `commandRunner?` replaces OS command execution, primarily for tests or
+  controlled environments.
 
-- `isEnabled()`
-- `getPath()`
-- `getController()`
-- `getStats()`
+A custom manual path does not reconfigure the automatic singleton route, which
+remains `/core/stats`.
 
-## Response shape
+## API
 
-Example:
+- `isEnabled(): boolean`
+- `getPath(): string`
+- `getController(): Controller | null`
+- `getStats(): Promise<CoreStatsPayload>`
+
+## Response
 
 ```json
 {
-  "ok": true,
-  "feature": "core-stats",
-  "path": "/core/stats",
-  "enabled": true,
-  "summary": {
-    "totalControllers": 6,
-    "totalEndpoints": 12,
-    "totalModulesLoaded": 4,
-    "totalModulesFull": 2,
-    "totalModulesShare": 1,
-    "totalModulesMws": 1
-  },
-  "endpoints": [
-    { "method": "GET", "path": "/core/stats" },
-    { "method": "GET", "path": "/operators/list" }
-  ],
-  "modules": [
-    { "name": "auth", "version": "1.0.0", "type": "mws" },
-    { "name": "operators", "version": "1.0.0", "type": "full" }
-  ],
-  "system": {
-    "memory": {
-      "totalMB": 2048,
-      "usedMB": 1024,
-      "availableMB": 1536
-    },
-    "disk": {
-      "root": {
-        "available": "60G"
-      }
-    },
-    "uptime": {
-      "raw": "10:00:00 up 5 days"
-    },
-    "connectedUsers": {
-      "totalUsers": 2
-    },
-    "cpuFrequency": {
-      "raw": "current CPU frequency: 3.20 GHz"
-    }
-  }
+	"ok": true,
+	"feature": "core-stats",
+	"generatedAt": "2026-07-27T12:00:00.000Z",
+	"path": "/core/stats",
+	"enabled": true,
+	"summary": {
+		"totalControllers": 3,
+		"totalEndpoints": 4,
+		"totalModulesLoaded": 2,
+		"totalModulesFull": 1,
+		"totalModulesShare": 0,
+		"totalModulesMws": 1
+	},
+	"endpoints": [{ "method": "GET", "path": "/core/stats" }],
+	"modules": [
+		{ "name": "operators", "version": "1.0.0", "type": "full", "enabled": true }
+	],
+	"system": {
+		"memory": {
+			"ok": true,
+			"totalMB": 2048,
+			"usedMB": 1024,
+			"freeMB": 512,
+			"availableMB": 1536,
+			"raw": "..."
+		},
+		"disk": {
+			"ok": true,
+			"raw": "...",
+			"root": {
+				"filesystem": "/dev/sda1",
+				"size": "100G",
+				"used": "40G",
+				"available": "60G",
+				"usePercentage": "40%",
+				"mountedOn": "/"
+			}
+		},
+		"uptime": { "ok": true, "raw": "..." },
+		"connectedUsers": {
+			"ok": true,
+			"totalUsers": 1,
+			"users": ["admin tty1 ..."],
+			"raw": "..."
+		},
+		"cpuFrequency": { "ok": false, "raw": "command not found" }
+	}
 }
 ```
 
-## Notes
+Commands:
 
-- The route is injected only when enabled.
-- You do not need to instantiate `CoreStats` for normal framework usage.
-- If your app already defines `GET /core/stats`, `RouteControllers` does not inject a duplicate route.
-- `CoreStats` reads controller data from `getControllersStats()` and module data from `getModulesStats()`.
-- The endpoint also runs `free -m`, `df -h`, `uptime`, `who`, and `cpupower frequency-info`.
+- `free -m`
+- `df -h`
+- `uptime`
+- `who`
+- `cpupower frequency-info`
+
+A missing command does not fail the endpoint. Its section reports `ok: false`
+with the captured error text while the top-level payload remains `ok: true`.
+
+## Registry behavior
+
+Controller and module statistics are process-wide. A controller is tracked when
+constructed; modules are tracked when loaded. In a multi-process cluster, each
+worker reports its own process state.

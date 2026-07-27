@@ -1,11 +1,7 @@
-# Auth Module (`type: "mws"`)
+# Auth Module Template (`type: "mws"`)
 
-`auth` is a middleware module for S42-Core.
-S42-Core is a Bun-first modular backend framework designed for professional service development.
-
-## Goal
-
-Provide authentication hooks that can be executed on-demand by `full` controllers.
+This is a template for an authentication middleware module. The repository does
+not currently ship a ready-to-use auth module.
 
 ## Required structure
 
@@ -16,69 +12,61 @@ auth/
     index.ts
 ```
 
-## `__module__.ts`
+## Manifest
 
 ```ts
 export default {
-  name: 'auth',
-  version: '1.0.0',
-  type: 'mws',
-  dependencies: [],
+	name: 'auth',
+	version: '1.0.0',
+	type: 'mws',
+	enabled: true,
 }
 ```
 
-## `mws/index.ts` contract
+## `mws/index.ts`
 
-A `mws` module must export:
+Required exports:
 
-- `default` (constructor/init)
-- `beforeRequest`
-- `afterRequest` (or alias `exportRequest`)
+- default initialization function;
+- `beforeRequest`;
+- `afterRequest`, or compatibility alias `exportRequest`.
 
 ```ts
-import type { Res } from '@/Response'
-
 export default async () => {
-  // init
+	// one-time initialization
 }
 
-export const beforeRequest = async (req: Request & Record<string, unknown>, res: Res) => {
-  return async (
-    req: Request & Record<string, unknown>,
-    res: Res,
-    next: (req: Request & Record<string, unknown>, res: Res) => Promise<void>,
-  ) => {
-    return next(req, res)
-  }
+export async function beforeRequest(req, res, next) {
+	if (!req.headers.get('authorization')) {
+		throw new Error('Token required')
+	}
+	next(req, res)
 }
 
-export const afterRequest = async (req: Request & Record<string, unknown>, res: Res) => {
-  return res
+export function afterRequest(req, res, next) {
+	next(req, res)
 }
 ```
 
-## Execution model
+The request here is the normalized `RouteControllers` object. The middleware
+pipeline auto-advances when `next()` is omitted.
 
-`mws` hooks are not global by default.
-A `full` controller must opt-in per route:
+## Controller opt-in
 
-- `requireBefore: ['mws']` -> all middleware modules
-- `requireBefore: ['auth']` -> only this module
+```ts
+requireBefore: ['auth']
+requireAfter: ['auth']
+```
 
-Same idea for `after` phase:
+`['mws']` selects every loaded middleware module. `beforeRequest` and
+`afterRequest` are aliases for the corresponding `require*` metadata fields.
 
-- `requireAfter: ['mws']`
-- `requireAfter: ['auth']`
+## Current error/response behavior
 
-Aliases are also supported:
+Returning a `Response` from an `mws` handler does not short-circuit the
+controller. Throw to signal failure; the controller's `handleError`, when
+present, decides the HTTP response. Without it, the `Controller` wrapper returns
+a generic `500` path.
 
-- `beforeRequest` (alias of `requireBefore`)
-- `afterRequest` (alias of `requireAfter`)
-
-## Professional recommendations
-
-- Return explicit auth responses (401/403) where possible.
-- Keep token parsing and verification deterministic.
-- Avoid leaking sensitive token parsing errors in public responses.
-
-S42-Core was developed by Cesar Casas (CEO & Head of Engineering at Stock42 LLC) with AI-assisted engineering workflows (Codex).
+Map authentication failures to `401`/`403` explicitly in `handleError`, and do
+not expose token parsing or verification details.
