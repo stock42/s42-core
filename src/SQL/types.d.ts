@@ -53,6 +53,16 @@ export type CreateIndexOptions = {
 	where?: string
 }
 
+export type DropIndexOptions = {
+	/**
+	 * Add `IF EXISTS`. Defaults to `true` for PostgreSQL/SQLite and
+	 * `false` for MySQL, whose `DROP INDEX` grammar does not support it.
+	 */
+	ifExists?: boolean
+	/** PostgreSQL-only concurrent index removal. */
+	concurrently?: boolean
+}
+
 export type SQLTransactionCallback<T> = (transaction: SQL) => T | PromiseLike<T>
 
 export type SQLTransactionResult<T> =

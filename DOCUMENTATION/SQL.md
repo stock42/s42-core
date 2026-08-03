@@ -268,6 +268,52 @@ request-controlled text.
 PostgreSQL does not allow `CREATE INDEX CONCURRENTLY` inside a transaction;
 invoke that form outside `begin()`/`transaction()`.
 
+Expression indexes are intentionally outside the structured column API because
+their expressions, collations, and operator classes are engine-specific. Create
+them with `executeRaw()` from trusted migration code. Manage formal table
+constraints with trusted `alterTable()` clauses or `executeRaw()` rather than
+expecting `createIndex()` to infer them.
+
+### `dropIndex(tableName, indexName, options?)`
+
+```ts
+type DropIndexOptions = {
+	ifExists?: boolean
+	concurrently?: boolean
+}
+
+dropIndex(
+	tableName: string,
+	indexName: string,
+	options?: DropIndexOptions,
+): Promise<void>
+```
+
+Removes a standalone index using adapter-specific syntax. The portable
+signature includes `tableName` because MySQL requires
+`DROP INDEX index_name ON table_name`; PostgreSQL and SQLite only emit the
+validated index name.
+
+```ts
+await sql.dropIndex('products', 'idx_products_tenant_updated', {
+	ifExists: true,
+	concurrently: true,
+})
+```
+
+Options:
+
+| Option         | Behavior                                                      |
+| -------------- | ------------------------------------------------------------- |
+| `ifExists`     | Defaults to `true` on PostgreSQL/SQLite and `false` on MySQL. |
+| `concurrently` | Adds PostgreSQL `CONCURRENTLY`; unsupported by MySQL/SQLite.  |
+
+MySQL rejects `ifExists: true` because its native `DROP INDEX` grammar does not
+support that clause. PostgreSQL `DROP INDEX CONCURRENTLY` must run outside a
+transaction. `dropIndex()` does not add `CASCADE`; indexes owned by primary-key
+or unique constraints must be managed through engine-specific constraint DDL
+with `alterTable()` or `executeRaw()`.
+
 ### `dropTable(tableName)`
 
 ```ts
@@ -692,8 +738,8 @@ entire `executeRaw` query string.
 - Test PostgreSQL, MySQL, and SQLite behavior against every engine/version used
   in production; SQL dialects and result metadata differ.
 - The class does not currently expose a public connection `close()` method.
-- `dropTable()`, `dropColumn()`, `alterTable()`, and unfiltered `delete()` are
-  destructive operations even though identifiers are validated.
+- `dropTable()`, `dropColumn()`, `dropIndex()`, `alterTable()`, and unfiltered
+  `delete()` are destructive operations even though identifiers are validated.
 - `selectPaginate()` performs two separate statements.
 - Schema introspection is normalized and intentionally incomplete.
 - Parameterized structured methods currently translate generated `?`

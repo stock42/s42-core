@@ -3,6 +3,7 @@ import { logger } from '../Logger'
 import type {
 	ColumnDefinition,
 	CreateIndexOptions,
+	DropIndexOptions,
 	KeyValueData,
 	SQLIndexColumn,
 	SQLTransactionCallback,
@@ -466,6 +467,50 @@ export class SQL {
 			await this.executeQuery(query)
 		} catch (err) {
 			logger.info('Error creating index: ', err)
+			throw err
+		}
+	}
+
+	public async dropIndex(
+		tableName: string,
+		indexName: string,
+		options: DropIndexOptions = {},
+	): Promise<void> {
+		assertValidIdentifier(tableName, 'table name')
+		assertValidIdentifier(indexName, 'index name')
+
+		const ifExists = options.ifExists ?? this.dbType !== 'mysql'
+		if (this.dbType === 'mysql') {
+			if (ifExists) {
+				throw new Error('MySQL DROP INDEX does not support IF EXISTS')
+			}
+			if (options.concurrently) {
+				throw new Error('MySQL DROP INDEX does not support CONCURRENTLY')
+			}
+		}
+		if (this.dbType !== 'postgres' && options.concurrently) {
+			throw new Error('CONCURRENTLY is only supported for PostgreSQL indexes')
+		}
+
+		let query: string
+		if (this.dbType === 'mysql') {
+			query = `DROP INDEX ${indexName} ON ${tableName}`
+		} else {
+			const tokens = ['DROP INDEX']
+			if (options.concurrently) {
+				tokens.push('CONCURRENTLY')
+			}
+			if (ifExists) {
+				tokens.push('IF EXISTS')
+			}
+			tokens.push(indexName)
+			query = tokens.join(' ')
+		}
+
+		try {
+			await this.executeQuery(query)
+		} catch (err) {
+			logger.info('Error dropping index: ', err)
 			throw err
 		}
 	}

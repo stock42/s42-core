@@ -274,6 +274,52 @@ nunca debe incluir texto controlado por un request.
 PostgreSQL no permite `CREATE INDEX CONCURRENTLY` dentro de una transacción;
 ejecutar esa forma fuera de `begin()`/`transaction()`.
 
+Los índices por expresión quedan deliberadamente fuera de la API estructurada
+de columnas porque sus expresiones, collations y clases de operadores dependen
+del motor. Crearlos con `executeRaw()` desde código confiable de migraciones.
+Administrar constraints formales de tabla mediante cláusulas confiables de
+`alterTable()` o `executeRaw()`, sin esperar que `createIndex()` los infiera.
+
+### `dropIndex(tableName, indexName, options?)`
+
+```ts
+type DropIndexOptions = {
+	ifExists?: boolean
+	concurrently?: boolean
+}
+
+dropIndex(
+	tableName: string,
+	indexName: string,
+	options?: DropIndexOptions,
+): Promise<void>
+```
+
+Elimina un índice independiente usando la sintaxis específica del adaptador. La
+firma portable incluye `tableName` porque MySQL requiere
+`DROP INDEX index_name ON table_name`; PostgreSQL y SQLite solo emiten el nombre
+validado del índice.
+
+```ts
+await sql.dropIndex('products', 'idx_products_tenant_updated', {
+	ifExists: true,
+	concurrently: true,
+})
+```
+
+Opciones:
+
+| Opción         | Comportamiento                                                  |
+| -------------- | --------------------------------------------------------------- |
+| `ifExists`     | Default `true` en PostgreSQL/SQLite y `false` en MySQL.         |
+| `concurrently` | Agrega `CONCURRENTLY` de PostgreSQL; no existe en MySQL/SQLite. |
+
+MySQL rechaza `ifExists: true` porque su gramática nativa de `DROP INDEX` no
+soporta esa cláusula. PostgreSQL exige ejecutar `DROP INDEX CONCURRENTLY` fuera
+de una transacción. `dropIndex()` no agrega `CASCADE`; los índices pertenecientes
+a constraints de primary key o unique deben administrarse mediante DDL de
+constraints específico del motor con `alterTable()` o `executeRaw()`.
+
 ### `dropTable(tableName)`
 
 ```ts
@@ -710,8 +756,8 @@ strings de opciones transaccionales y el string completo de `executeRaw`.
 - Probar PostgreSQL, MySQL y SQLite contra cada motor/versión usado en
   producción; los dialectos SQL y la metadata de resultados difieren.
 - La clase no expone actualmente un método público `close()` de conexión.
-- `dropTable()`, `dropColumn()`, `alterTable()` y `delete()` sin filtro son
-  operaciones destructivas aunque los identificadores se validen.
+- `dropTable()`, `dropColumn()`, `dropIndex()`, `alterTable()` y `delete()` sin
+  filtro son operaciones destructivas aunque los identificadores se validen.
 - `selectPaginate()` ejecuta dos sentencias separadas.
 - La introspección de schema está normalizada y es deliberadamente incompleta.
 - Los métodos estructurados parametrizados actualmente traducen los

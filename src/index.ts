@@ -60,6 +60,7 @@ export type {
 	tableInternalSchema,
 	ColumnDefinition,
 	CreateIndexOptions,
+	DropIndexOptions,
 	KeyValueData,
 	SQLIndexColumn,
 	SQLTransactionCallback,

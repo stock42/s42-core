@@ -6,6 +6,23 @@ function makeDb(): SQL {
 	return new SQL({ type: 'sqlite', url: ':memory:' })
 }
 
+function makeDialectQueryRecorder(type: 'mysql' | 'postgres' | 'sqlite') {
+	const db = Object.create(SQL.prototype) as SQL
+	const queries: string[] = []
+
+	Object.defineProperties(db, {
+		dbType: { value: type },
+		executeQuery: {
+			value: async (query: string) => {
+				queries.push(query)
+				return []
+			},
+		},
+	})
+
+	return { db, queries }
+}
+
 describe('SQL (sqlite) — legitimate usage is unchanged', () => {
 	test('create / insert / select / count / update / delete', async () => {
 		const db = makeDb()
@@ -176,6 +193,49 @@ describe('SQL (sqlite) — schema and raw-query wrappers', () => {
 			"SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_legacy_indexes_category'",
 		)
 		expect(indexes).toEqual([{ name: 'idx_legacy_indexes_category' }])
+	})
+
+	test('dropIndex removes a named SQLite index and defaults to idempotent', async () => {
+		const db = makeDb()
+
+		await db.createTable('drop_index_items', { id: 'INTEGER', category: 'TEXT' })
+		await db.createIndex('drop_index_items', 'category', {
+			name: 'idx_drop_index_items_category',
+		})
+		await db.dropIndex('drop_index_items', 'idx_drop_index_items_category')
+		await db.dropIndex('drop_index_items', 'idx_drop_index_items_category')
+
+		const indexes = await db.executeRaw<Array<{ name: string }>>(
+			"SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+			['idx_drop_index_items_category'],
+		)
+		expect(indexes).toEqual([])
+	})
+
+	test('dropIndex emits adapter-specific SQL and rejects unsupported options', async () => {
+		const postgres = makeDialectQueryRecorder('postgres')
+		await postgres.db.dropIndex('users', 'uq_users_email_live', {
+			ifExists: true,
+			concurrently: true,
+		})
+		expect(postgres.queries).toEqual([
+			'DROP INDEX CONCURRENTLY IF EXISTS uq_users_email_live',
+		])
+
+		const mysql = makeDialectQueryRecorder('mysql')
+		await mysql.db.dropIndex('users', 'uq_users_email_live')
+		expect(mysql.queries).toEqual(['DROP INDEX uq_users_email_live ON users'])
+		await expect(
+			mysql.db.dropIndex('users', 'uq_users_email_live', { ifExists: true }),
+		).rejects.toThrow('MySQL DROP INDEX does not support IF EXISTS')
+
+		const sqlite = makeDialectQueryRecorder('sqlite')
+		await expect(
+			sqlite.db.dropIndex('users', 'uq_users_email_live', { concurrently: true }),
+		).rejects.toThrow('CONCURRENTLY is only supported for PostgreSQL indexes')
+		await expect(
+			sqlite.db.dropIndex('users', 'unsafe; DROP TABLE users'),
+		).rejects.toThrow()
 	})
 
 	test('executeRaw bypasses helpers while still forwarding bound values', async () => {

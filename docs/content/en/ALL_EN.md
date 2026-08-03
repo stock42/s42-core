@@ -823,6 +823,7 @@ Schema API:
 | `addTableColumns(tableName, changes)`            | Builds one `ADD COLUMN` clause per entry and delegates to `alterTable`.                 |
 | `dropColumn(tableName, columnName)`              | Validated identifiers; delegates `DROP COLUMN` to the configured engine.                |
 | `createIndex(tableName, columns, options?)`      | Single/compound, ordered, unique, partial, named, and engine-specific advanced indexes. |
+| `dropIndex(tableName, indexName, options?)`      | Removes a standalone index with validated identifiers and adapter-specific syntax.      |
 | `dropTable(tableName)`                           | `DROP TABLE IF EXISTS`; destructive; currently returns `true`.                          |
 | `getAllTables()`                                 | Lists tables through the adapter and normalizes the common shape.                       |
 | `getTableSchema(tableName)`                      | Normalized column metadata; not complete constraint/index introspection.                |
@@ -861,6 +862,13 @@ await sql.createIndex(
 Unsupported option/adapter combinations reject before query execution. Index
 identifiers are validated; `where` remains raw trusted SQL. PostgreSQL
 `CONCURRENTLY` indexes must be created outside `begin()`/`transaction()`.
+
+`dropIndex(tableName, indexName, options?)` removes standalone indexes. Its
+`DropIndexOptions` supports `ifExists` (default `true` on PostgreSQL/SQLite and
+`false` on MySQL) and PostgreSQL-only `concurrently`. MySQL requires the table
+name and rejects `ifExists: true`; PostgreSQL concurrent drops must run outside
+a transaction. Expression indexes and constraint-owned indexes remain explicit
+engine-specific DDL through `executeRaw()` or `alterTable()`.
 
 Data API:
 
