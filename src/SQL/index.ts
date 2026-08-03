@@ -18,9 +18,20 @@ import {
 	assertValidSortKeys,
 	translateMongoJsonToSql,
 } from './identifiers'
+import { normalizeSQLError } from './errors'
 import { extractAffectedRows, extractLastInsertId } from './results'
 
 export { translateMongoJsonToSql }
+export { SQLError, isSQLError } from './errors'
+export type { SQLErrorCode, SQLDialect } from './errors'
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+	return (
+		value !== null &&
+		(typeof value === 'object' || typeof value === 'function') &&
+		typeof (value as { then?: unknown }).then === 'function'
+	)
+}
 
 export class SQL {
 	private dbInstance: BunSQL
@@ -57,30 +68,78 @@ export class SQL {
 		return scoped
 	}
 
+	private async runDriverOperation<T>(
+		operation: () => PromiseLike<T>,
+		assumeDriver = true,
+	): Promise<T> {
+		try {
+			return await operation()
+		} catch (error) {
+			throw normalizeSQLError(error, this.dbType, { assumeDriver })
+		}
+	}
+
+	private runTransactionCallback<T>(
+		callback: SQLTransactionCallback<T>,
+		dbInstance: BunSQL,
+		callbackErrors: Set<unknown>,
+	): T | Promise<T> {
+		try {
+			const result = callback(this.createScopedClient(dbInstance))
+			if (!isPromiseLike(result)) {
+				return result
+			}
+
+			return Promise.resolve(result).catch(error => {
+				callbackErrors.add(error)
+				throw error
+			}) as Promise<T>
+		} catch (error) {
+			callbackErrors.add(error)
+			throw error
+		}
+	}
+
+	private async runTransactionOperation<T>(
+		operation: () => PromiseLike<T>,
+		callbackErrors: Set<unknown>,
+	): Promise<T> {
+		try {
+			return await operation()
+		} catch (error) {
+			if (callbackErrors.has(error)) {
+				throw error
+			}
+			throw normalizeSQLError(error, this.dbType, { assumeDriver: true })
+		}
+	}
+
 	private async ensureReady(): Promise<void> {
 		if (this.dbType !== 'sqlite') {
 			return
 		}
 
-		this.ready ??= Promise.resolve(
-			this.dbInstance.unsafe('PRAGMA journal_mode = WAL;'),
-		).then(() => undefined)
+		this.ready ??= this.runDriverOperation(async () => {
+			await this.dbInstance.unsafe('PRAGMA journal_mode = WAL;')
+		})
 		await this.ready
 	}
 
 	private async executeQuery(query: string, params: any[] = []): Promise<any> {
 		await this.ensureReady()
-		if (params.length === 0) {
-			return this.dbInstance.unsafe(query)
-		}
+		return this.runDriverOperation(async () => {
+			if (params.length === 0) {
+				return await this.dbInstance.unsafe(query)
+			}
 
-		// We use tagged-template simulation so Bun binds the generated `?`
-		// placeholders for every supported adapter.
-		const parts = query.split('?')
-		const strings: any = parts
+			// We use tagged-template simulation so Bun binds the generated `?`
+			// placeholders for every supported adapter.
+			const parts = query.split('?')
+			const strings: any = parts
 
-		strings.raw = parts
-		return this.dbInstance(strings, ...params)
+			strings.raw = parts
+			return await this.dbInstance(strings, ...params)
+		})
 	}
 
 	/**
@@ -94,7 +153,9 @@ export class SQL {
 		}
 
 		await this.ensureReady()
-		return (await this.dbInstance.unsafe<T>(query, params)) as T
+		return this.runDriverOperation(async () => {
+			return (await this.dbInstance.unsafe<T>(query, params)) as T
+		})
 	}
 
 	public begin<T>(callback: SQLTransactionCallback<T>): Promise<SQLTransactionResult<T>>
@@ -108,18 +169,26 @@ export class SQL {
 	): Promise<SQLTransactionResult<T>> {
 		await this.ensureReady()
 		if (typeof optionsOrCallback === 'function') {
-			return this.dbInstance.begin(
-				transaction =>
-					optionsOrCallback(this.createScopedClient(transaction)) as T | Promise<T>,
+			const callbackErrors = new Set<unknown>()
+			return this.runTransactionOperation(
+				() =>
+					this.dbInstance.begin(transaction =>
+						this.runTransactionCallback(optionsOrCallback, transaction, callbackErrors),
+					),
+				callbackErrors,
 			) as Promise<SQLTransactionResult<T>>
 		}
 		if (!callback) {
 			throw new Error('begin requires a transaction callback')
 		}
 
-		return this.dbInstance.begin(
-			optionsOrCallback,
-			transaction => callback(this.createScopedClient(transaction)) as T | Promise<T>,
+		const callbackErrors = new Set<unknown>()
+		return this.runTransactionOperation(
+			() =>
+				this.dbInstance.begin(optionsOrCallback, transaction =>
+					this.runTransactionCallback(callback, transaction, callbackErrors),
+				),
+			callbackErrors,
 		) as Promise<SQLTransactionResult<T>>
 	}
 
@@ -136,18 +205,26 @@ export class SQL {
 	): Promise<SQLTransactionResult<T>> {
 		await this.ensureReady()
 		if (typeof optionsOrCallback === 'function') {
-			return this.dbInstance.transaction(
-				transaction =>
-					optionsOrCallback(this.createScopedClient(transaction)) as T | Promise<T>,
+			const callbackErrors = new Set<unknown>()
+			return this.runTransactionOperation(
+				() =>
+					this.dbInstance.transaction(transaction =>
+						this.runTransactionCallback(optionsOrCallback, transaction, callbackErrors),
+					),
+				callbackErrors,
 			) as Promise<SQLTransactionResult<T>>
 		}
 		if (!callback) {
 			throw new Error('transaction requires a transaction callback')
 		}
 
-		return this.dbInstance.transaction(
-			optionsOrCallback,
-			transaction => callback(this.createScopedClient(transaction)) as T | Promise<T>,
+		const callbackErrors = new Set<unknown>()
+		return this.runTransactionOperation(
+			() =>
+				this.dbInstance.transaction(optionsOrCallback, transaction =>
+					this.runTransactionCallback(callback, transaction, callbackErrors),
+				),
+			callbackErrors,
 		) as Promise<SQLTransactionResult<T>>
 	}
 
@@ -160,9 +237,13 @@ export class SQL {
 		}
 
 		await this.ensureReady()
-		return this.dbInstance.beginDistributed(
-			name,
-			transaction => callback(this.createScopedClient(transaction)) as T | Promise<T>,
+		const callbackErrors = new Set<unknown>()
+		return this.runTransactionOperation(
+			() =>
+				this.dbInstance.beginDistributed(name, transaction =>
+					this.runTransactionCallback(callback, transaction, callbackErrors),
+				),
+			callbackErrors,
 		) as Promise<SQLTransactionResult<T>>
 	}
 
@@ -175,9 +256,13 @@ export class SQL {
 		}
 
 		await this.ensureReady()
-		return this.dbInstance.distributed(
-			name,
-			transaction => callback(this.createScopedClient(transaction)) as T | Promise<T>,
+		const callbackErrors = new Set<unknown>()
+		return this.runTransactionOperation(
+			() =>
+				this.dbInstance.distributed(name, transaction =>
+					this.runTransactionCallback(callback, transaction, callbackErrors),
+				),
+			callbackErrors,
 		) as Promise<SQLTransactionResult<T>>
 	}
 
@@ -187,7 +272,7 @@ export class SQL {
 		}
 
 		await this.ensureReady()
-		await this.dbInstance.commitDistributed(name)
+		await this.runDriverOperation(() => this.dbInstance.commitDistributed(name))
 	}
 
 	public async rollbackDistributed(name: string): Promise<void> {
@@ -196,7 +281,7 @@ export class SQL {
 		}
 
 		await this.ensureReady()
-		await this.dbInstance.rollbackDistributed(name)
+		await this.runDriverOperation(() => this.dbInstance.rollbackDistributed(name))
 	}
 
 	public savepoint<T>(callback: SQLTransactionCallback<T>): Promise<T>
@@ -211,8 +296,13 @@ export class SQL {
 
 		const transaction = this.dbInstance as BunTransactionSQL
 		if (typeof nameOrCallback === 'function') {
-			return transaction.savepoint(
-				savepoint => nameOrCallback(this.createScopedClient(savepoint)) as T | Promise<T>,
+			const callbackErrors = new Set<unknown>()
+			return this.runTransactionOperation(
+				() =>
+					transaction.savepoint(savepoint =>
+						this.runTransactionCallback(nameOrCallback, savepoint, callbackErrors),
+					),
+				callbackErrors,
 			)
 		}
 		if (nameOrCallback.length === 0) {
@@ -222,9 +312,13 @@ export class SQL {
 			throw new Error('savepoint requires a callback')
 		}
 
-		return transaction.savepoint(
-			nameOrCallback,
-			savepoint => callback(this.createScopedClient(savepoint)) as T | Promise<T>,
+		const callbackErrors = new Set<unknown>()
+		return this.runTransactionOperation(
+			() =>
+				transaction.savepoint(nameOrCallback, savepoint =>
+					this.runTransactionCallback(callback, savepoint, callbackErrors),
+				),
+			callbackErrors,
 		)
 	}
 
@@ -632,12 +726,8 @@ export class SQL {
 			query += ` OFFSET ${(page - 1) * limit}`
 		}
 
-		try {
-			const result = await this.executeQuery(query, whereArgs)
-			return result as T[]
-		} catch (err: any) {
-			throw new Error(`Failed to execute SELECT query: ${err.message}`)
-		}
+		const result = await this.executeQuery(query, whereArgs)
+		return result as T[]
 	}
 
 	public async selectPaginate<T>({

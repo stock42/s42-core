@@ -41,7 +41,8 @@ export { RouteControllers } from './RouteControllers'
 export { SSE, type TypeSSEventToSend } from './SSE'
 export * as Test from './Test'
 export { SQLite } from './SQLite'
-export { SQL } from './SQL'
+export { SQL, SQLError, isSQLError } from './SQL'
+export type { SQLErrorCode, SQLDialect } from './SQL'
 export {
 	Modules,
 	Module,

@@ -21,6 +21,13 @@ All notable changes to this project will be documented in this file.
   remain validated and every comparison value remains bound. Engine-specific
   expressions and `$ilike` remain available through `SQL.executeRaw()` rather than
   the portable filter grammar.
+- **Normalized SQL errors:** added public `SQLError`, `SQLErrorCode`, `SQLDialect`,
+  and `isSQLError()` exports. The multi-engine `SQL` class and direct `SQLite`
+  wrapper now map the most important constraint, concurrency, and connection
+  failures to stable categories with an `unknown` fallback while preserving the
+  original driver `message`, `code`, `errno`, SQLSTATE, constraint, and `cause`.
+  Validation and transaction-callback errors remain unchanged; query text and
+  bound parameters are not attached to errors.
 - **LICENSE:** added the MIT license file (already declared in `package.json` and listed in
   `files`, but previously missing from the repo/package).
 - **Leveled logger:** new injectable `logger` (exported from the package) replaces raw

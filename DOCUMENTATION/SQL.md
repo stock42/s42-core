@@ -6,6 +6,11 @@
 Bun's native `SQL` client for PostgreSQL, MySQL, and SQLite, and exposes the same
 CRUD, schema, raw-query, and transaction API to all three adapters.
 
+`SQL` is a focused execution helper, not an ORM. It does not model relations,
+entities, query plans, or every engine feature. Structured methods cover common
+operations; `executeRaw()` keeps engine-specific SQL available without adding
+an ORM-style abstraction.
+
 This class is different from S42-Core's direct [`SQLite`](./SQLITE.md) wrapper:
 
 - `SQL` uses the unified `Bun.SQL` API and supports asynchronous transaction
@@ -43,6 +48,86 @@ Connection behavior:
 - SQLite: `url` is the filename and defaults to `db.sqlite`; use `:memory:` for
   an in-memory database. The wrapper enables WAL mode before its first query.
 - `tls` is passed only to PostgreSQL/MySQL connections.
+
+## Normalized driver errors
+
+Database failures from structured methods, `executeRaw()`, and transaction
+lifecycle operations are exposed as the public `SQLError` class. The direct
+`SQLite` wrapper uses the same contract.
+
+```ts
+import { SQLError, isSQLError, type SQLErrorCode } from 's42-core'
+
+class SQLError extends Error {
+	readonly code: SQLErrorCode
+	readonly dialect: 'postgres' | 'mysql' | 'sqlite'
+	readonly nativeCode?: string | number
+	readonly errno?: string | number
+	readonly sqlstate?: string
+	readonly constraint?: string
+	readonly cause: unknown
+}
+```
+
+`code` is S42-Core's stable category. The remaining properties preserve the
+metadata supplied by Bun and the database:
+
+- `message` is the original driver message;
+- `nativeCode` is the driver's original `code` value, such as
+  `ER_DUP_ENTRY` or `SQLITE_CONSTRAINT_UNIQUE`;
+- `errno` preserves Bun's string or numeric `errno`;
+- `sqlstate` normalizes PostgreSQL's `errno` and MySQL's `sqlState` when
+  available;
+- `constraint` is populated when the driver reports it structurally;
+- `cause` is the original error object.
+
+Mapped categories are:
+
+| Category                | Purpose                                                     |
+| ----------------------- | ----------------------------------------------------------- |
+| `unique_violation`      | Unique, primary-key, or row-id constraint failure.          |
+| `foreign_key_violation` | Referenced or referencing row constraint failure.           |
+| `not_null_violation`    | Required column received null.                              |
+| `check_violation`       | Database `CHECK` constraint failure.                        |
+| `duplicate_column`      | Existing column, when the engine supplies a stable code.    |
+| `duplicate_table`       | Existing table, when the engine supplies a stable code.     |
+| `serialization_failure` | Transaction serialization conflict.                         |
+| `deadlock_detected`     | PostgreSQL/MySQL deadlock.                                  |
+| `connection_failure`    | Connection/open failure recognized from structured codes.   |
+| `database_busy`         | SQLite busy/locked or MySQL lock-wait condition.            |
+| `unknown`               | Driver failure without a supported portable classification. |
+
+```ts
+try {
+	await sql.insert('wallet_bindings', binding)
+} catch (error) {
+	if (
+		isSQLError(error, 'unique_violation') &&
+		error.constraint === 'wallet_bindings_pkey'
+	) {
+		// Confirm the existing row represents the same idempotent operation.
+		return
+	}
+
+	throw error
+}
+```
+
+`isSQLError(error, code?)` is a type guard. A unique violation alone does not
+prove that an operation is a safe replay; check the expected constraint and
+application data. S42-Core does not retry automatically: serialization and
+deadlock retries must rerun the complete transaction, while a lost connection
+during commit can have an ambiguous outcome.
+
+Validation errors raised before driver execution and errors thrown by a
+transaction/savepoint callback remain unchanged. SQLite reports duplicate
+column and duplicate table as generic `SQLITE_ERROR`; S42-Core classifies those
+as `unknown` instead of parsing localized message text.
+
+The wrapper never adds query text or bound parameters to `SQLError`. The
+original driver message and `cause` can still contain database values or
+details, so do not log them blindly in services that handle secrets or personal
+data.
 
 ## Schema methods
 
@@ -621,3 +706,6 @@ entire `executeRaw` query string.
 - [Bun SQL documentation](https://bun.sh/docs/runtime/sql)
 - [`TransactionSQL.beginDistributed`](https://bun.com/reference/bun/TransactionSQL/beginDistributed)
 - [Dedicated `bun:sqlite` documentation](https://bun.sh/docs/runtime/sqlite)
+- [PostgreSQL error codes](https://www.postgresql.org/docs/current/errcodes-appendix.html)
+- [MySQL server error reference](https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html)
+- [SQLite result and error codes](https://www.sqlite.org/rescode.html)

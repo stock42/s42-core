@@ -32,6 +32,30 @@ const memory = new SQLite({ type: 'memory' })
 
 La clase no expone `count`, `selectPaginate`, `updateById` ni `deleteById`.
 
+## Errores
+
+Los fallos de query y schema del driver usan el mismo contrato público
+`SQLError` e `isSQLError()` que la clase multi-motor `SQL`. `message`,
+`nativeCode`, `errno` y `cause` preservan los detalles originales de
+`bun:sqlite`; `code` contiene la categoría portable de S42-Core o `unknown`.
+
+```ts
+try {
+	db.insert('operators', duplicateOperator)
+} catch (error) {
+	if (isSQLError(error, 'unique_violation')) {
+		// Verificar la fila existente antes de tratarlo como replay idempotente.
+	}
+}
+```
+
+SQLite expone códigos extendidos de constraints, por lo que las violaciones
+unique, foreign-key, not-null y check se pueden clasificar sin parsear mensajes.
+Los errores de columna o tabla duplicada usan `SQLITE_ERROR` genérico y por eso
+quedan como `unknown`. Los errores de validación siguen siendo instancias
+comunes de `Error`. Nunca se adjuntan el texto de la query ni sus parámetros
+bindeados al error normalizado.
+
 ## Campo `added` automático
 
 `createTable()` agrega `added: integer` al schema. `insert()` agrega el timestamp

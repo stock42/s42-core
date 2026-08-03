@@ -114,14 +114,14 @@ para el contrato completo de runtime.
 Solamente los exports de [`src/index.ts`](./src/index.ts) son imports soportados
 del paquete.
 
-| Área          | Exports públicos                                                          |
-| ------------- | ------------------------------------------------------------------------- |
-| HTTP          | `Server`, `RouteControllers`, `Controller`, `Res`, `getControllersStats`  |
-| Módulos       | `Modules`, `Module`, `Model`, `Service`, `Controllers`, `getModulesStats` |
-| Eventos       | `EventsDomain`, `RedisEventsAdapter`, `SQSEventsAdapter`                  |
-| Datos         | `MongoClient`, `RedisClient`, `SQL`, `SQLite`, `Dependencies`             |
-| Runtime       | `Cluster`, `SSE`, `CoreStats`                                             |
-| Logging/tests | `logger`, `setLogLevel`, `getLogLevel`, `setLogSink`, `Test`              |
+| Área          | Exports públicos                                                                        |
+| ------------- | --------------------------------------------------------------------------------------- |
+| HTTP          | `Server`, `RouteControllers`, `Controller`, `Res`, `getControllersStats`                |
+| Módulos       | `Modules`, `Module`, `Model`, `Service`, `Controllers`, `getModulesStats`               |
+| Eventos       | `EventsDomain`, `RedisEventsAdapter`, `SQSEventsAdapter`                                |
+| Datos         | `MongoClient`, `RedisClient`, `SQL`, `SQLite`, `SQLError`, `isSQLError`, `Dependencies` |
+| Runtime       | `Cluster`, `SSE`, `CoreStats`                                                           |
+| Logging/tests | `logger`, `setLogLevel`, `getLogLevel`, `setLogSink`, `Test`                            |
 
 El paquete también exporta desde su entrypoint los tipos TypeScript de módulos,
 eventos, SQL, logger, SSE, CoreStats y estadísticas.

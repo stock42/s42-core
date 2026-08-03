@@ -5,6 +5,7 @@ import {
 	assertValidSortKeys,
 	translateMongoJsonToSql,
 } from '../SQL/identifiers'
+import { normalizeSQLError } from '../SQL/errors'
 import { logger } from '../Logger'
 
 export { translateMongoJsonToSql }
@@ -55,10 +56,22 @@ export class SQLite {
 			throw new Error('Require "file" prop')
 		}
 
-		if (this.type === 'memory') {
-			this.database = new Database(':memory:')
-		} else {
-			this.database = new Database(props.filename!)
+		try {
+			if (this.type === 'memory') {
+				this.database = new Database(':memory:')
+			} else {
+				this.database = new Database(props.filename!)
+			}
+		} catch (error) {
+			throw normalizeSQLError(error, 'sqlite', { assumeDriver: true })
+		}
+	}
+
+	private runDriverOperation<T>(operation: () => T): T {
+		try {
+			return operation()
+		} catch (error) {
+			throw normalizeSQLError(error, 'sqlite', { assumeDriver: true })
 		}
 	}
 
@@ -76,25 +89,23 @@ export class SQLite {
 	}
 
 	public createTable(tableName: string, schema: TypeTableSchema): Changes {
-		try {
-			if (!tableName || typeof tableName !== 'string') {
-				throw new Error('Invalid table name')
-			}
-			this.tableMatch(tableName)
-			Object.keys(schema).forEach(column => assertValidIdentifier(column, 'column'))
+		if (!tableName || typeof tableName !== 'string') {
+			throw new Error('Invalid table name')
+		}
+		this.tableMatch(tableName)
+		Object.keys(schema).forEach(column => assertValidIdentifier(column, 'column'))
 
-			schema['added'] = 'integer'
-			const columns = Object.entries(schema)
-				.map(([columnName, type]) => `${columnName} ${type.toUpperCase()}`)
-				.join(', ')
+		schema['added'] = 'integer'
+		const columns = Object.entries(schema)
+			.map(([columnName, type]) => `${columnName} ${type.toUpperCase()}`)
+			.join(', ')
 
+		return this.runDriverOperation(() => {
 			const query = this.database.query(
 				`CREATE TABLE IF NOT EXISTS ${tableName} (${columns})`,
 			)
 			return query.run()
-		} catch (err) {
-			throw new Error(`Error creating table: ${String(err)}`)
-		}
+		})
 	}
 
 	public async addTableColumns(
@@ -111,7 +122,7 @@ export class SQLite {
 			let results: Changes[] = []
 			for (const clause of alterClauses) {
 				const query = `ALTER TABLE ${tableName} ${clause}`
-				const result = this.database.run(query)
+				const result = this.runDriverOperation(() => this.database.run(query))
 				results.push(result)
 			}
 			return results
@@ -122,13 +133,11 @@ export class SQLite {
 	}
 
 	public dropTable(tableName: string): Changes {
-		try {
-			this.tableMatch(tableName)
+		this.tableMatch(tableName)
+		return this.runDriverOperation(() => {
 			const query = this.database.query(`DROP TABLE IF EXISTS ${tableName}`)
 			return query.run()
-		} catch (err) {
-			throw new Error(`Error dropping table: ${String(err)}`)
-		}
+		})
 	}
 
 	public async delete(tableName: string, whereClause?: object): Promise<Changes> {
@@ -140,37 +149,39 @@ export class SQLite {
 			whereSentence = splited.whereStatement
 			whereArgs = splited.values as SQLQueryBindings[]
 		}
-		const query = this.database.prepare(`DELETE FROM ${tableName} ${whereSentence}`)
-		return query.run(...whereArgs)
+		return this.runDriverOperation(() => {
+			const query = this.database.prepare(`DELETE FROM ${tableName} ${whereSentence}`)
+			return query.run(...whereArgs)
+		})
 	}
 
 	public insert(tableName: string, data: { [key: string]: SQLQueryBindings }) {
-		try {
-			this.tableMatch(tableName)
-			Object.keys(data).forEach(column => assertValidIdentifier(column, 'column'))
-			data['added'] = new Date().getTime()
-			const values = Object.values(data)
+		this.tableMatch(tableName)
+		Object.keys(data).forEach(column => assertValidIdentifier(column, 'column'))
+		data['added'] = new Date().getTime()
+		const values = Object.values(data)
 
-			const columns = Object.keys(data).join(', ')
-			const placeholders = Object.keys(data)
-				.map(() => '?')
-				.join(', ')
+		const columns = Object.keys(data).join(', ')
+		const placeholders = Object.keys(data)
+			.map(() => '?')
+			.join(', ')
 
-			const query = `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders})`
+		const query = `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders})`
+		this.runDriverOperation(() => {
 			this.database.run(query, values)
-		} catch (err) {
-			throw new Error(`Error inserting data: ${String(err)}`)
-		}
+		})
 	}
 
 	public async createIndex(tableName: string, columnName: string): Promise<Changes> {
 		try {
 			this.tableMatch(tableName)
 			assertValidIdentifier(columnName, 'column')
-			const query = this.database.query(
-				`CREATE INDEX IF NOT EXISTS idx_${tableName}_${columnName} ON ${tableName} (${columnName})`,
-			)
-			return query.run()
+			return this.runDriverOperation(() => {
+				const query = this.database.query(
+					`CREATE INDEX IF NOT EXISTS idx_${tableName}_${columnName} ON ${tableName} (${columnName})`,
+				)
+				return query.run()
+			})
 		} catch (err) {
 			logger.info('Error creating index: ', err)
 			throw err
@@ -178,16 +189,18 @@ export class SQLite {
 	}
 
 	public async getAllTables(): Promise<tableInternalSchema[]> {
-		const query = this.database.query('PRAGMA table_list')
-		const result: tableInternalSchema[] = query.all() as tableInternalSchema[]
-		return result
+		return this.runDriverOperation(() => {
+			const query = this.database.query('PRAGMA table_list')
+			return query.all() as tableInternalSchema[]
+		})
 	}
 
 	public async getTableSchema(tableName: string): Promise<tableRowSchema[]> {
 		this.tableMatch(tableName)
-		const query = this.database.query(`PRAGMA table_info(${tableName})`)
-		const result: tableRowSchema[] = query.all() as tableRowSchema[]
-		return result
+		return this.runDriverOperation(() => {
+			const query = this.database.query(`PRAGMA table_info(${tableName})`)
+			return query.all() as tableRowSchema[]
+		})
 	}
 
 	public async update(
@@ -211,7 +224,9 @@ export class SQLite {
 		}
 
 		const query = `UPDATE ${tableName} SET ${setClause} ${whereSentence}`
-		return this.database.prepare(query).run(...values, ...whereArgs)
+		return this.runDriverOperation(() =>
+			this.database.prepare(query).run(...values, ...whereArgs),
+		)
 	}
 
 	public async select<T>(
@@ -245,17 +260,14 @@ export class SQLite {
 		}
 
 		let query = `SELECT ${columns.join(', ')} FROM ${tableName} ${whereSentence} ${orderByClause}`
-		try {
-			if (limit) {
-				query += ` LIMIT ${limit}`
-			}
-			if (offset) {
-				query += ` OFFSET ${offset}`
-			}
-			const result = this.database.prepare(query).all(...whereArgs) as T[]
-			return result
-		} catch (err: any) {
-			throw new Error(`Failed to execute SELECT query: ${err.message}`)
+		if (limit) {
+			query += ` LIMIT ${limit}`
 		}
+		if (offset) {
+			query += ` OFFSET ${offset}`
+		}
+		return this.runDriverOperation(
+			() => this.database.prepare(query).all(...whereArgs) as T[],
+		)
 	}
 }

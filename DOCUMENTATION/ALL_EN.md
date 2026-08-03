@@ -767,6 +767,9 @@ than returned to the caller. Payloads are JSON serialized.
 for PostgreSQL, MySQL, and SQLite. The direct `SQLite` class in the next section
 continues to use the separate synchronous `bun:sqlite` API.
 
+It is a focused SQL execution helper, not an ORM: common operations are
+structured, while engine-specific SQL remains available through `executeRaw()`.
+
 ```ts
 const sql = new SQL({
 	type: 'postgres', // 'mysql' | 'sqlite'
@@ -779,6 +782,37 @@ For SQLite, `url` is a filename and defaults to `db.sqlite`; `:memory:` creates
 an in-memory database and WAL is enabled before the first query. For PostgreSQL
 or MySQL, omitting `url` delegates connection defaults to `Bun.SQL`. `tls` is
 passed only to PostgreSQL/MySQL.
+
+Normalized driver errors:
+
+```ts
+import { SQLError, isSQLError, type SQLErrorCode } from 's42-core'
+
+try {
+	await sql.insert('wallet_bindings', binding)
+} catch (error) {
+	if (isSQLError(error, 'unique_violation')) {
+		console.log(error.nativeCode, error.sqlstate, error.constraint)
+	}
+	throw error
+}
+```
+
+Database failures from structured queries, `executeRaw()`, and transaction
+lifecycle operations use the public `SQLError` class. Its normalized `code` is
+one of `unique_violation`, `foreign_key_violation`, `not_null_violation`,
+`check_violation`, `duplicate_column`, `duplicate_table`,
+`serialization_failure`, `deadlock_detected`, `connection_failure`,
+`database_busy`, or `unknown`. `message` remains the original driver message;
+`nativeCode`, `errno`, `sqlstate`, `constraint`, and `cause` preserve available
+native metadata. `isSQLError(error, code?)` is the public type guard.
+
+Validation and transaction-callback errors remain unchanged. SQLite duplicate
+column/table failures remain `unknown` because SQLite exposes only generic
+`SQLITE_ERROR` for them; S42-Core does not classify database errors by parsing
+message text. The wrapper does not attach query text or bound parameters, but
+native messages and causes can still contain sensitive data. No category
+implies an automatic retry or proves that a unique violation is a safe replay.
 
 Schema API:
 
@@ -988,6 +1022,10 @@ bridge and delegates directly to Bun.
 See [the complete SQL component guide](./SQL.md), the
 [Bun SQL documentation](https://bun.sh/docs/runtime/sql), and
 [`TransactionSQL.beginDistributed`](https://bun.com/reference/bun/TransactionSQL/beginDistributed).
+Database-code mappings follow the official
+[PostgreSQL](https://www.postgresql.org/docs/current/errcodes-appendix.html),
+[MySQL](https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html),
+and [SQLite](https://www.sqlite.org/rescode.html) references.
 
 ### 8.5 Direct `SQLite`
 
@@ -1010,7 +1048,8 @@ or count methods.
 
 Identifiers and the recursive filter grammar use the same validation and null
 semantics as `SQL`; values are bound parameters. This direct wrapper does not
-expose `SQL.executeRaw()`.
+expose `SQL.executeRaw()`. Its query/schema driver failures use the same public
+`SQLError` categories and preserve the native `bun:sqlite` error as `cause`.
 
 ## 9. Runtime Utilities
 

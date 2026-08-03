@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { SQL } from './index'
+import { SQL, SQLError, isSQLError } from './index'
 
 function makeDb(): SQL {
 	// In-memory SQLite — no external services required.
@@ -193,6 +193,81 @@ describe('SQL (sqlite) — schema and raw-query wrappers', () => {
 	})
 })
 
+describe('SQL (sqlite) — normalized driver errors', () => {
+	test('classifies a unique violation and preserves the native error', async () => {
+		const db = makeDb()
+
+		await db.createTable('error_items', {
+			id: 'INTEGER PRIMARY KEY',
+			email: 'TEXT UNIQUE',
+		})
+		await db.insert('error_items', { id: 1, email: 'operator@stock42.com' })
+
+		let caught: unknown
+		try {
+			await db.insert('error_items', { id: 2, email: 'operator@stock42.com' })
+		} catch (error) {
+			caught = error
+		}
+
+		expect(isSQLError(caught, 'unique_violation')).toBe(true)
+		expect(caught).toBeInstanceOf(SQLError)
+		if (!(caught instanceof SQLError)) {
+			throw new Error('Expected a normalized SQLError')
+		}
+		expect(caught.dialect).toBe('sqlite')
+		expect(caught.nativeCode).toBe('SQLITE_CONSTRAINT_UNIQUE')
+		expect(caught.errno).toBe(2067)
+		expect(caught.message).toBe('UNIQUE constraint failed: error_items.email')
+		expect(caught.cause).toBeInstanceOf(Bun.SQL.SQLiteError)
+		expect('query' in caught).toBe(false)
+		expect('params' in caught).toBe(false)
+	})
+
+	test('uses unknown for unmapped raw and structured query errors', async () => {
+		const db = makeDb()
+
+		for (const execute of [
+			() => db.executeRaw('SELECT * FROM missing_raw_table'),
+			() => db.select({ tableName: 'missing_structured_table' }),
+		]) {
+			let caught: unknown
+			try {
+				await execute()
+			} catch (error) {
+				caught = error
+			}
+
+			expect(isSQLError(caught, 'unknown')).toBe(true)
+			expect(caught).toBeInstanceOf(SQLError)
+			if (caught instanceof SQLError) {
+				expect(caught.nativeCode).toBe('SQLITE_ERROR')
+				expect(caught.errno).toBe(1)
+				expect(caught.message).toContain('no such table')
+			}
+		}
+	})
+
+	test('does not wrap validation or transaction callback errors', async () => {
+		const db = makeDb()
+		const callbackError = new Error('application rollback')
+		let caught: unknown
+
+		try {
+			await db.begin(async () => {
+				await Promise.resolve()
+				throw callbackError
+			})
+		} catch (error) {
+			caught = error
+		}
+
+		expect(caught).toBe(callbackError)
+		expect(isSQLError(caught)).toBe(false)
+		await expect(db.executeRaw('   ')).rejects.toThrow('non-empty string')
+	})
+})
+
 describe('SQL (sqlite) — transactions', () => {
 	test('begin commits and exposes the S42 SQL wrapper inside the callback', async () => {
 		const db = makeDb()
@@ -273,15 +348,25 @@ describe('SQL (sqlite) — transactions', () => {
 		)
 	})
 
-	test('distributed transaction wrappers preserve Bun SQL adapter errors', async () => {
+	test('distributed transaction wrappers normalize unsupported adapter errors', async () => {
 		const db = makeDb()
 
-		await expect(
-			db.beginDistributed('tx_sqlite', async () => undefined),
-		).rejects.toThrow()
-		await expect(db.distributed('tx_sqlite', async () => undefined)).rejects.toThrow()
-		await expect(db.commitDistributed('tx_sqlite')).rejects.toThrow()
-		await expect(db.rollbackDistributed('tx_sqlite')).rejects.toThrow()
+		for (const execute of [
+			() => db.beginDistributed('tx_sqlite', async () => undefined),
+			() => db.distributed('tx_sqlite', async () => undefined),
+			() => db.commitDistributed('tx_sqlite'),
+			() => db.rollbackDistributed('tx_sqlite'),
+		]) {
+			let caught: unknown
+			try {
+				await execute()
+			} catch (error) {
+				caught = error
+			}
+
+			expect(isSQLError(caught, 'unknown')).toBe(true)
+			expect(caught).toBeInstanceOf(SQLError)
+		}
 	})
 })
 
