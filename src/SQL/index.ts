@@ -4,12 +4,14 @@ import type {
 	ColumnDefinition,
 	CreateIndexOptions,
 	DropIndexOptions,
+	InsertOptions,
 	KeyValueData,
 	SQLCloseOptions,
 	SQLIndexColumn,
 	SQLTransactionCallback,
 	SQLTransactionResult,
 	TypeReturnQuery,
+	TypeReturningQuery,
 	TypeSQLConnection,
 	tableInternalSchema,
 	tableRowSchema,
@@ -418,31 +420,65 @@ export class SQL {
 		}
 	}
 
-	public async insert(
+	public insert(tableName: string, data: KeyValueData): Promise<TypeReturnQuery | null>
+	public insert<T = KeyValueData>(
 		tableName: string,
 		data: KeyValueData,
-	): Promise<TypeReturnQuery | null> {
+		options: InsertOptions,
+	): Promise<TypeReturningQuery<T> | null>
+	public async insert<T = KeyValueData>(
+		tableName: string,
+		data: KeyValueData,
+		options?: InsertOptions,
+	): Promise<TypeReturnQuery | TypeReturningQuery<T> | null> {
 		assertValidIdentifier(tableName, 'table name')
 		const keys = Object.keys(data)
 		keys.forEach(column => assertValidIdentifier(column, 'column'))
 		const values = Object.values(data)
+		let returning: string[] | undefined
+
+		if (options !== undefined) {
+			if (!Array.isArray(options.returning)) {
+				throw new Error('insert returning must be an array of columns')
+			}
+
+			returning = [...options.returning]
+			assertValidColumns(returning)
+			if (returning.includes('*') && returning.length !== 1) {
+				throw new Error('The insert returning wildcard must be used alone')
+			}
+			if (this.dbType === 'mysql' && returning.length > 0) {
+				throw new Error('MySQL does not support INSERT ... RETURNING')
+			}
+		}
 
 		const placeholders = keys.map(() => '?').join(', ')
 		const query = `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders})`
 
-		// For Postgres, we might want RETURNING id to get the last insert id.
-		// For MySQL/SQLite, it is usually returned in the result.
 		let finalQuery = query
-		if (this.dbType === 'postgres') {
-			finalQuery += ' RETURNING *' // Or specific ID column if known, but * is safer for generic return
+		if (returning === undefined && this.dbType === 'postgres') {
+			// Preserve the original insert contract when no options are provided.
+			finalQuery += ' RETURNING *'
+		} else if (returning !== undefined && returning.length > 0) {
+			finalQuery += ` RETURNING ${returning.join(', ')}`
 		}
 
 		const result = await this.executeQuery(finalQuery, values)
 		const affectedRows = extractAffectedRows(result)
-		return {
+		const metadata: TypeReturnQuery = {
 			lastInsertRowId: extractLastInsertId(result),
 			changes: affectedRows,
 			affectedRows,
+		}
+
+		if (returning === undefined) {
+			return metadata
+		}
+
+		return {
+			...metadata,
+			rows:
+				returning.length > 0 && Array.isArray(result) ? Array.from(result as T[]) : [],
 		}
 	}
 

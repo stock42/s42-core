@@ -11,21 +11,26 @@ function getNativeOptions(db: SQL): BunSQL['options'] {
 	return (db as unknown as { dbInstance: BunSQL }).dbInstance.options
 }
 
-function makeDialectQueryRecorder(type: 'mysql' | 'postgres' | 'sqlite') {
+function makeDialectQueryRecorder(
+	type: 'mysql' | 'postgres' | 'sqlite',
+	result: unknown = [],
+) {
 	const db = Object.create(SQL.prototype) as SQL
 	const queries: string[] = []
+	const parameters: any[][] = []
 
 	Object.defineProperties(db, {
 		dbType: { value: type },
 		executeQuery: {
-			value: async (query: string) => {
+			value: async (query: string, params: any[] = []) => {
 				queries.push(query)
-				return []
+				parameters.push(params)
+				return result
 			},
 		},
 	})
 
-	return { db, queries }
+	return { db, queries, parameters }
 }
 
 function makeLifecycleRecorder() {
@@ -166,6 +171,174 @@ describe('SQL (sqlite) — legitimate usage is unchanged', () => {
 				whereClause: { deleted_at: { $in: [null] } },
 			}),
 		).toBe(3)
+	})
+})
+
+describe('SQL — insert returning', () => {
+	test('preserves the legacy PostgreSQL query and result shape when options are omitted', async () => {
+		const nativeResult = Object.assign([{ id: 41, created_at: '2026-08-03' }], {
+			count: 1,
+		})
+		const recorder = makeDialectQueryRecorder('postgres', nativeResult)
+
+		const inserted = await recorder.db.insert('users', { email: 'user@example.com' })
+
+		expect(recorder.queries).toEqual(['INSERT INTO users (email) VALUES (?) RETURNING *'])
+		expect(recorder.parameters).toEqual([['user@example.com']])
+		expect(inserted).toEqual({
+			lastInsertRowId: 41,
+			changes: 1,
+			affectedRows: 1,
+		})
+		expect(inserted && 'rows' in inserted).toBe(false)
+	})
+
+	test('returns selected PostgreSQL columns together with normalized metadata', async () => {
+		type ReturnedUser = { id: number; created_at: string }
+		const nativeResult = Object.assign(
+			[{ id: 42, created_at: '2026-08-03T12:00:00.000Z' }],
+			{ count: 1 },
+		)
+		const recorder = makeDialectQueryRecorder('postgres', nativeResult)
+
+		const inserted = await recorder.db.insert<ReturnedUser>(
+			'users',
+			{ email: 'returning@example.com' },
+			{ returning: ['id', 'created_at'] },
+		)
+
+		expect(recorder.queries).toEqual([
+			'INSERT INTO users (email) VALUES (?) RETURNING id, created_at',
+		])
+		expect(inserted).toEqual({
+			lastInsertRowId: 42,
+			changes: 1,
+			affectedRows: 1,
+			rows: [{ id: 42, created_at: '2026-08-03T12:00:00.000Z' }],
+		})
+	})
+
+	test('omits PostgreSQL RETURNING for an empty list and accepts an isolated wildcard', async () => {
+		const metadataResult = Object.assign([], { count: 1 })
+		const metadataRecorder = makeDialectQueryRecorder('postgres', metadataResult)
+
+		const metadataOnly = await metadataRecorder.db.insert(
+			'users',
+			{ email: 'metadata@example.com' },
+			{ returning: [] },
+		)
+		expect(metadataRecorder.queries).toEqual(['INSERT INTO users (email) VALUES (?)'])
+		expect(metadataOnly).toEqual({
+			lastInsertRowId: undefined,
+			changes: 1,
+			affectedRows: 1,
+			rows: [],
+		})
+
+		const wildcardResult = Object.assign([{ id: 43, email: 'all@example.com' }], {
+			count: 1,
+		})
+		const wildcardRecorder = makeDialectQueryRecorder('postgres', wildcardResult)
+		const allColumns = await wildcardRecorder.db.insert<{ id: number; email: string }>(
+			'users',
+			{ email: 'all@example.com' },
+			{ returning: ['*'] },
+		)
+		expect(wildcardRecorder.queries).toEqual([
+			'INSERT INTO users (email) VALUES (?) RETURNING *',
+		])
+		expect(allColumns?.rows).toEqual([{ id: 43, email: 'all@example.com' }])
+	})
+
+	test('supports SQLite RETURNING and an explicit no-returning opt-out', async () => {
+		type ReturnedItem = { id: number; created_at: string }
+		const db = makeDb()
+
+		await db.createTable('returning_items', {
+			id: 'INTEGER PRIMARY KEY AUTOINCREMENT',
+			name: 'TEXT',
+			created_at: "TEXT DEFAULT 'generated'",
+		})
+
+		const returned = await db.insert<ReturnedItem>(
+			'returning_items',
+			{ name: 'with rows' },
+			{ returning: ['id', 'created_at'] },
+		)
+		expect(returned).toEqual({
+			lastInsertRowId: 1,
+			changes: 1,
+			affectedRows: 1,
+			rows: [{ id: 1, created_at: 'GENERATED' }],
+		})
+
+		const withoutRows = await db.insert(
+			'returning_items',
+			{ name: 'metadata only' },
+			{ returning: [] },
+		)
+		expect(withoutRows).toEqual({
+			lastInsertRowId: 2,
+			changes: 1,
+			affectedRows: 1,
+			rows: [],
+		})
+	})
+
+	test('allows returning: [] on MySQL and rejects non-empty RETURNING before execution', async () => {
+		const nativeResult = Object.assign([], { affectedRows: 1, insertId: 7 })
+		const recorder = makeDialectQueryRecorder('mysql', nativeResult)
+
+		const inserted = await recorder.db.insert(
+			'users',
+			{ email: 'mysql@example.com' },
+			{ returning: [] },
+		)
+		expect(recorder.queries).toEqual(['INSERT INTO users (email) VALUES (?)'])
+		expect(inserted).toEqual({
+			lastInsertRowId: 7,
+			changes: 1,
+			affectedRows: 1,
+			rows: [],
+		})
+
+		await expect(
+			recorder.db.insert(
+				'users',
+				{ email: 'unsupported@example.com' },
+				{ returning: ['id'] },
+			),
+		).rejects.toThrow('MySQL does not support INSERT ... RETURNING')
+		expect(recorder.queries).toHaveLength(1)
+	})
+
+	test('validates returning columns and requires the wildcard to be used alone', async () => {
+		const recorder = makeDialectQueryRecorder('postgres')
+
+		await expect(
+			recorder.db.insert(
+				'users',
+				{ email: 'unsafe@example.com' },
+				{
+					returning: ['id; DROP TABLE users'],
+				},
+			),
+		).rejects.toThrow('Invalid column')
+		await expect(
+			recorder.db.insert(
+				'users',
+				{ email: 'mixed@example.com' },
+				{
+					returning: ['*', 'id'],
+				},
+			),
+		).rejects.toThrow('wildcard must be used alone')
+		await expect(
+			recorder.db.insert('users', { email: 'invalid@example.com' }, {
+				returning: 'id',
+			} as unknown as { returning: string[] }),
+		).rejects.toThrow('returning must be an array')
+		expect(recorder.queries).toEqual([])
 	})
 })
 

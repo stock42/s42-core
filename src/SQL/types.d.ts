@@ -78,10 +78,22 @@ export type SQLTransactionResult<T> =
 
 export type KeyValueData = { [key: string]: any }
 
+export type InsertOptions = {
+	/**
+	 * Columns returned by PostgreSQL/SQLite after the insert. Use an empty array
+	 * to omit the RETURNING clause. The `*` wildcard must be used alone.
+	 */
+	returning: readonly string[]
+}
+
 export type TypeReturnQuery = {
 	lastInsertRowId?: number | string
 	changes?: number
 	affectedRows?: number
+}
+
+export type TypeReturningQuery<T> = TypeReturnQuery & {
+	rows: T[]
 }
 
 export type TypeSQLConnection = {

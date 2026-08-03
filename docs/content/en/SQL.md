@@ -454,26 +454,75 @@ expected schema throws `Table schema not defined`.
 
 ## Data methods
 
-### `insert(tableName, data)`
+### `insert(tableName, data, options?)`
 
 ```ts
 insert(tableName: string, data: KeyValueData): Promise<TypeReturnQuery | null>
+
+insert<T = KeyValueData>(
+	tableName: string,
+	data: KeyValueData,
+	options: InsertOptions,
+): Promise<TypeReturningQuery<T> | null>
 ```
 
-Inserts one row with bound values. PostgreSQL adds `RETURNING *`; other adapters
-use their write metadata. The normalized result is:
+Inserts one row with bound values. Omitting `options` preserves the original
+contract exactly: PostgreSQL executes `RETURNING *` internally, while
+SQLite/MySQL use native write metadata, and the public result has no `rows`
+property.
 
 ```ts
+type InsertOptions = {
+	returning: readonly string[]
+}
+
 type TypeReturnQuery = {
 	lastInsertRowId?: number | string
 	changes?: number
 	affectedRows?: number
 }
+
+type TypeReturningQuery<T> = TypeReturnQuery & {
+	rows: T[]
+}
 ```
 
 `changes` and `affectedRows` contain the same normalized count.
 `lastInsertRowId` can be `undefined` when the driver/table does not expose an
-`id` or `ID` value.
+`id` or `ID` value. In particular, a PostgreSQL `returning` projection that
+omits the id cannot populate that metadata field.
+
+Pass a non-empty `returning` list to receive selected PostgreSQL or SQLite
+columns without a second query:
+
+```ts
+type InsertedUser = { id: number; created_at: Date }
+
+const inserted = await sql.insert<InsertedUser>(
+	'users',
+	{ email: 'user@example.com' },
+	{ returning: ['id', 'created_at'] },
+)
+
+console.log(inserted?.rows[0])
+```
+
+The explicit-options result always includes `rows`. An empty list deliberately
+omits the SQL `RETURNING` clause and returns `rows: []`; on PostgreSQL this is
+the opt-out from the legacy `RETURNING *` bandwidth cost:
+
+```ts
+const result = await sql.insert('audit_log', event, { returning: [] })
+// result.rows === []
+```
+
+PostgreSQL and SQLite support non-empty `returning`. MySQL does not support the
+clause, so S42-Core rejects a non-empty list before query execution; an empty
+list remains valid and returns MySQL write metadata plus `rows: []`.
+
+Returning columns are identifier-validated. `['*']` is accepted, but `*` cannot
+be combined with named columns. Expressions and aliases belong in
+`executeRaw()`.
 
 ### `select(options)`
 

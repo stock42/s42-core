@@ -462,26 +462,77 @@ lanza `Table schema not defined`.
 
 ## Métodos de datos
 
-### `insert(tableName, data)`
+### `insert(tableName, data, options?)`
 
 ```ts
 insert(tableName: string, data: KeyValueData): Promise<TypeReturnQuery | null>
+
+insert<T = KeyValueData>(
+	tableName: string,
+	data: KeyValueData,
+	options: InsertOptions,
+): Promise<TypeReturningQuery<T> | null>
 ```
 
-Inserta una fila con valores bindeados. PostgreSQL agrega `RETURNING *`; los
-demás adaptadores usan su metadata de escritura. El resultado normalizado es:
+Inserta una fila con valores bindeados. Omitir `options` conserva exactamente
+el contrato original: PostgreSQL ejecuta `RETURNING *` internamente,
+SQLite/MySQL usan su metadata nativa de escritura y el resultado público no
+tiene una propiedad `rows`.
 
 ```ts
+type InsertOptions = {
+	returning: readonly string[]
+}
+
 type TypeReturnQuery = {
 	lastInsertRowId?: number | string
 	changes?: number
 	affectedRows?: number
 }
+
+type TypeReturningQuery<T> = TypeReturnQuery & {
+	rows: T[]
+}
 ```
 
 `changes` y `affectedRows` contienen el mismo total normalizado.
 `lastInsertRowId` puede ser `undefined` cuando el driver o la tabla no expone un
-valor `id` o `ID`.
+valor `id` o `ID`. En particular, una proyección `returning` de PostgreSQL que
+omite el id no puede completar ese campo de metadata.
+
+Pasar una lista `returning` no vacía permite recibir columnas seleccionadas de
+PostgreSQL o SQLite sin una segunda query:
+
+```ts
+type InsertedUser = { id: number; created_at: Date }
+
+const inserted = await sql.insert<InsertedUser>(
+	'users',
+	{ email: 'user@example.com' },
+	{ returning: ['id', 'created_at'] },
+)
+
+console.log(inserted?.rows[0])
+```
+
+El resultado con opciones explícitas siempre incluye `rows`. Una lista vacía
+omite deliberadamente la cláusula SQL `RETURNING` y devuelve `rows: []`; en
+PostgreSQL este es el opt-out del costo de transferencia del `RETURNING *`
+legacy:
+
+```ts
+const result = await sql.insert('audit_log', event, { returning: [] })
+// result.rows === []
+```
+
+PostgreSQL y SQLite soportan un `returning` no vacío. MySQL no soporta la
+cláusula, por lo que S42-Core rechaza una lista no vacía antes de ejecutar la
+query; una lista vacía es válida y devuelve la metadata de escritura de MySQL
+más `rows: []`.
+
+Las columnas retornadas se validan como identificadores. `['*']` está permitido,
+pero `*` no se puede combinar con columnas nombradas. Las expresiones y aliases
+corresponden a `executeRaw()`.
 
 ### `select(options)`
 

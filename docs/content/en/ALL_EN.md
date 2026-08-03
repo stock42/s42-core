@@ -913,7 +913,7 @@ Data API:
 
 | Method                                     | Contract                                                                                 |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| `insert(tableName, data)`                  | Bound values; normalized `{ lastInsertRowId?, changes, affectedRows }`.                  |
+| `insert(tableName, data, options?)`        | Bound values; optional typed PostgreSQL/SQLite `returning` rows plus write metadata.     |
 | `select(options)`                          | Projection/filter/sort with defaults `limit: 100`, `page: 1`; returns rows or `null`.    |
 | `selectPaginate(options)`                  | Defaults `limit: 10`; returns `{ data, total, page, limit }` from separate select/count. |
 | `update({ tableName, whereClause, data })` | Bound values; returns normalized affected-row count.                                     |
@@ -921,6 +921,38 @@ Data API:
 | `delete(tableName, whereClause?)`          | Returns affected-row count; omitting the filter deletes every row.                       |
 | `deleteById(tableName, id)`                | Delegates to `delete` with `{ id }`.                                                     |
 | `count({ tableName, whereClause? })`       | Returns `COUNT(*)` as a JavaScript number.                                               |
+
+`insert` has a backwards-compatible metadata overload and an explicit returned-row
+overload:
+
+```ts
+insert(tableName: string, data: KeyValueData): Promise<TypeReturnQuery | null>
+
+insert<T = KeyValueData>(
+	tableName: string,
+	data: KeyValueData,
+	options: { returning: readonly string[] },
+): Promise<(TypeReturnQuery & { rows: T[] }) | null>
+```
+
+Omitting options preserves the original runtime shape with no `rows` property.
+PostgreSQL still executes its legacy `RETURNING *` internally; SQLite/MySQL use
+native write metadata. A non-empty `returning` list on PostgreSQL or SQLite
+returns only those columns in `rows`:
+
+```ts
+const inserted = await sql.insert<{ id: number; created_at: Date }>(
+	'users',
+	{ email: 'user@example.com' },
+	{ returning: ['id', 'created_at'] },
+)
+```
+
+`{ returning: [] }` omits the clause and returns `rows: []`, providing an
+explicit PostgreSQL opt-out from the legacy `RETURNING *`. MySQL accepts the
+empty list but rejects a non-empty one before execution because the engine does
+not support `RETURNING`. Columns are identifier-validated; `['*']` is accepted
+only by itself. Use `executeRaw()` for expressions or aliases.
 
 `translateMongoJsonToSql` supports `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`,
 `$in`, `$nin`, `$like`, inclusive `$between`, and recursive `$and`, `$or`, and
@@ -1053,7 +1085,8 @@ Trusted raw surfaces are schema type definitions, `alterTable` clauses,
 
 Write results:
 
-- `insert` returns `{ lastInsertRowId?, changes, affectedRows }`;
+- `insert` without options returns `{ lastInsertRowId?, changes, affectedRows }`;
+- `insert` with explicit `returning` options adds typed `rows`;
 - `update` and `delete` return an affected-row count.
 
 Validate and bound pagination values before passing request input. `limit` and

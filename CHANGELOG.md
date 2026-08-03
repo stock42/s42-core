@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **SQL INSERT RETURNING controls:** `insert()` now has an additive typed
+  `returning` overload for PostgreSQL and SQLite, returning selected rows together
+  with the existing normalized write metadata. `{ returning: [] }` explicitly
+  omits the clause on every adapter; non-empty lists fail early on MySQL. Calls
+  without options preserve the previous PostgreSQL `RETURNING *` query and exact
+  metadata-only result shape.
 - **SQL transactions and raw execution:** `SQL` now wraps Bun's `begin`/`transaction`,
   savepoints, and distributed transaction lifecycle (`beginDistributed`/`distributed`,
   `commitDistributed`, `rollbackDistributed`). Transaction callbacks receive a scoped

@@ -61,12 +61,14 @@ export type {
 	ColumnDefinition,
 	CreateIndexOptions,
 	DropIndexOptions,
+	InsertOptions,
 	KeyValueData,
 	SQLCloseOptions,
 	SQLIndexColumn,
 	SQLTransactionCallback,
 	SQLTransactionResult,
 	TypeReturnQuery,
+	TypeReturningQuery,
 	TypeSQLConnection,
 } from './SQL/types.d'
 
