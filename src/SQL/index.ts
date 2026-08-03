@@ -1,9 +1,12 @@
-import { Database } from 'bun:sqlite'
-import { SQL as BunSQL } from 'bun'
+import { SQL as BunSQL, type TransactionSQL as BunTransactionSQL } from 'bun'
 import { logger } from '../Logger'
 import type {
 	ColumnDefinition,
+	CreateIndexOptions,
 	KeyValueData,
+	SQLIndexColumn,
+	SQLTransactionCallback,
+	SQLTransactionResult,
 	TypeReturnQuery,
 	TypeSQLConnection,
 	tableInternalSchema,
@@ -20,20 +23,19 @@ import { extractAffectedRows, extractLastInsertId } from './results'
 export { translateMongoJsonToSql }
 
 export class SQL {
-	// `any` on purpose: the instance is either a bun:sqlite `Database` (used via
-	// `.prepare()`/`.query()`) or a `Bun.SQL` client (invoked as a tagged template).
-	// These have incompatible call shapes, so a typed union would force casts in every
-	// branch; a typed driver abstraction is tracked as future work in STATUS.md.
-	private dbInstance: any
+	private dbInstance: BunSQL
 	private dbType: 'mysql' | 'postgres' | 'sqlite'
+	private ready: Promise<void> | null = null
+	private transactionContext = false
 
 	constructor(config: TypeSQLConnection) {
 		this.dbType = config.type
 		if (this.dbType === 'sqlite') {
-			this.dbInstance = new Database(config.url || 'db.sqlite')
-			this.dbInstance.exec('PRAGMA journal_mode = WAL;')
+			this.dbInstance = new BunSQL({
+				adapter: 'sqlite',
+				filename: config.url || 'db.sqlite',
+			})
 		} else {
-			// For Postgres and MySQL, we use Bun's native SQL client
 			if (config.url) {
 				this.dbInstance = new BunSQL(config.url, {
 					...(config.tls ? { tls: config.tls } : {}),
@@ -45,36 +47,185 @@ export class SQL {
 		}
 	}
 
-	private async executeQuery(query: string, params: any[] = []): Promise<any> {
-		if (this.dbType === 'sqlite') {
-			const statement = this.dbInstance.prepare(query)
-			if (
-				query.trim().toUpperCase().startsWith('SELECT') ||
-				query.trim().toUpperCase().startsWith('PRAGMA')
-			) {
-				return statement.all(...params)
-			} else {
-				return statement.run(...params)
-			}
-		} else {
-			// Bun SQL (Postgres/MySQL)
-			// We use the template tag function simulation by splitting the query by '?'
-			// This allows us to pass parameters safely to Bun's SQL template tag.
+	private createScopedClient(dbInstance: BunSQL): SQL {
+		const scoped = Object.create(SQL.prototype) as SQL
 
-			if (this.dbType === 'postgres' || this.dbType === 'mysql') {
-				const parts = query.split('?')
+		scoped.dbInstance = dbInstance
+		scoped.dbType = this.dbType
+		scoped.ready = this.ready ?? Promise.resolve()
+		scoped.transactionContext = true
+		return scoped
+	}
 
-				// Safety check: ensure parts match params
-				// Note: This simple split might fail if '?' is inside a string literal in the query.
-				// For a robust implementation, a proper SQL parser/tokenizer is needed,
-				// but for this abstraction level we assume standard usage.
-
-				const strings: any = parts
-				strings.raw = parts
-
-				return this.dbInstance(strings, ...params)
-			}
+	private async ensureReady(): Promise<void> {
+		if (this.dbType !== 'sqlite') {
+			return
 		}
+
+		this.ready ??= Promise.resolve(
+			this.dbInstance.unsafe('PRAGMA journal_mode = WAL;'),
+		).then(() => undefined)
+		await this.ready
+	}
+
+	private async executeQuery(query: string, params: any[] = []): Promise<any> {
+		await this.ensureReady()
+		if (params.length === 0) {
+			return this.dbInstance.unsafe(query)
+		}
+
+		// We use tagged-template simulation so Bun binds the generated `?`
+		// placeholders for every supported adapter.
+		const parts = query.split('?')
+		const strings: any = parts
+
+		strings.raw = parts
+		return this.dbInstance(strings, ...params)
+	}
+
+	/**
+	 * Executes a trusted SQL string through Bun.SQL's `unsafe` escape hatch.
+	 * Values remain bound when `params` is provided, but the query text is not
+	 * parsed or escaped by S42-Core.
+	 */
+	public async executeRaw<T = unknown>(query: string, params: any[] = []): Promise<T> {
+		if (typeof query !== 'string' || query.trim().length === 0) {
+			throw new Error('Raw SQL query must be a non-empty string')
+		}
+
+		await this.ensureReady()
+		return (await this.dbInstance.unsafe<T>(query, params)) as T
+	}
+
+	public begin<T>(callback: SQLTransactionCallback<T>): Promise<SQLTransactionResult<T>>
+	public begin<T>(
+		options: string,
+		callback: SQLTransactionCallback<T>,
+	): Promise<SQLTransactionResult<T>>
+	public async begin<T>(
+		optionsOrCallback: string | SQLTransactionCallback<T>,
+		callback?: SQLTransactionCallback<T>,
+	): Promise<SQLTransactionResult<T>> {
+		await this.ensureReady()
+		if (typeof optionsOrCallback === 'function') {
+			return this.dbInstance.begin(
+				transaction =>
+					optionsOrCallback(this.createScopedClient(transaction)) as T | Promise<T>,
+			) as Promise<SQLTransactionResult<T>>
+		}
+		if (!callback) {
+			throw new Error('begin requires a transaction callback')
+		}
+
+		return this.dbInstance.begin(
+			optionsOrCallback,
+			transaction => callback(this.createScopedClient(transaction)) as T | Promise<T>,
+		) as Promise<SQLTransactionResult<T>>
+	}
+
+	public transaction<T>(
+		callback: SQLTransactionCallback<T>,
+	): Promise<SQLTransactionResult<T>>
+	public transaction<T>(
+		options: string,
+		callback: SQLTransactionCallback<T>,
+	): Promise<SQLTransactionResult<T>>
+	public async transaction<T>(
+		optionsOrCallback: string | SQLTransactionCallback<T>,
+		callback?: SQLTransactionCallback<T>,
+	): Promise<SQLTransactionResult<T>> {
+		await this.ensureReady()
+		if (typeof optionsOrCallback === 'function') {
+			return this.dbInstance.transaction(
+				transaction =>
+					optionsOrCallback(this.createScopedClient(transaction)) as T | Promise<T>,
+			) as Promise<SQLTransactionResult<T>>
+		}
+		if (!callback) {
+			throw new Error('transaction requires a transaction callback')
+		}
+
+		return this.dbInstance.transaction(
+			optionsOrCallback,
+			transaction => callback(this.createScopedClient(transaction)) as T | Promise<T>,
+		) as Promise<SQLTransactionResult<T>>
+	}
+
+	public async beginDistributed<T>(
+		name: string,
+		callback: SQLTransactionCallback<T>,
+	): Promise<SQLTransactionResult<T>> {
+		if (typeof name !== 'string' || name.length === 0) {
+			throw new Error('Distributed transaction name must be a non-empty string')
+		}
+
+		await this.ensureReady()
+		return this.dbInstance.beginDistributed(
+			name,
+			transaction => callback(this.createScopedClient(transaction)) as T | Promise<T>,
+		) as Promise<SQLTransactionResult<T>>
+	}
+
+	public async distributed<T>(
+		name: string,
+		callback: SQLTransactionCallback<T>,
+	): Promise<SQLTransactionResult<T>> {
+		if (typeof name !== 'string' || name.length === 0) {
+			throw new Error('Distributed transaction name must be a non-empty string')
+		}
+
+		await this.ensureReady()
+		return this.dbInstance.distributed(
+			name,
+			transaction => callback(this.createScopedClient(transaction)) as T | Promise<T>,
+		) as Promise<SQLTransactionResult<T>>
+	}
+
+	public async commitDistributed(name: string): Promise<void> {
+		if (typeof name !== 'string' || name.length === 0) {
+			throw new Error('Distributed transaction name must be a non-empty string')
+		}
+
+		await this.ensureReady()
+		await this.dbInstance.commitDistributed(name)
+	}
+
+	public async rollbackDistributed(name: string): Promise<void> {
+		if (typeof name !== 'string' || name.length === 0) {
+			throw new Error('Distributed transaction name must be a non-empty string')
+		}
+
+		await this.ensureReady()
+		await this.dbInstance.rollbackDistributed(name)
+	}
+
+	public savepoint<T>(callback: SQLTransactionCallback<T>): Promise<T>
+	public savepoint<T>(name: string, callback: SQLTransactionCallback<T>): Promise<T>
+	public async savepoint<T>(
+		nameOrCallback: string | SQLTransactionCallback<T>,
+		callback?: SQLTransactionCallback<T>,
+	): Promise<T> {
+		if (!this.transactionContext) {
+			throw new Error('savepoint can only be used inside a transaction callback')
+		}
+
+		const transaction = this.dbInstance as BunTransactionSQL
+		if (typeof nameOrCallback === 'function') {
+			return transaction.savepoint(
+				savepoint => nameOrCallback(this.createScopedClient(savepoint)) as T | Promise<T>,
+			)
+		}
+		if (nameOrCallback.length === 0) {
+			throw new Error('Savepoint name must be a non-empty string')
+		}
+		if (!callback) {
+			throw new Error('savepoint requires a callback')
+		}
+
+		return transaction.savepoint(
+			nameOrCallback,
+			savepoint => callback(this.createScopedClient(savepoint)) as T | Promise<T>,
+		)
 	}
 
 	public async createTable(tableName: string, data: ColumnDefinition): Promise<boolean> {
@@ -122,11 +273,102 @@ export class SQL {
 		}
 	}
 
-	public async createIndex(tableName: string, columnName: string): Promise<void> {
+	public async createIndex(
+		tableName: string,
+		columns: string | SQLIndexColumn[],
+		options: CreateIndexOptions = {},
+	): Promise<void> {
 		assertValidIdentifier(tableName, 'table name')
-		assertValidIdentifier(columnName, 'column')
+		const indexColumns =
+			typeof columns === 'string' ? [columns]
+			: Array.isArray(columns) ? columns
+			: []
+		if (indexColumns.length === 0) {
+			throw new Error('createIndex requires at least one column')
+		}
+
+		const normalizedColumns = indexColumns.map(column => {
+			const definition = typeof column === 'string' ? { name: column } : column
+
+			assertValidIdentifier(definition.name, 'index column')
+			const order = definition.order?.toUpperCase()
+			if (order !== undefined && order !== 'ASC' && order !== 'DESC') {
+				throw new Error(`Invalid index order for column "${definition.name}"`)
+			}
+
+			return { name: definition.name, order }
+		})
+		const defaultIndexName = `idx_${tableName.replaceAll('.', '_')}_${normalizedColumns
+			.map(column => column.name.replaceAll('.', '_'))
+			.join('_')}`
+		const indexName = options.name ?? defaultIndexName
+
+		assertValidIdentifier(indexName, 'index name')
+		if (options.using) {
+			assertValidIdentifier(options.using, 'index method')
+		}
+		options.include?.forEach(column => assertValidIdentifier(column, 'included column'))
+		if (options.where !== undefined && options.where.trim().length === 0) {
+			throw new Error('Index WHERE predicate must be a non-empty string')
+		}
+
+		const ifNotExists = options.ifNotExists ?? this.dbType !== 'mysql'
+		if (this.dbType === 'mysql') {
+			if (ifNotExists) {
+				throw new Error('MySQL CREATE INDEX does not support IF NOT EXISTS')
+			}
+			if (options.concurrently) {
+				throw new Error('MySQL CREATE INDEX does not support CONCURRENTLY')
+			}
+			if (options.include?.length) {
+				throw new Error('MySQL CREATE INDEX does not support INCLUDE')
+			}
+			if (options.where) {
+				throw new Error('MySQL does not support partial indexes with WHERE')
+			}
+		}
+		if (this.dbType === 'sqlite' && options.using) {
+			throw new Error('SQLite CREATE INDEX does not support USING')
+		}
+		if (this.dbType !== 'postgres' && options.include?.length) {
+			throw new Error('INCLUDE is only supported for PostgreSQL indexes')
+		}
+		if (this.dbType !== 'postgres' && options.concurrently) {
+			throw new Error('CONCURRENTLY is only supported for PostgreSQL indexes')
+		}
+
 		try {
-			const query = `CREATE INDEX IF NOT EXISTS idx_${tableName}_${columnName} ON ${tableName} (${columnName})`
+			const tokens = ['CREATE']
+			if (options.unique) {
+				tokens.push('UNIQUE')
+			}
+			tokens.push('INDEX')
+			if (options.concurrently) {
+				tokens.push('CONCURRENTLY')
+			}
+			if (ifNotExists) {
+				tokens.push('IF NOT EXISTS')
+			}
+			tokens.push(indexName)
+			tokens.push('ON', tableName)
+			if (this.dbType === 'postgres' && options.using) {
+				tokens.push('USING', options.using)
+			}
+
+			const columnList = normalizedColumns
+				.map(column => `${column.name}${column.order ? ` ${column.order}` : ''}`)
+				.join(', ')
+			let query = `${tokens.join(' ')} (${columnList})`
+			if (this.dbType === 'mysql' && options.using) {
+				query += ` USING ${options.using.toUpperCase()}`
+			}
+			if (options.include?.length) {
+				query += ` INCLUDE (${options.include.join(', ')})`
+			}
+			if (options.where) {
+				query += ` WHERE ${options.where}`
+			}
+
 			await this.executeQuery(query)
 		} catch (err) {
 			logger.info('Error creating index: ', err)
@@ -144,15 +386,39 @@ export class SQL {
 			const alterClauses = Object.entries(changes).map(
 				([column, type]) => `ADD COLUMN ${column} ${type.toUpperCase()}`,
 			)
-			for (const clause of alterClauses) {
-				const query = `ALTER TABLE ${tableName} ${clause}`
-				await this.executeQuery(query)
-			}
-			return true
+			return await this.alterTable(tableName, alterClauses)
 		} catch (err) {
-			logger.info('Error addTableColums: ', err)
+			logger.info('Error adding table columns: ', err)
 			throw err
 		}
+	}
+
+	/**
+	 * Runs one or more trusted, engine-specific ALTER TABLE clauses.
+	 */
+	public async alterTable(
+		tableName: string,
+		alterations: string | string[],
+	): Promise<boolean> {
+		assertValidIdentifier(tableName, 'table name')
+		const clauses = typeof alterations === 'string' ? [alterations] : alterations
+
+		if (!Array.isArray(clauses) || clauses.length === 0) {
+			throw new Error('alterTable requires at least one alteration')
+		}
+		for (const clause of clauses) {
+			if (typeof clause !== 'string' || clause.trim().length === 0) {
+				throw new Error('ALTER TABLE clauses must be non-empty strings')
+			}
+			await this.executeQuery(`ALTER TABLE ${tableName} ${clause}`)
+		}
+
+		return true
+	}
+
+	public async dropColumn(tableName: string, columnName: string): Promise<boolean> {
+		assertValidIdentifier(columnName, 'column')
+		return this.alterTable(tableName, `DROP COLUMN ${columnName}`)
 	}
 
 	public async getAllTables(): Promise<tableInternalSchema[]> {

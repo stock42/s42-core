@@ -49,6 +49,175 @@ describe('SQL (sqlite) — legitimate usage is unchanged', () => {
 	})
 })
 
+describe('SQL (sqlite) — schema and raw-query wrappers', () => {
+	test('alterTable and dropColumn apply trusted DDL clauses', async () => {
+		const db = makeDb()
+
+		await db.createTable('schema_items', {
+			id: 'INTEGER PRIMARY KEY',
+			obsolete: 'TEXT',
+		})
+		await db.alterTable('schema_items', [
+			'ADD COLUMN category TEXT',
+			'ADD COLUMN rank INTEGER',
+		])
+		await db.dropColumn('schema_items', 'obsolete')
+
+		const schema = await db.getTableSchema('schema_items')
+		expect(schema.map(column => column.name)).toEqual(['id', 'category', 'rank'])
+	})
+
+	test('createIndex supports custom, unique, compound, ordered and partial indexes', async () => {
+		const db = makeDb()
+
+		await db.createTable('indexed_items', {
+			id: 'INTEGER PRIMARY KEY',
+			category: 'TEXT',
+			rank: 'INTEGER',
+		})
+		await db.createIndex(
+			'indexed_items',
+			[
+				{ name: 'category', order: 'asc' },
+				{ name: 'rank', order: 'DESC' },
+			],
+			{
+				name: 'idx_indexed_items_lookup',
+				unique: true,
+				where: 'rank > 0',
+			},
+		)
+
+		const indexes = await db.executeRaw<Array<{ name: string; sql: string }>>(
+			'SELECT name, sql FROM sqlite_master WHERE type = ? AND name = ?',
+			['index', 'idx_indexed_items_lookup'],
+		)
+		expect(indexes).toHaveLength(1)
+		expect(indexes[0]?.sql).toBe(
+			'CREATE UNIQUE INDEX idx_indexed_items_lookup ON indexed_items (category ASC, rank DESC) WHERE rank > 0',
+		)
+	})
+
+	test('the legacy createIndex(table, column) signature remains idempotent', async () => {
+		const db = makeDb()
+
+		await db.createTable('legacy_indexes', { id: 'INTEGER', category: 'TEXT' })
+		await db.createIndex('legacy_indexes', 'category')
+		await db.createIndex('legacy_indexes', 'category')
+
+		const indexes = await db.executeRaw<Array<{ name: string }>>(
+			"SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_legacy_indexes_category'",
+		)
+		expect(indexes).toEqual([{ name: 'idx_legacy_indexes_category' }])
+	})
+
+	test('executeRaw bypasses helpers while still forwarding bound values', async () => {
+		const db = makeDb()
+
+		await db.executeRaw('CREATE TABLE raw_items (id INTEGER PRIMARY KEY, name TEXT)')
+		await db.executeRaw('INSERT INTO raw_items (id, name) VALUES (?, ?)', [1, 'raw'])
+		const rows = await db.executeRaw<Array<{ id: number; name: string }>>(
+			'SELECT id, name FROM raw_items WHERE id = ?',
+			[1],
+		)
+
+		expect(rows).toEqual([{ id: 1, name: 'raw' }])
+		await expect(db.executeRaw('   ')).rejects.toThrow('non-empty string')
+	})
+})
+
+describe('SQL (sqlite) — transactions', () => {
+	test('begin commits and exposes the S42 SQL wrapper inside the callback', async () => {
+		const db = makeDb()
+
+		await db.createTable('transaction_items', {
+			id: 'INTEGER PRIMARY KEY',
+			name: 'TEXT',
+		})
+		const result = await db.begin(async transaction => {
+			await transaction.insert('transaction_items', { id: 1, name: 'committed' })
+			return transaction.count({ tableName: 'transaction_items' })
+		})
+
+		expect(result).toBe(1)
+		expect(await db.count({ tableName: 'transaction_items' })).toBe(1)
+	})
+
+	test('begin rolls back when the callback throws', async () => {
+		const db = makeDb()
+
+		await db.createTable('rollback_items', {
+			id: 'INTEGER PRIMARY KEY',
+			name: 'TEXT',
+		})
+		await expect(
+			db.begin(async transaction => {
+				await transaction.insert('rollback_items', { id: 1, name: 'rolled-back' })
+				throw new Error('rollback transaction')
+			}),
+		).rejects.toThrow('rollback transaction')
+		expect(await db.count({ tableName: 'rollback_items' })).toBe(0)
+	})
+
+	test('transaction resolves pipelined wrapper calls', async () => {
+		const db = makeDb()
+
+		await db.createTable('pipeline_items', {
+			id: 'INTEGER PRIMARY KEY',
+			name: 'TEXT',
+		})
+		const results = await db.transaction(transaction => [
+			transaction.insert('pipeline_items', { id: 1, name: 'one' }),
+			transaction.insert('pipeline_items', { id: 2, name: 'two' }),
+		])
+
+		expect(results.map(result => result?.changes)).toEqual([1, 1])
+		expect(await db.count({ tableName: 'pipeline_items' })).toBe(2)
+	})
+
+	test('savepoint rolls back only its own work when the error is handled', async () => {
+		const db = makeDb()
+
+		await db.createTable('savepoint_items', {
+			id: 'INTEGER PRIMARY KEY',
+			name: 'TEXT',
+		})
+		await db.begin(async transaction => {
+			await transaction.insert('savepoint_items', { id: 1, name: 'before' })
+			try {
+				await transaction.savepoint('optional_item', async savepoint => {
+					await savepoint.insert('savepoint_items', { id: 2, name: 'discarded' })
+					throw new Error('rollback savepoint')
+				})
+			} catch (error) {
+				expect((error as Error).message).toBe('rollback savepoint')
+			}
+			await transaction.insert('savepoint_items', { id: 3, name: 'after' })
+		})
+
+		const rows = await db.select<{ id: number }>({
+			tableName: 'savepoint_items',
+			columns: ['id'],
+			sort: { id: 1 },
+		})
+		expect(rows?.map(row => row.id)).toEqual([1, 3])
+		await expect(db.savepoint(async () => undefined)).rejects.toThrow(
+			'inside a transaction callback',
+		)
+	})
+
+	test('distributed transaction wrappers preserve Bun SQL adapter errors', async () => {
+		const db = makeDb()
+
+		await expect(
+			db.beginDistributed('tx_sqlite', async () => undefined),
+		).rejects.toThrow()
+		await expect(db.distributed('tx_sqlite', async () => undefined)).rejects.toThrow()
+		await expect(db.commitDistributed('tx_sqlite')).rejects.toThrow()
+		await expect(db.rollbackDistributed('tx_sqlite')).rejects.toThrow()
+	})
+})
+
 describe('SQL (sqlite) — identifier validation blocks injection', () => {
 	test('malicious table name throws', async () => {
 		const db = makeDb()

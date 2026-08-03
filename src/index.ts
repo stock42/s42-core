@@ -58,7 +58,11 @@ export type {
 	tableRowSchema,
 	tableInternalSchema,
 	ColumnDefinition,
+	CreateIndexOptions,
 	KeyValueData,
+	SQLIndexColumn,
+	SQLTransactionCallback,
+	SQLTransactionResult,
 	TypeReturnQuery,
 	TypeSQLConnection,
 } from './SQL/types.d'

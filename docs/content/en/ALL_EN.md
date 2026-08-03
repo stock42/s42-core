@@ -39,7 +39,8 @@ The root entrypoint also exports these public type families:
 - Logger `LogLevel` and `LogSink`.
 - SQS adapter options.
 - Controller and module statistics plus module model/service/controller types.
-- SQL connection, row, column, key/value, and write-result contracts.
+- SQL connection, row, column, key/value, write-result, index, and transaction
+  contracts.
 - Event input, payload, adapter, and event registry contracts.
 - `TypeSSEventToSend`.
 
@@ -762,6 +763,10 @@ than returned to the caller. Payloads are JSON serialized.
 
 ### 8.4 Multi-engine `SQL`
 
+`SQL` is the promise-based persistence wrapper over Bun's unified `SQL` client
+for PostgreSQL, MySQL, and SQLite. The direct `SQLite` class in the next section
+continues to use the separate synchronous `bun:sqlite` API.
+
 ```ts
 const sql = new SQL({
 	type: 'postgres', // 'mysql' | 'sqlite'
@@ -770,54 +775,165 @@ const sql = new SQL({
 })
 ```
 
-For SQLite, `url` is a filename and defaults to `db.sqlite`. For PostgreSQL or
-MySQL, omitting `url` delegates connection defaults to `Bun.SQL`.
+For SQLite, `url` is a filename and defaults to `db.sqlite`; `:memory:` creates
+an in-memory database and WAL is enabled before the first query. For PostgreSQL
+or MySQL, omitting `url` delegates connection defaults to `Bun.SQL`. `tls` is
+passed only to PostgreSQL/MySQL.
 
 Schema API:
 
-- `createTable`
-- `addTableColumns`
-- `createIndex`
-- `dropTable`
-- `getAllTables`
-- `getTableSchema`
-- `validateTableSchema`
+| Method                                           | Contract                                                                                |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `createTable(tableName, schema)`                 | `CREATE TABLE IF NOT EXISTS`; returns `true`. Schema definitions are trusted raw DDL.   |
+| `alterTable(tableName, alterationOrArray)`       | Executes one `ALTER TABLE` per trusted raw clause, sequentially; returns `true`.        |
+| `addTableColumns(tableName, changes)`            | Builds one `ADD COLUMN` clause per entry and delegates to `alterTable`.                 |
+| `dropColumn(tableName, columnName)`              | Validated identifiers; delegates `DROP COLUMN` to the configured engine.                |
+| `createIndex(tableName, columns, options?)`      | Single/compound, ordered, unique, partial, named, and engine-specific advanced indexes. |
+| `dropTable(tableName)`                           | `DROP TABLE IF EXISTS`; destructive; currently returns `true`.                          |
+| `getAllTables()`                                 | Lists tables through the adapter and normalizes the common shape.                       |
+| `getTableSchema(tableName)`                      | Normalized column metadata; not complete constraint/index introspection.                |
+| `validateTableSchema(tableName, expectedSchema)` | Checks column-name presence only; does not compare types, defaults, keys, or indexes.   |
+
+`createIndex` accepts the backwards-compatible single-column form and an
+advanced form:
+
+```ts
+await sql.createIndex('products', 'sku')
+
+await sql.createIndex(
+	'products',
+	[
+		{ name: 'tenant_id', order: 'ASC' },
+		{ name: 'updated_at', order: 'DESC' },
+	],
+	{
+		name: 'idx_products_tenant_updated',
+		unique: false,
+		where: 'enabled = TRUE',
+	},
+)
+```
+
+`CreateIndexOptions`:
+
+- `name`: explicit index name; default `idx_<table>_<columns>`;
+- `unique`: add `UNIQUE`;
+- `ifNotExists`: default `true` on PostgreSQL/SQLite and `false` on MySQL;
+- `concurrently`: PostgreSQL only;
+- `using`: PostgreSQL/MySQL access method;
+- `include`: PostgreSQL-only non-key columns;
+- `where`: trusted raw PostgreSQL/SQLite partial-index predicate.
+
+Unsupported option/adapter combinations reject before query execution. Index
+identifiers are validated; `where` remains raw trusted SQL. PostgreSQL
+`CONCURRENTLY` indexes must be created outside `begin()`/`transaction()`.
 
 Data API:
 
-- `insert`
-- `select`
-- `selectPaginate`
-- `update`
-- `updateById`
-- `delete`
-- `deleteById`
-- `count`
+| Method                                     | Contract                                                                                 |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `insert(tableName, data)`                  | Bound values; normalized `{ lastInsertRowId?, changes, affectedRows }`.                  |
+| `select(options)`                          | Projection/filter/sort with defaults `limit: 100`, `page: 1`; returns rows or `null`.    |
+| `selectPaginate(options)`                  | Defaults `limit: 10`; returns `{ data, total, page, limit }` from separate select/count. |
+| `update({ tableName, whereClause, data })` | Bound values; returns normalized affected-row count.                                     |
+| `updateById(tableName, id, data)`          | Delegates to `update` with `{ id }`.                                                     |
+| `delete(tableName, whereClause?)`          | Returns affected-row count; omitting the filter deletes every row.                       |
+| `deleteById(tableName, id)`                | Delegates to `delete` with `{ id }`.                                                     |
+| `count({ tableName, whereClause? })`       | Returns `COUNT(*)` as a JavaScript number.                                               |
 
 `translateMongoJsonToSql` supports `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`,
-`$in`, `$nin`, and `$like`.
+`$in`, `$nin`, and `$like`. Top-level fields are joined by `AND`; nested `$or`
+and `$and` are not implemented.
+
+Transactions:
+
+```ts
+const result = await sql.begin(async transaction => {
+	await transaction.insert('orders', order)
+	await transaction.update({
+		tableName: 'inventory',
+		whereClause: { product_id: order.product_id },
+		data: { reserved: true },
+	})
+	return transaction.count({ tableName: 'orders' })
+})
+```
+
+- `begin(callback)` and `begin(options, callback)` commit on callback success
+  and roll back on rejection.
+- `transaction(...)` is Bun's alias with the same overloads.
+- The callback receives a scoped S42-Core `SQL` wrapper, so the documented
+  schema/data/raw methods execute on the transaction connection.
+- Returning an array of query promises pipelines them and Bun resolves the
+  array before committing.
+- Transaction option strings are trusted, unparsed, and engine-specific.
+- `savepoint(callback)` and `savepoint(name, callback)` are available only on
+  scoped transaction/savepoint wrappers. A failure rolls back to the savepoint
+  and rethrows; catch it inside the outer transaction to continue.
+
+Distributed transactions use Bun's two-phase-commit API:
+
+```ts
+await sql.beginDistributed('order_2026_00042', async transaction => {
+	await transaction.insert('orders', order)
+})
+
+await sql.commitDistributed('order_2026_00042')
+// or: await sql.rollbackDistributed('order_2026_00042')
+```
+
+- `distributed(name, callback)` aliases `beginDistributed`.
+- A successful phase 1 remains prepared until an explicit commit or rollback.
+- Uncaught callback failures roll back automatically.
+- PostgreSQL uses prepared transactions and MySQL uses XA transactions.
+- SQLite does not support 2PC; all distributed wrappers reject with Bun's
+  adapter error.
+
+Raw bypass:
+
+```ts
+const rows = await sql.executeRaw<Array<{ id: number }>>(
+	'SELECT id FROM products WHERE id = $1',
+	[productId],
+)
+```
+
+`executeRaw<T>(query, params?)` delegates directly to `Bun.SQL.unsafe()` and
+returns the native adapter result. It bypasses all S42-Core identifier,
+filter/schema, pagination, and result normalization. Query text must be trusted;
+request data belongs only in bound `params`. Native placeholders are `$1`,
+`$2`, ... for PostgreSQL and `?` for MySQL/SQLite. Multi-statement behavior is
+adapter-specific.
 
 Identifier safety:
 
-- table, column, filter, and sort identifiers are allow-listed;
+- table, column, filter, sort, and index identifiers are allow-listed;
 - dot-separated qualified identifiers are accepted;
 - `*` is accepted as a projection;
 - raw expressions and aliases such as `COUNT(*) AS total` are rejected;
 - filter and write values are bound as parameters.
+
+Trusted raw surfaces are schema type definitions, `alterTable` clauses,
+`createIndex.where`, transaction option strings, and the `executeRaw` query.
 
 Write results:
 
 - `insert` returns `{ lastInsertRowId?, changes, affectedRows }`;
 - `update` and `delete` return an affected-row count.
 
-Known constraint: the PostgreSQL/MySQL bridge currently converts `?`
-placeholders by splitting the completed query string. A literal `?` inside SQL
-text can desynchronize bindings. Keep SQL generated through the provided
-helpers and do not embed question marks in schema/type fragments used by a
-query.
-
 Validate and bound pagination values before passing request input. `limit` and
 `page` are numeric TypeScript inputs but are rendered into the generated SQL.
+`selectPaginate` runs its data and count statements separately. The class does
+not currently expose a public connection `close()` method.
+
+Parameterized structured methods still convert generated `?` placeholders by
+splitting the query into a Bun tagged-template call. A literal `?` in the same
+generated SQL text can desynchronize bindings. `executeRaw()` bypasses this
+bridge and delegates directly to Bun.
+
+See [the complete SQL component guide](./SQL.md), the
+[Bun SQL documentation](https://bun.sh/docs/runtime/sql), and
+[`TransactionSQL.beginDistributed`](https://bun.com/reference/bun/TransactionSQL/beginDistributed).
 
 ### 8.5 Direct `SQLite`
 

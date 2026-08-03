@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
+- **SQL transactions and raw execution:** `SQL` now wraps Bun's `begin`/`transaction`,
+  savepoints, and distributed transaction lifecycle (`beginDistributed`/`distributed`,
+  `commitDistributed`, `rollbackDistributed`). Transaction callbacks receive a scoped
+  S42-Core `SQL` instance, so existing CRUD methods stay on the transaction connection.
+  Added `executeRaw<T>(query, params?)` as an explicit trusted-query bypass over
+  `Bun.SQL.unsafe()`.
+- **SQL schema operations:** added `alterTable` and `dropColumn`, and expanded
+  `createIndex` without breaking its original two-argument form. Indexes can now be
+  compound, ordered, unique, named and partial, with adapter-aware `ifNotExists`,
+  PostgreSQL `concurrently`/`include`, and PostgreSQL/MySQL `using` options.
 - **LICENSE:** added the MIT license file (already declared in `package.json` and listed in
   `files`, but previously missing from the repo/package).
 - **Leveled logger:** new injectable `logger` (exported from the package) replaces raw
@@ -13,18 +24,21 @@ All notable changes to this project will be documented in this file.
   `setLogSink(...)` to redirect output. See `DOCUMENTATION/LOGGER.md`.
 
 ### Tooling
+
 - **ESLint 9 flat config:** migrated `.eslintrc.cjs` to `eslint.config.js` so `bun run lint`
   works again (ESLint 9 no longer reads the legacy config). Applied the existing rules and
   fixed all resulting findings (prettier formatting, dead vars, useless try/catch, `this`
   aliasing in SSE); `bun run lint` now passes clean.
 
 ### Removed
+
 - **Dependency:** removed the unused `jsonwebtoken` dependency (not referenced anywhere in
   `src/`).
 - **SSE:** removed the dead, unused private `sendSSECustom` method; documented the 1s flush
   cadence as the keep-alive heartbeat.
 
 ### Fixed
+
 - **RouteControllers — query parsing:** `getQueryParams` no longer truncates query string
   values that contain `=` (e.g. base64 / JWT). Decoding semantics are unchanged. Added tests
   (`src/RouteControllers/index.test.ts`).
@@ -35,10 +49,16 @@ All notable changes to this project will be documented in this file.
   (`src/EventsDomain/index.test.ts`).
 
 ### Changed
+
+- **SQL — unified Bun driver:** the multi-engine `SQL` class now uses the promise-based
+  `Bun.SQL` client for SQLite as well as PostgreSQL/MySQL, enabling one asynchronous
+  transaction contract across all three adapters. The separate direct `SQLite` class
+  continues to use synchronous `bun:sqlite`; SQLite WAL initialization remains enabled.
+  Added public index/transaction types, focused SQLite transaction/schema/raw tests, and
+  complete EN/ES component and website documentation.
 - **SQL — fewer `any`:** typed the result/row access in `count`, `getAllTables` and
   `getTableSchema` (`Record<string, unknown>` rows instead of `(row: any)` + `as any`). The
-  driver instance (`bun:sqlite` vs `Bun.SQL` union) and `Bun.serve` casts remain by necessity
-  and are now documented in code.
+  remaining generic query-result bridge and `Bun.serve` casts are documented in code.
 - **SQL — reliable write return values:** `insert`, `update` and `delete` now normalize the
   heterogeneous driver results (sqlite / Postgres / MySQL) through `src/SQL/results.ts` instead
   of per-branch `as any` guesses. `insert` returns `{ lastInsertRowId?, changes, affectedRows }`
@@ -46,6 +66,7 @@ All notable changes to this project will be documented in this file.
   count. Added per-driver-shape unit tests (`src/SQL/results.test.ts`).
 
 ### Security
+
 - **SQL / SQLite — identifier hardening:** SQL identifiers (table, column and `WHERE` field
   names, plus `sort` keys) are now validated against a strict allow-list before being
   interpolated into queries, closing SQL-injection vectors through identifiers. Values were
@@ -63,6 +84,7 @@ All notable changes to this project will be documented in this file.
 > Consolidated from git history (the `3.x` line shipped without per-release notes).
 
 ### Added
+
 - **Module-oriented v3:** the framework became 100% module-oriented — modules are discovered
   by convention (`__module__.ts`) and bundle controllers, events and lifecycle. Module types
   `full` / `mws` / `share`, `enabled` flag, and `initialize` lifecycle hooks.
@@ -74,11 +96,13 @@ All notable changes to this project will be documented in this file.
 - LLM-oriented documentation (`DOCUMENTATION/ALL_EN.md`).
 
 ### Fixed
+
 - Multiple P0 runtime and typing fixes across server / modules / storage.
 
 ## [2.0.10] - 2025-11-20
 
 ### Added
+
 - **SQL Abstraction Layer**: Introduced a new `SQL` class to handle database interactions for PostgreSQL, MySQL, and SQLite with a unified API.
   - Supports connection management.
   - Provides `createTable`, `insert`, `select`, `updateById`, `deleteById`, and `selectPaginate` methods.
@@ -87,22 +111,29 @@ All notable changes to this project will be documented in this file.
 - **Documentation**: Updated `README.md` and `README.es.md` with details about the new SQL features and the Product Management API example.
 
 ### Changed
+
 - Updated `package.json` version to `2.0.10`.
 
 ## [2.0.11] - 2025-11-21
+
 ### Fixed
+
 - Remove added column from insert method
 
-
 ## [2.0.12] - 2025-11-25
+
 ### Added
+
 - **SQL**: Added `count` method to `SQL` class to count rows in a table with optional filtering.
 
 ## [2.0.13] - 2025-12-30
+
 ### Added
+
 - **RouteControllers**: Documented `formData()` helper for `multipart/form-data` and `application/x-www-form-urlencoded` requests.
 - **Examples**: Added `example/s3.ts` showcasing Bun's native S3 client usage with S42core.
 
 ### Changed
+
 - **RouteControllers**: Parse `formData()` only for form payloads to avoid consuming JSON bodies.
 - **Examples**: Updated `example/index.ts` to serialize form data for JSON responses.
