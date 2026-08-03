@@ -398,6 +398,54 @@ const results = await sql.transaction(transaction => [
 ])
 ```
 
+### Atomicity, concurrency, and retries
+
+A transaction makes its statements atomic, but it does not automatically make
+an application-level decision exclusive or make a retry idempotent. Put the
+invariant in the write predicate and verify the affected-row count instead of
+reading first and then issuing an unconditional update:
+
+```ts
+await sql.transaction(async transaction => {
+	const changed = await transaction.update({
+		tableName: 'invitation_codes',
+		whereClause: { uuid, used_count: 0 },
+		data: { used_count: 1 },
+	})
+
+	if (changed !== 1) {
+		throw new Error('Invitation code is already used')
+	}
+
+	await transaction.insert('code_redemptions', {
+		invitation_code_uuid: uuid,
+		redeemed_by: userId,
+	})
+})
+```
+
+Concurrent claimants execute the same conditional write, but only the claimant
+that changes the expected state may continue. Throwing when `changed !== 1`
+rolls back that transaction. Back the invariant with a database constraint as
+well, such as a unique index on `code_redemptions.invitation_code_uuid`, and let
+a constraint failure abort the transaction.
+
+For invariants that require reading before writing, use an engine-specific lock
+such as `SELECT ... FOR UPDATE` through `transaction.executeRaw()`, or an
+appropriate transaction isolation option. These mechanisms are not portable to
+every adapter; do not assume a plain `SELECT` prevents another transaction from
+changing the row.
+
+Every participating query must use the scoped `transaction` wrapper. A call
+through the root `sql` instance, including a storage object that retained it,
+runs outside this transaction. Pass the scoped wrapper into that storage instead.
+
+Transactions and retries solve different problems. If the database committed
+but the caller did not receive the response, a retry can still repeat the
+operation; use an idempotency key or deterministic unique key when that outcome
+matters. SQL transactions also cannot atomically include Redis, HTTP, or other
+external side effects; use an outbox or another explicit coordination pattern.
+
 ### `savepoint(...)`
 
 ```ts

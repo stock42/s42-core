@@ -50,6 +50,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **SQL transaction guidance:** documented the boundary between atomicity,
+  concurrency control, and retry idempotency. Added a guarded single-use update
+  example, affected-row validation, database-constraint defense, scoped-client
+  requirements, and guidance for row locks and external side effects.
 - **SQL — unified Bun driver:** the multi-engine `SQL` class now uses the promise-based
   `Bun.SQL` client for SQLite as well as PostgreSQL/MySQL, enabling one asynchronous
   transaction contract across all three adapters. The separate direct `SQLite` class

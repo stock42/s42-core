@@ -404,6 +404,58 @@ const results = await sql.transaction(transaction => [
 ])
 ```
 
+### Atomicidad, concurrencia y reintentos
+
+Una transacción hace atómicas sus sentencias, pero no vuelve automáticamente
+exclusiva una decisión de la aplicación ni hace idempotente un reintento. La
+invariante debe formar parte del predicado de escritura y se debe verificar la
+cantidad de filas afectadas, en lugar de leer primero y luego ejecutar un update
+incondicional:
+
+```ts
+await sql.transaction(async transaction => {
+	const changed = await transaction.update({
+		tableName: 'invitation_codes',
+		whereClause: { uuid, used_count: 0 },
+		data: { used_count: 1 },
+	})
+
+	if (changed !== 1) {
+		throw new Error('Invitation code is already used')
+	}
+
+	await transaction.insert('code_redemptions', {
+		invitation_code_uuid: uuid,
+		redeemed_by: userId,
+	})
+})
+```
+
+Los intentos concurrentes ejecutan la misma escritura condicional, pero solo
+puede continuar el que modifica el estado esperado. Lanzar cuando `changed !== 1`
+hace rollback de esa transacción. La invariante también debe estar respaldada
+por una restricción de la base, por ejemplo un índice único sobre
+`code_redemptions.invitation_code_uuid`; un fallo de esa restricción debe abortar
+la transacción.
+
+Cuando una invariante exige leer antes de escribir, usar un bloqueo específico
+del motor, como `SELECT ... FOR UPDATE` mediante `transaction.executeRaw()`, o
+una opción de aislamiento apropiada. Estos mecanismos no son portables a todos
+los adaptadores; un `SELECT` común no impide que otra transacción modifique la
+fila.
+
+Todas las queries participantes deben usar el wrapper `transaction` con scope.
+Una llamada mediante la instancia raíz `sql`, incluso desde un storage que la
+haya retenido, se ejecuta fuera de esta transacción. Ese storage debe recibir el
+wrapper con scope.
+
+Las transacciones y los reintentos resuelven problemas diferentes. Si la base
+hizo commit pero el caller no recibió la respuesta, un reintento todavía puede
+repetir la operación; usar una clave de idempotencia o una clave única
+determinística cuando ese resultado sea relevante. Las transacciones SQL tampoco
+pueden incluir atómicamente Redis, HTTP u otros efectos externos; usar un outbox
+u otro patrón explícito de coordinación.
+
 ### `savepoint(...)`
 
 ```ts

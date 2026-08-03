@@ -871,6 +871,35 @@ const result = await sql.begin(async transaction => {
   scoped transaction/savepoint wrappers. A failure rolls back to the savepoint
   and rethrows; catch it inside the outer transaction to continue.
 
+Atomicity does not by itself prevent two concurrent callers from making the
+same application-level decision. Put the invariant in a conditional write and
+verify the affected-row count:
+
+```ts
+await sql.transaction(async transaction => {
+	const changed = await transaction.update({
+		tableName: 'invitation_codes',
+		whereClause: { uuid, used_count: 0 },
+		data: { used_count: 1 },
+	})
+
+	if (changed !== 1) throw new Error('Invitation code is already used')
+
+	await transaction.insert('code_redemptions', {
+		invitation_code_uuid: uuid,
+		redeemed_by: userId,
+	})
+})
+```
+
+Back critical invariants with database constraints, such as a unique redemption
+index. For read-before-write invariants, use engine-specific locking through
+`transaction.executeRaw()` or an appropriate isolation option. Every query must
+use the scoped wrapper; calls through the root `sql` instance are outside the
+transaction. Idempotency keys remain necessary for retries after an ambiguous
+commit, and external Redis/HTTP side effects require an outbox or another
+coordination pattern.
+
 Distributed transactions use Bun's two-phase-commit API:
 
 ```ts
