@@ -52,11 +52,59 @@ Comportamiento de conexión:
   primera query.
 - `tls` se envía solamente a conexiones PostgreSQL/MySQL.
 
+## Ciclo de vida de la conexión
+
+La construcción sigue siendo lazy para mantener compatibilidad. Llamar a
+`connect()` cuando el inicio de la aplicación deba fallar temprano ante un
+endpoint inválido, una configuración TLS incorrecta o credenciales inválidas.
+
+```ts
+type SQLCloseOptions = {
+	timeout?: number
+}
+
+connect(): Promise<this>
+ping(): Promise<void>
+close(options?: SQLCloseOptions): Promise<void>
+end(options?: SQLCloseOptions): Promise<void>
+```
+
+```ts
+const sql = new SQL(config)
+
+await sql.connect()
+await sql.ping()
+
+// Durante el apagado, después de detener y drenar el servidor HTTP:
+await sql.close({ timeout: 10 })
+```
+
+- `connect()` delega en la conexión nativa de Bun, inicializa el estado WAL del
+  wrapper SQLite y devuelve la misma instancia `SQL` de S42-Core. Establece una
+  conexión utilizable; no abre anticipadamente todos los slots del pool.
+- `ping()` ejecuta un round trip real con `SELECT 1`. Puede llamarse sin un
+  `connect()` previo porque Bun conserva su comportamiento lazy.
+- `close()` delega el cierre de la conexión/pool a Bun. Sin opciones espera las
+  queries pendientes; `timeout` se mide en segundos y `0` cierra inmediatamente.
+- `end()` es un alias exacto de `close()`.
+
+Los fallos del driver en los cuatro métodos usan el contrato público `SQLError`;
+`ping()` no transforma fallos en `false`. S42-Core no reintenta conexiones
+automáticamente. Después de `close()`/`end()`, considerar la instancia terminal
+y construir otro objeto `SQL` si se necesita un nuevo ciclo de vida.
+
+Los clientes dentro de una transacción rechazan `connect()`, `ping()`, `close()`
+y `end()` antes de tocar el driver. El ciclo de vida pertenece al cliente raíz y
+no debe cerrar la conexión reservada de una transacción. Cerrar recursos SQL
+tampoco detiene ni drena el `Server` HTTP de S42-Core; eso continúa siendo una
+responsabilidad separada del ciclo de vida del servidor.
+
 ## Errores normalizados del driver
 
 Los fallos de base de datos provenientes de métodos estructurados,
-`executeRaw()` y el ciclo de vida transaccional se exponen mediante la clase
-pública `SQLError`. El wrapper directo `SQLite` usa el mismo contrato.
+`executeRaw()` y los ciclos de vida transaccional y de conexión se exponen
+mediante la clase pública `SQLError`. El wrapper directo `SQLite` usa el mismo
+contrato.
 
 ```ts
 import { SQLError, isSQLError, type SQLErrorCode } from 's42-core'
@@ -755,7 +803,7 @@ strings de opciones transaccionales y el string completo de `executeRaw`.
 
 - Probar PostgreSQL, MySQL y SQLite contra cada motor/versión usado en
   producción; los dialectos SQL y la metadata de resultados difieren.
-- La clase no expone actualmente un método público `close()` de conexión.
+- `close()`/`end()` liberan recursos SQL; no detienen el servidor HTTP.
 - `dropTable()`, `dropColumn()`, `dropIndex()`, `alterTable()` y `delete()` sin
   filtro son operaciones destructivas aunque los identificadores se validen.
 - `selectPaginate()` ejecuta dos sentencias separadas.
@@ -769,6 +817,9 @@ strings de opciones transaccionales y el string completo de `executeRaw`.
 ## Referencias de Bun
 
 - [Documentación Bun SQL](https://bun.sh/docs/runtime/sql)
+- [`Bun.SQL.connect`](https://bun.com/reference/bun/SQL/connect)
+- [`Bun.SQL.close`](https://bun.com/reference/bun/SQL/close)
+- [`Bun.SQL.end`](https://bun.com/reference/bun/SQL/end)
 - [`TransactionSQL.beginDistributed`](https://bun.com/reference/bun/TransactionSQL/beginDistributed)
 - [Documentación dedicada de `bun:sqlite`](https://bun.sh/docs/runtime/sqlite)
 - [Códigos de error de PostgreSQL](https://www.postgresql.org/docs/current/errcodes-appendix.html)

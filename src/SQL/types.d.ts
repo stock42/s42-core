@@ -63,6 +63,14 @@ export type DropIndexOptions = {
 	concurrently?: boolean
 }
 
+export type SQLCloseOptions = {
+	/**
+	 * Maximum number of seconds to wait for pending queries. Omit to wait for
+	 * every query; use `0` to close immediately.
+	 */
+	timeout?: number
+}
+
 export type SQLTransactionCallback<T> = (transaction: SQL) => T | PromiseLike<T>
 
 export type SQLTransactionResult<T> =

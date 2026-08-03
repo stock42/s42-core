@@ -5,6 +5,7 @@ import type {
 	CreateIndexOptions,
 	DropIndexOptions,
 	KeyValueData,
+	SQLCloseOptions,
 	SQLIndexColumn,
 	SQLTransactionCallback,
 	SQLTransactionResult,
@@ -56,6 +57,12 @@ export class SQL {
 				// Fallback to default env vars if no URL provided, or empty constructor
 				this.dbInstance = new BunSQL()
 			}
+		}
+	}
+
+	private assertRootLifecycle(method: 'connect' | 'ping' | 'close' | 'end'): void {
+		if (this.transactionContext) {
+			throw new Error(`${method} cannot be used from a transaction-scoped SQL client`)
 		}
 	}
 
@@ -141,6 +148,32 @@ export class SQL {
 			strings.raw = parts
 			return await this.dbInstance(strings, ...params)
 		})
+	}
+
+	/** Establishes one native Bun.SQL connection and initializes wrapper state. */
+	public async connect(): Promise<this> {
+		this.assertRootLifecycle('connect')
+		await this.runDriverOperation(() => this.dbInstance.connect())
+		await this.ensureReady()
+		return this
+	}
+
+	/** Executes a portable query round trip against the database. */
+	public async ping(): Promise<void> {
+		this.assertRootLifecycle('ping')
+		await this.executeRaw('SELECT 1')
+	}
+
+	/** Waits for pending queries and closes the native connection or pool. */
+	public async close(options?: SQLCloseOptions): Promise<void> {
+		this.assertRootLifecycle('close')
+		await this.runDriverOperation(() => this.dbInstance.close(options))
+	}
+
+	/** Alias of close(), matching Bun.SQL.end(). */
+	public async end(options?: SQLCloseOptions): Promise<void> {
+		this.assertRootLifecycle('end')
+		await this.close(options)
 	}
 
 	/**

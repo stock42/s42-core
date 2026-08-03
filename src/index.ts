@@ -62,6 +62,7 @@ export type {
 	CreateIndexOptions,
 	DropIndexOptions,
 	KeyValueData,
+	SQLCloseOptions,
 	SQLIndexColumn,
 	SQLTransactionCallback,
 	SQLTransactionResult,

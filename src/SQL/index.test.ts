@@ -23,6 +23,37 @@ function makeDialectQueryRecorder(type: 'mysql' | 'postgres' | 'sqlite') {
 	return { db, queries }
 }
 
+function makeLifecycleRecorder() {
+	const db = Object.create(SQL.prototype) as SQL
+	const calls: Array<
+		| { method: 'connect' }
+		| { method: 'ping'; query: string }
+		| { method: 'close'; options?: { timeout?: number } }
+	> = []
+
+	Object.defineProperties(db, {
+		dbType: { value: 'postgres' },
+		ready: { value: null, writable: true },
+		transactionContext: { value: false },
+		dbInstance: {
+			value: {
+				connect: async () => {
+					calls.push({ method: 'connect' })
+				},
+				unsafe: async (query: string) => {
+					calls.push({ method: 'ping', query })
+					return [{ ok: 1 }]
+				},
+				close: async (options?: { timeout?: number }) => {
+					calls.push({ method: 'close', options })
+				},
+			},
+		},
+	})
+
+	return { db, calls }
+}
+
 describe('SQL (sqlite) — legitimate usage is unchanged', () => {
 	test('create / insert / select / count / update / delete', async () => {
 		const db = makeDb()
@@ -130,6 +161,86 @@ describe('SQL (sqlite) — legitimate usage is unchanged', () => {
 				whereClause: { deleted_at: { $in: [null] } },
 			}),
 		).toBe(3)
+	})
+})
+
+describe('SQL — connection lifecycle', () => {
+	test('connect returns the wrapper, ping performs a query, and end forwards close options', async () => {
+		const lifecycle = makeLifecycleRecorder()
+
+		expect(await lifecycle.db.connect()).toBe(lifecycle.db)
+		await expect(lifecycle.db.ping()).resolves.toBeUndefined()
+		await lifecycle.db.end({ timeout: 7 })
+
+		expect(lifecycle.calls).toEqual([
+			{ method: 'connect' },
+			{ method: 'ping', query: 'SELECT 1' },
+			{ method: 'close', options: { timeout: 7 } },
+		])
+	})
+
+	test('connect initializes SQLite and close is terminal', async () => {
+		const db = makeDb()
+
+		expect(await db.connect()).toBe(db)
+		await expect(db.ping()).resolves.toBeUndefined()
+		await db.close()
+
+		let caught: unknown
+		try {
+			await db.ping()
+		} catch (error) {
+			caught = error
+		}
+		expect(isSQLError(caught)).toBe(true)
+		expect(caught).toBeInstanceOf(SQLError)
+		if (!(caught instanceof SQLError)) {
+			throw new Error('Expected a normalized SQLError')
+		}
+		expect(caught.message).toBe('Connection closed')
+	})
+
+	test('connect normalizes native connection failures', async () => {
+		const db = Object.create(SQL.prototype) as SQL
+		const nativeError = Object.assign(new Error('connection refused'), {
+			code: 'ERR_POSTGRES_CONNECTION_REFUSED',
+		})
+		Object.defineProperties(db, {
+			dbType: { value: 'postgres' },
+			ready: { value: null, writable: true },
+			transactionContext: { value: false },
+			dbInstance: {
+				value: {
+					connect: async () => {
+						throw nativeError
+					},
+				},
+			},
+		})
+
+		let caught: unknown
+		try {
+			await db.connect()
+		} catch (error) {
+			caught = error
+		}
+		expect(isSQLError(caught, 'connection_failure')).toBe(true)
+		expect(caught).toBeInstanceOf(SQLError)
+		if (caught instanceof SQLError) {
+			expect(caught.cause).toBe(nativeError)
+		}
+	})
+
+	test('transaction-scoped clients reject lifecycle operations', async () => {
+		const db = makeDb()
+
+		await db.begin(async transaction => {
+			await expect(transaction.connect()).rejects.toThrow('transaction-scoped')
+			await expect(transaction.ping()).rejects.toThrow('transaction-scoped')
+			await expect(transaction.close()).rejects.toThrow('transaction-scoped')
+			await expect(transaction.end()).rejects.toThrow('transaction-scoped')
+		})
+		await db.close()
 	})
 })
 

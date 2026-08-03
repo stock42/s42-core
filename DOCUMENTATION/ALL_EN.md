@@ -783,6 +783,22 @@ an in-memory database and WAL is enabled before the first query. For PostgreSQL
 or MySQL, omitting `url` delegates connection defaults to `Bun.SQL`. `tls` is
 passed only to PostgreSQL/MySQL.
 
+Connection lifecycle:
+
+| Method                               | Contract                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `connect(): Promise<this>`           | Establishes a native connection, initializes SQLite WAL state, and returns the S42-Core wrapper. |
+| `ping(): Promise<void>`              | Executes `SELECT 1`; success resolves and driver failures throw normalized `SQLError`.           |
+| `close({ timeout? }): Promise<void>` | Waits for pending queries by default; timeout is in seconds and `0` closes immediately.          |
+| `end({ timeout? }): Promise<void>`   | Exact alias of `close()`.                                                                        |
+
+Construction remains lazy when `connect()` is omitted. `connect()` establishes
+one usable connection rather than warming the entire pool; `ping()` performs a
+real query round trip. No lifecycle method retries or hides errors. Treat a
+closed instance as terminal. Transaction-scoped clients reject all four methods
+so they cannot close a reserved connection. SQL shutdown does not stop or drain
+the HTTP server.
+
 Normalized driver errors:
 
 ```ts
@@ -798,9 +814,9 @@ try {
 }
 ```
 
-Database failures from structured queries, `executeRaw()`, and transaction
-lifecycle operations use the public `SQLError` class. Its normalized `code` is
-one of `unique_violation`, `foreign_key_violation`, `not_null_violation`,
+Database failures from structured queries, `executeRaw()`, and transaction or
+connection lifecycle operations use the public `SQLError` class. Its normalized
+`code` is one of `unique_violation`, `foreign_key_violation`, `not_null_violation`,
 `check_violation`, `duplicate_column`, `duplicate_table`,
 `serialization_failure`, `deadlock_detected`, `connection_failure`,
 `database_busy`, or `unknown`. `message` remains the original driver message;
@@ -1019,8 +1035,8 @@ Write results:
 
 Validate and bound pagination values before passing request input. `limit` and
 `page` are numeric TypeScript inputs but are rendered into the generated SQL.
-`selectPaginate` runs its data and count statements separately. The class does
-not currently expose a public connection `close()` method.
+`selectPaginate` runs its data and count statements separately. `close()` and
+`end()` release SQL resources only; they do not stop the HTTP server.
 
 Parameterized structured methods still convert generated `?` placeholders by
 splitting the query into a Bun tagged-template call. A literal `?` in the same

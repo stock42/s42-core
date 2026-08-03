@@ -12,6 +12,10 @@ All notable changes to this project will be documented in this file.
   S42-Core `SQL` instance, so existing CRUD methods stay on the transaction connection.
   Added `executeRaw<T>(query, params?)` as an explicit trusted-query bypass over
   `Bun.SQL.unsafe()`.
+- **SQL connection lifecycle:** added `connect()` for explicit fail-fast startup,
+  `ping()` for a real `SELECT 1` health check, and Bun-compatible `close({ timeout })`
+  plus its `end()` alias. Lifecycle errors use `SQLError`; transaction-scoped clients
+  reject lifecycle calls so they cannot close their reserved connection.
 - **SQL schema operations:** added `alterTable`, `dropColumn`, and `dropIndex`, and
   expanded `createIndex` without breaking its original two-argument form. Indexes can
   now be compound, ordered, unique, named and partial, with adapter-aware existence
