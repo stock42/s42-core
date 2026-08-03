@@ -16,6 +16,11 @@ All notable changes to this project will be documented in this file.
   `ping()` for a real `SELECT 1` health check, and Bun-compatible `close({ timeout })`
   plus its `end()` alias. Lifecycle errors use `SQLError`; transaction-scoped clients
   reject lifecycle calls so they cannot close their reserved connection.
+- **SQL pool and timeout configuration:** `TypeSQLConnection` now forwards Bun's
+  native `max`, `connectionTimeout`, `idleTimeout`, and `maxLifetime` options to
+  PostgreSQL/MySQL. PostgreSQL also accepts per-connection runtime parameters through
+  `connection`, including server-enforced `statement_timeout`; incompatible MySQL and
+  SQLite combinations fail during construction instead of being silently ignored.
 - **SQL schema operations:** added `alterTable`, `dropColumn`, and `dropIndex`, and
   expanded `createIndex` without breaking its original two-argument form. Indexes can
   now be compound, ordered, unique, named and partial, with adapter-aware existence

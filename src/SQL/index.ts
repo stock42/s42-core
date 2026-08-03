@@ -35,6 +35,14 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
 	)
 }
 
+const SQLITE_UNSUPPORTED_CONNECTION_OPTIONS = [
+	'max',
+	'connectionTimeout',
+	'idleTimeout',
+	'maxLifetime',
+	'connection',
+] as const
+
 export class SQL {
 	private dbInstance: BunSQL
 	private dbType: 'mysql' | 'postgres' | 'sqlite'
@@ -44,15 +52,52 @@ export class SQL {
 	constructor(config: TypeSQLConnection) {
 		this.dbType = config.type
 		if (this.dbType === 'sqlite') {
+			const unsupportedOptions = SQLITE_UNSUPPORTED_CONNECTION_OPTIONS.filter(
+				option => config[option] !== undefined,
+			)
+
+			if (unsupportedOptions.length > 0) {
+				throw new Error(
+					`SQLite does not support SQL pool/session options: ${unsupportedOptions.join(', ')}`,
+				)
+			}
+
 			this.dbInstance = new BunSQL({
 				adapter: 'sqlite',
 				filename: config.url || 'db.sqlite',
 			})
 		} else {
+			if (this.dbType !== 'postgres' && config.connection !== undefined) {
+				throw new Error(
+					'The SQL connection option "connection" is only supported for PostgreSQL',
+				)
+			}
+
+			const connectionOptions: Bun.SQL.PostgresOrMySQLOptions = {}
+
+			if (config.tls) {
+				connectionOptions.tls = config.tls
+			}
+			if (config.max !== undefined) {
+				connectionOptions.max = config.max
+			}
+			if (config.connectionTimeout !== undefined) {
+				connectionOptions.connectionTimeout = config.connectionTimeout
+			}
+			if (config.idleTimeout !== undefined) {
+				connectionOptions.idleTimeout = config.idleTimeout
+			}
+			if (config.maxLifetime !== undefined) {
+				connectionOptions.maxLifetime = config.maxLifetime
+			}
+			if (config.connection !== undefined) {
+				connectionOptions.connection = config.connection
+			}
+
 			if (config.url) {
-				this.dbInstance = new BunSQL(config.url, {
-					...(config.tls ? { tls: config.tls } : {}),
-				})
+				this.dbInstance = new BunSQL(config.url, connectionOptions)
+			} else if (Object.keys(connectionOptions).length > 0) {
+				this.dbInstance = new BunSQL(connectionOptions)
 			} else {
 				// Fallback to default env vars if no URL provided, or empty constructor
 				this.dbInstance = new BunSQL()

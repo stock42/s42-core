@@ -775,6 +775,14 @@ const sql = new SQL({
 	type: 'postgres', // 'mysql' | 'sqlite'
 	url: process.env.DATABASE_URL,
 	tls: { rejectUnauthorized: true },
+	max: 20,
+	connectionTimeout: 10,
+	idleTimeout: 30,
+	maxLifetime: 3600,
+	connection: {
+		statement_timeout: 15_000,
+		lock_timeout: 5_000,
+	},
 })
 ```
 
@@ -782,6 +790,21 @@ For SQLite, `url` is a filename and defaults to `db.sqlite`; `:memory:` creates
 an in-memory database and WAL is enabled before the first query. For PostgreSQL
 or MySQL, omitting `url` delegates connection defaults to `Bun.SQL`. `tls` is
 passed only to PostgreSQL/MySQL.
+
+PostgreSQL/MySQL pool configuration uses Bun's native, seconds-based options:
+`max` limits pool connections, `connectionTimeout` bounds connection
+establishment, `idleTimeout` configures Bun's native pool idle timeout, and
+`maxLifetime` limits connection lifetime. PostgreSQL additionally accepts
+`connection: Record<string, string | number | boolean>` for runtime parameters
+sent to every new connection, including `statement_timeout`, `lock_timeout`, and
+`application_name`. `connection` is rejected for MySQL; all five options are
+rejected for SQLite instead of being ignored.
+
+These pool options do not bound a running query. Use PostgreSQL
+`connection.statement_timeout` or database/role configuration when the server
+must cancel slow statements. S42-Core neither simulates query cancellation with
+`Promise.race` nor retries SQL operations automatically; application retries
+must wrap complete, explicitly idempotent work.
 
 Connection lifecycle:
 

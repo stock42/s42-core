@@ -1,9 +1,14 @@
+import { type SQL as BunSQL } from 'bun'
 import { describe, expect, test } from 'bun:test'
 import { SQL, SQLError, isSQLError } from './index'
 
 function makeDb(): SQL {
 	// In-memory SQLite — no external services required.
 	return new SQL({ type: 'sqlite', url: ':memory:' })
+}
+
+function getNativeOptions(db: SQL): BunSQL['options'] {
+	return (db as unknown as { dbInstance: BunSQL }).dbInstance.options
 }
 
 function makeDialectQueryRecorder(type: 'mysql' | 'postgres' | 'sqlite') {
@@ -241,6 +246,85 @@ describe('SQL — connection lifecycle', () => {
 			await expect(transaction.end()).rejects.toThrow('transaction-scoped')
 		})
 		await db.close()
+	})
+})
+
+describe('SQL — pool and timeout configuration', () => {
+	test('forwards Bun pool options and PostgreSQL runtime parameters', () => {
+		let statementTimeoutReads = 0
+		const connection = new Proxy(
+			{
+				statement_timeout: 5000,
+				application_name: 's42-core-test',
+			},
+			{
+				get(target, property, receiver) {
+					if (property === 'statement_timeout') {
+						statementTimeoutReads += 1
+					}
+					return Reflect.get(target, property, receiver)
+				},
+			},
+		)
+		const db = new SQL({
+			type: 'postgres',
+			url: 'postgres://user:pass@localhost:5432/database',
+			max: 17,
+			connectionTimeout: 4,
+			idleTimeout: 23,
+			maxLifetime: 300,
+			connection,
+		})
+		const options = getNativeOptions(db)
+
+		expect(options.adapter).toBe('postgres')
+		expect(options.max).toBe(17)
+		// Bun exposes normalized millisecond values on the native client's options.
+		expect(options.connectionTimeout).toBe(4000)
+		expect(options.idleTimeout).toBe(23000)
+		expect(options.maxLifetime).toBe(300000)
+		expect(statementTimeoutReads).toBeGreaterThan(0)
+	})
+
+	test('forwards Bun pool options to MySQL', () => {
+		const db = new SQL({
+			type: 'mysql',
+			url: 'mysql://user:pass@localhost:3306/database',
+			max: 9,
+			connectionTimeout: 6,
+			idleTimeout: 12,
+			maxLifetime: 180,
+		})
+		const options = getNativeOptions(db)
+
+		expect(options.adapter).toBe('mysql')
+		expect(options.max).toBe(9)
+		expect(options.connectionTimeout).toBe(6000)
+		expect(options.idleTimeout).toBe(12000)
+		expect(options.maxLifetime).toBe(180000)
+	})
+
+	test('rejects pool and session options for SQLite', () => {
+		expect(
+			() =>
+				new SQL({
+					type: 'sqlite',
+					url: ':memory:',
+					max: 2,
+					connectionTimeout: 3,
+				}),
+		).toThrow('SQLite does not support SQL pool/session options: max, connectionTimeout')
+	})
+
+	test('rejects PostgreSQL runtime parameters for MySQL', () => {
+		expect(
+			() =>
+				new SQL({
+					type: 'mysql',
+					url: 'mysql://user:pass@localhost:3306/database',
+					connection: { statement_timeout: 5000 },
+				}),
+		).toThrow('only supported for PostgreSQL')
 	})
 })
 

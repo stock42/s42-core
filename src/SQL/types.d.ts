@@ -88,4 +88,14 @@ export type TypeSQLConnection = {
 	type: 'mysql' | 'postgres' | 'sqlite'
 	url?: string
 	tls?: TLSOptions
+	/** Maximum number of connections in Bun's PostgreSQL/MySQL pool. */
+	max?: number
+	/** Maximum seconds to wait while establishing a PostgreSQL/MySQL connection. */
+	connectionTimeout?: number
+	/** Bun's native PostgreSQL/MySQL pool idle timeout, in seconds. */
+	idleTimeout?: number
+	/** Maximum PostgreSQL/MySQL connection lifetime in seconds. */
+	maxLifetime?: number
+	/** PostgreSQL-only client runtime parameters, such as `statement_timeout`. */
+	connection?: Record<string, string | number | boolean>
 }

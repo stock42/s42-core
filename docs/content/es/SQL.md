@@ -31,6 +31,15 @@ const sql = new SQL({
 	type: 'postgres', // 'postgres' | 'mysql' | 'sqlite'
 	url: process.env.DATABASE_URL,
 	tls: { rejectUnauthorized: true },
+	max: 20,
+	connectionTimeout: 10,
+	idleTimeout: 30,
+	maxLifetime: 3600,
+	connection: {
+		statement_timeout: 15_000,
+		lock_timeout: 5_000,
+		application_name: 's42-api',
+	},
 })
 ```
 
@@ -39,6 +48,11 @@ type TypeSQLConnection = {
 	type: 'mysql' | 'postgres' | 'sqlite'
 	url?: string
 	tls?: Bun.TLSOptions
+	max?: number
+	connectionTimeout?: number
+	idleTimeout?: number
+	maxLifetime?: number
+	connection?: Record<string, string | number | boolean>
 }
 ```
 
@@ -51,6 +65,40 @@ Comportamiento de conexión:
   `:memory:` para una base en memoria. El wrapper habilita WAL antes de su
   primera query.
 - `tls` se envía solamente a conexiones PostgreSQL/MySQL.
+
+### Configuración de pool, timeouts y sesión
+
+S42-Core reenvía los nombres nativos de Bun sin agregar una segunda capa de
+pool o retries:
+
+| Opción              | Motores          | Contrato de Bun                                                |
+| ------------------- | ---------------- | -------------------------------------------------------------- |
+| `max`               | PostgreSQL/MySQL | Cantidad máxima de conexiones en el pool nativo.               |
+| `connectionTimeout` | PostgreSQL/MySQL | Segundos máximos para establecer una conexión.                 |
+| `idleTimeout`       | PostgreSQL/MySQL | Timeout nativo de Bun para conexiones ociosas del pool.        |
+| `maxLifetime`       | PostgreSQL/MySQL | Vida máxima de una conexión, en segundos.                      |
+| `connection`        | PostgreSQL       | Parámetros runtime enviados al crear cada conexión PostgreSQL. |
+
+Las cuatro opciones numéricas se pasan directamente a Bun y usan el contrato de
+entrada en segundos de Bun, incluida su semántica runtime para `idleTimeout`.
+Omitirlas conserva sus defaults. SQLite tiene una
+conexión nativa por instancia `SQL`, no un pool PostgreSQL/MySQL; por eso pasar
+cualquiera de estas opciones de pool/sesión con `type: 'sqlite'` lanza un error
+durante la construcción. Pasar `connection` para MySQL también lanza un error en
+vez de ignorar silenciosamente configuración exclusiva de PostgreSQL.
+
+`connection` es la vía de escape a defaults de sesión de PostgreSQL. Por
+ejemplo, `statement_timeout: 15_000` y `lock_timeout: 5_000` usan el default de
+milisegundos de PostgreSQL para valores numéricos y aplican a cada conexión nueva
+del pool. Mantener estos valores en configuración confiable de la aplicación.
+
+El tamaño del pool y `connectionTimeout` **no** limitan una query en ejecución.
+En PostgreSQL, usar `statement_timeout` (o su equivalente a nivel de base/rol)
+cuando la base deba cancelar sentencias lentas. S42-Core no implementa un timeout
+genérico con `Promise.race`, porque devolvería el control mientras la query sigue
+ocupando su conexión. Tampoco reintenta operaciones SQL automáticamente; los
+retries deben envolver operaciones o transacciones completas, explícitamente
+idempotentes, en el límite de la aplicación.
 
 ## Ciclo de vida de la conexión
 
@@ -817,11 +865,13 @@ strings de opciones transaccionales y el string completo de `executeRaw`.
 ## Referencias de Bun
 
 - [Documentación Bun SQL](https://bun.sh/docs/runtime/sql)
+- [`Bun.SQL.PostgresOrMySQLOptions`](https://bun.com/reference/bun/SQL/PostgresOrMySQLOptions)
 - [`Bun.SQL.connect`](https://bun.com/reference/bun/SQL/connect)
 - [`Bun.SQL.close`](https://bun.com/reference/bun/SQL/close)
 - [`Bun.SQL.end`](https://bun.com/reference/bun/SQL/end)
 - [`TransactionSQL.beginDistributed`](https://bun.com/reference/bun/TransactionSQL/beginDistributed)
 - [Documentación dedicada de `bun:sqlite`](https://bun.sh/docs/runtime/sqlite)
+- [Defaults de conexión de cliente PostgreSQL](https://www.postgresql.org/docs/current/runtime-config-client.html)
 - [Códigos de error de PostgreSQL](https://www.postgresql.org/docs/current/errcodes-appendix.html)
 - [Referencia de errores del servidor MySQL](https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html)
 - [Códigos de resultado y error de SQLite](https://www.sqlite.org/rescode.html)
