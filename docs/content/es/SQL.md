@@ -348,11 +348,59 @@ soportan:
 - `$gt`, `$gte`, `$lt`, `$lte`
 - `$in`, `$nin`
 - `$like`
+- `$between: [inferior, superior]` inclusivo
+- grupos recursivos `$and: [...]`, `$or: [...]` y `$not: {...}`
 
-Los campos de primer nivel se unen con `AND`. No están implementados operadores
-lógicos anidados como `$or` y `$and`. `$in` y `$nin` requieren arrays. Los
-nombres de campos se validan y los valores se devuelven como parámetros para
-binding.
+Los campos de primer nivel y los grupos lógicos se unen mediante `AND` implícito.
+Los grupos se escriben entre paréntesis, y `$and`/`$or` requieren arrays no
+vacíos de objetos de filtro no vacíos. `$not` requiere un objeto de filtro no
+vacío y utiliza la lógica ternaria de SQL.
+
+```ts
+const visible = await sql.select<{ id: number }>({
+	tableName: 'items',
+	columns: ['id'],
+	whereClause: {
+		tenant_id: tenantId,
+		deleted_at: null,
+		$or: [
+			{ status: 'active' },
+			{
+				status: 'pending',
+				available_at: { $between: [windowStart, windowEnd] },
+			},
+		],
+	},
+})
+```
+
+Las comparaciones con null nunca bindean `NULL` mediante `=` o `!=`:
+
+- `{ deleted_at: null }` y `{ deleted_at: { $eq: null } }` producen
+  `deleted_at IS NULL`;
+- `{ deleted_at: { $ne: null } }` produce `deleted_at IS NOT NULL`;
+- null se rechaza en operandos de orden, `$like` y `$between`.
+
+Los arrays de membresía se normalizan de forma consistente entre adaptadores:
+
+- `$in: []` siempre es falso; `$nin: []` siempre es verdadero;
+- `$in: [value, null]` incluye `field IS NULL` mediante `OR`;
+- `$nin: [value, null]` incluye `field IS NOT NULL` mediante `AND`;
+- cada elemento no nulo permanece como parámetro bindeado.
+
+Los nombres de campos se validan como identificadores en cada nivel. Strings,
+números, bigints, booleanos, `Date`, typed arrays y `null` directos son valores
+escalares. Solamente objetos planos no vacíos se interpretan como mapas de
+operadores. `undefined`, arrays directos, objetos de operadores vacíos, grupos
+lógicos vacíos, operadores no soportados y operandos inválidos lanzan antes de
+ejecutar SQL. Un `{}` vacío en el primer nivel se conserva por compatibilidad y
+no genera `WHERE`; no pasarlo accidentalmente a `update()` o `delete()`.
+
+`$like` requiere un string, pero su sensibilidad a mayúsculas sigue dependiendo
+de la base y collation configuradas. `$ilike` y expresiones raw de campo como
+`lower(email)` se mantienen deliberadamente fuera porque no son identificadores
+portables. Para esos casos específicos del motor, usar `executeRaw()` con SQL
+confiable y valores bindeados.
 
 ## Transacciones
 

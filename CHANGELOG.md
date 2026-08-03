@@ -16,6 +16,11 @@ All notable changes to this project will be documented in this file.
   `createIndex` without breaking its original two-argument form. Indexes can now be
   compound, ordered, unique, named and partial, with adapter-aware `ifNotExists`,
   PostgreSQL `concurrently`/`include`, and PostgreSQL/MySQL `using` options.
+- **SQL WHERE grammar:** `SQL` and direct `SQLite` filters now support recursive
+  `$and`, `$or`, and `$not` groups plus inclusive `$between`. Nested identifiers
+  remain validated and every comparison value remains bound. Engine-specific
+  expressions and `$ilike` remain available through `SQL.executeRaw()` rather than
+  the portable filter grammar.
 - **LICENSE:** added the MIT license file (already declared in `package.json` and listed in
   `files`, but previously missing from the repo/package).
 - **Leveled logger:** new injectable `logger` (exported from the package) replaces raw
@@ -39,6 +44,12 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **SQL / SQLite — null and filter safety:** direct null and `$eq: null` now emit
+  `IS NULL`, while `$ne: null` emits `IS NOT NULL`. Empty `$in`/`$nin` arrays and
+  null-containing membership arrays now have deterministic cross-adapter semantics.
+  Invalid operands, empty operator/logical objects, and `undefined` throw instead of
+  silently dropping predicates; `Date` and typed-array values are treated as scalar
+  bindings. Added translator and integration coverage for both Bun SQL APIs.
 - **RouteControllers — query parsing:** `getQueryParams` no longer truncates query string
   values that contain `=` (e.g. base64 / JWT). Decoding semantics are unchanged. Added tests
   (`src/RouteControllers/index.test.ts`).

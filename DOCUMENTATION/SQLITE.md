@@ -50,12 +50,19 @@ Avoid reusing those objects where mutation would be surprising.
 
 ## Filtering and identifier safety
 
-`translateMongoJsonToSql()` is re-exported and supports `$eq`, `$ne`, `$gt`,
-`$gte`, `$lt`, `$lte`, `$in`, `$nin`, and `$like`.
+`translateMongoJsonToSql()` is re-exported and shares the `SQL` filter grammar:
+`$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$like`, inclusive
+`$between`, and recursive `$and`, `$or`, and `$not` groups. Direct `null` and
+`$eq: null` use `IS NULL`; `$ne: null` uses `IS NOT NULL`. Empty membership
+arrays and arrays containing null are normalized without emitting invalid or
+three-valued `IN` expressions.
 
 Table, column, filter, and sort identifiers use the same strict validation as
 `SQL`. `*` is allowed as a projection; expressions and aliases are rejected.
-Runtime values use bound parameters.
+Runtime values use bound parameters. Empty operator objects, invalid operands,
+and empty logical groups throw before query execution. The direct `SQLite` class
+does not expose `SQL.executeRaw()`; use the multi-engine `SQL` class when an
+engine-specific raw-query escape hatch is required.
 
 Schema type strings remain trusted DDL fragments and must not come from request
 input.

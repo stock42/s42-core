@@ -842,8 +842,33 @@ Data API:
 | `count({ tableName, whereClause? })`       | Returns `COUNT(*)` as a JavaScript number.                                               |
 
 `translateMongoJsonToSql` supports `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`,
-`$in`, `$nin`, and `$like`. Top-level fields are joined by `AND`; nested `$or`
-and `$and` are not implemented.
+`$in`, `$nin`, `$like`, inclusive `$between`, and recursive `$and`, `$or`, and
+`$not` groups. Top-level fields and groups use implicit `AND`; logical groups are
+parenthesized and must not be empty.
+
+```ts
+const rows = await sql.select({
+	tableName: 'items',
+	whereClause: {
+		tenant_id: tenantId,
+		deleted_at: null,
+		$or: [{ status: 'active' }, { score: { $between: [10, 20] } }],
+	},
+})
+```
+
+Direct `null` and `$eq: null` emit `IS NULL`; `$ne: null` emits `IS NOT NULL`.
+Empty `$in` is always false and empty `$nin` is always true. Null elements in
+membership arrays are expanded into explicit `IS NULL`/`IS NOT NULL` predicates
+instead of relying on SQL's unknown result. Values remain bound and nested field
+identifiers remain validated.
+
+Only non-empty plain objects are operator maps. Invalid operands, `undefined`,
+direct arrays, empty operator objects, and empty logical groups throw before SQL
+execution. An empty top-level object remains backwards compatible and produces
+no `WHERE`. `$like` case behavior follows the database/collation; `$ilike` and
+raw field expressions remain unsupported. Use `executeRaw()` for trusted,
+engine-specific SQL.
 
 Transactions:
 
@@ -983,7 +1008,9 @@ an `added` timestamp value in `insert()`. Both methods mutate the object passed
 by the caller. The direct wrapper does not provide the `SQL` class's pagination
 or count methods.
 
-Identifiers use the same validation as `SQL`; values are bound parameters.
+Identifiers and the recursive filter grammar use the same validation and null
+semantics as `SQL`; values are bound parameters. This direct wrapper does not
+expose `SQL.executeRaw()`.
 
 ## 9. Runtime Utilities
 

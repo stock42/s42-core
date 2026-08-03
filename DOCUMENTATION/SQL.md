@@ -343,10 +343,58 @@ support:
 - `$gt`, `$gte`, `$lt`, `$lte`
 - `$in`, `$nin`
 - `$like`
+- inclusive `$between: [lower, upper]`
+- recursive `$and: [...]`, `$or: [...]`, and `$not: {...}` groups
 
-Top-level fields are joined with `AND`. Nested logical operators such as `$or`
-and `$and` are not implemented. `$in` and `$nin` require arrays. Field names are
-validated and values are returned as bound parameters.
+Top-level fields and logical groups are joined with implicit `AND`. Logical
+groups are parenthesized, and `$and`/`$or` require non-empty arrays of non-empty
+filter objects. `$not` requires one non-empty filter object and uses SQL
+three-valued logic.
+
+```ts
+const visible = await sql.select<{ id: number }>({
+	tableName: 'items',
+	columns: ['id'],
+	whereClause: {
+		tenant_id: tenantId,
+		deleted_at: null,
+		$or: [
+			{ status: 'active' },
+			{
+				status: 'pending',
+				available_at: { $between: [windowStart, windowEnd] },
+			},
+		],
+	},
+})
+```
+
+Null comparisons never bind `NULL` to `=` or `!=`:
+
+- `{ deleted_at: null }` and `{ deleted_at: { $eq: null } }` produce
+  `deleted_at IS NULL`;
+- `{ deleted_at: { $ne: null } }` produces `deleted_at IS NOT NULL`;
+- null is rejected for ordering, `$like`, and `$between` operands.
+
+Membership arrays are normalized consistently across adapters:
+
+- `$in: []` is always false; `$nin: []` is always true;
+- `$in: [value, null]` includes `field IS NULL` with `OR`;
+- `$nin: [value, null]` includes `field IS NOT NULL` with `AND`;
+- every non-null array element remains a bound parameter.
+
+Field names at every nesting level are identifier-validated. Direct strings,
+numbers, bigints, booleans, `Date`, typed arrays, and `null` are scalar values.
+Only non-empty plain objects are treated as operator maps. `undefined`, direct
+arrays, empty operator objects, empty logical groups, unsupported operators, and
+invalid operand shapes throw before SQL execution. An empty top-level `{}` is
+kept backwards compatible and produces no `WHERE`; do not pass it accidentally
+to `update()` or `delete()`.
+
+`$like` requires a string, but its case sensitivity still follows the configured
+database and collation. `$ilike` and raw field expressions such as `lower(email)`
+are deliberately unsupported because they are not portable identifiers. Use
+`executeRaw()` with trusted SQL and bound values for those engine-specific cases.
 
 ## Transactions
 

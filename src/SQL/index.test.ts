@@ -47,6 +47,73 @@ describe('SQL (sqlite) — legitimate usage is unchanged', () => {
 		const deleted = await db.delete('items', { category: 'B' })
 		expect(deleted).toBe(1)
 	})
+
+	test('executes null, nested logical, range and empty-membership filters', async () => {
+		const db = makeDb()
+
+		await db.createTable('filter_items', {
+			id: 'INTEGER PRIMARY KEY',
+			status: 'TEXT',
+			deleted_at: 'TEXT',
+			score: 'INTEGER',
+		})
+		await db.insert('filter_items', {
+			id: 1,
+			status: 'active',
+			deleted_at: null,
+			score: 5,
+		})
+		await db.insert('filter_items', {
+			id: 2,
+			status: 'pending',
+			deleted_at: null,
+			score: 15,
+		})
+		await db.insert('filter_items', {
+			id: 3,
+			status: 'active',
+			deleted_at: '2026-08-03T12:00:00.000Z',
+			score: 15,
+		})
+		await db.insert('filter_items', {
+			id: 4,
+			status: 'blocked',
+			deleted_at: null,
+			score: 25,
+		})
+
+		const visible = await db.select<{ id: number }>({
+			tableName: 'filter_items',
+			columns: ['id'],
+			whereClause: {
+				deleted_at: null,
+				$or: [
+					{ status: 'active' },
+					{
+						$and: [{ score: { $between: [10, 20] } }, { $not: { status: 'blocked' } }],
+					},
+				],
+			},
+			sort: { id: 1 },
+		})
+		expect(visible?.map(row => row.id)).toEqual([1, 2])
+
+		const noRows = await db.select<{ id: number }>({
+			tableName: 'filter_items',
+			columns: ['id'],
+			whereClause: { id: { $in: [] } },
+		})
+		expect(noRows).toEqual([])
+		expect(
+			await db.count({ tableName: 'filter_items', whereClause: { id: { $nin: [] } } }),
+		).toBe(4)
+		expect(
+			await db.count({
+				tableName: 'filter_items',
+				whereClause: { deleted_at: { $in: [null] } },
+			}),
+		).toBe(3)
+	})
 })
 
 describe('SQL (sqlite) — schema and raw-query wrappers', () => {
