@@ -1,7 +1,7 @@
 {
 	"name": "S42-Core Framework",
 	"short_name": "S42-Core",
-	"description": "S42-Core 3.0.10, a Bun-first modular backend framework by Stock42 LLC.",
+	"description": "S42-Core 3.0.11, a Bun-first modular backend framework by Stock42 LLC.",
 	"icons": [
 		{
 			"src": "/android-chrome-192x192.png",

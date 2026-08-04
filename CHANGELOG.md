@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.0.11] - 2026-08-03
+
 ### Added
 
 - **SQL INSERT RETURNING controls:** `insert()` now has an additive typed

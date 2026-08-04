@@ -1,7 +1,7 @@
 # S42-Core Master Documentation (ALL_EN)
 
 Last reviewed against all `src/` files: 2026-08-03
-Package baseline: `s42-core@3.0.10`
+Package baseline: `s42-core@3.0.11`
 Runtime requirement: Bun `>=1.3.0`
 
 This document is the primary technical overview of the repository. It describes
