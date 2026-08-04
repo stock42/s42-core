@@ -29,7 +29,12 @@ from the native map.
 ### `getCallback(hooks)`
 
 Returns the fallback `fetch` callback. It supports exact segments, `:params`,
-terminal wildcards, and method `*`.
+wildcards, and method `*`. The first `*` segment stops comparison and consumes
+the remaining suffix; segments written after that wildcard are not checked.
+
+Unmatched routes return plain-text `404 Not Found`. Exceptions in fallback
+matching, parsing, or dispatch are logged and become a plain-text `500 Internal
+Server Error`.
 
 ## Normalized request
 
@@ -50,10 +55,13 @@ Controller callbacks receive a framework object, not the raw Web `Request`:
 
 Parsing details:
 
-- Non-GET JSON bodies are parsed; invalid JSON becomes `{}`.
+- Every non-GET, non-form body is read and parsed as JSON regardless of its
+  declared content type; an empty or invalid JSON body becomes `{}`.
 - Multipart and URL-encoded forms are parsed once and exposed by `formData()`.
+- A form parse failure produces an empty `FormData`.
 - Query values preserve embedded `=`, decode percent escapes, and use the last
-  value for repeated keys.
+  value for repeated keys. Query keys themselves are not decoded. A malformed
+  percent escape throws and becomes the fallback `500` response.
 - `realIp` trusts `x-forwarded-for`, then `cf-connecting-ip`, then uses `::1`.
 - The raw request and `Request.signal` are not included.
 
@@ -71,6 +79,10 @@ Order:
 
 Current hook semantics:
 
+- Global hooks receive the raw Web `Request`, while controller callbacks
+  receive the normalized object above. The `res` hook argument is the S42-Core
+  `Res` builder at runtime even though the current public `TypeHook` contract
+  types it as Web `Response`.
 - The pipeline auto-advances when a hook does not call `next()`.
 - Returning a `Response` does not short-circuit or replace the route response.
 - A thrown `before` error returns JSON with status `401` when its message
@@ -86,6 +98,9 @@ Every dispatched route receives fixed no-cache headers, a CSP, and:
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Credentials: true
 Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE
+Access-Control-Allow-Headers: Accept, Authorization, Content-Type, X-Requested-With, Range, apikey, x-access-token
+Access-Control-Expose-Headers: Content-Length
+Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self';
 ```
 
 There is no public CORS configuration option. The wildcard/credentials

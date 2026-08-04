@@ -80,6 +80,15 @@ remains `/core/stats`.
 - `getController(): Controller | null`
 - `getStats(): Promise<CoreStatsPayload>`
 
+Repository helpers used by `RouteControllers` (not root package exports):
+
+- `isCoreStatsEnabled(): boolean` reads `ENABLE_CORE_STATS` when called;
+- `getCoreStatsPath(): string` returns the automatic route `/core/stats`;
+- `getCoreStatsController(): Controller | null` returns and tracks the lazy
+  singleton controller only when the environment flag is enabled.
+
+`getController()` memoizes one `Controller` per `CoreStats` instance.
+
 ## Response
 
 ```json
@@ -144,6 +153,9 @@ Commands:
 
 A missing command does not fail the endpoint. Its section reports `ok: false`
 with the captured error text while the top-level payload remains `ok: true`.
+The five commands execute concurrently for each `getStats()` request. Failed
+commands expose captured stderr/stdout or the thrown error message in `raw`;
+treat the complete payload as operationally sensitive.
 
 ## Registry behavior
 

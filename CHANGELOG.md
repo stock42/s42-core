@@ -83,6 +83,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Source-aligned documentation audit:** reviewed every TypeScript file under
+  `src/` against the English/Spanish component guides and expanded the contracts
+  for module loading, request/hook behavior, event delivery, database lifecycle,
+  direct SQLite, clustering, CoreStats, and internal MongoDB storage. Added an
+  example-first `GETTING_STARTED` guide and refreshed `ALL_EN.md` as the
+  authoritative implementation-oriented reference.
 - **SQL transaction guidance:** documented the boundary between atomicity,
   concurrency control, and retry idempotency. Added a guarded single-use update
   example, affected-row validation, database-constraint defense, scoped-client

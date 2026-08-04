@@ -893,6 +893,11 @@ filtro, sort e índice antes de interpolarlos:
 - `*` se acepta solamente como proyección;
 - se rechazan expresiones y aliases como `COUNT(*) AS total`.
 
+Los identificadores pasan por allow-list pero se emiten sin cambios, no se
+quotean. Un nombre sintácticamente válido que sea reservado por el motor elegido
+todavía puede fallar. Usar nombres de schema apropiados para el motor o SQL
+confiable mediante `executeRaw()` cuando se requiera quoting.
+
 Los valores de filtros y escrituras se bindean. Estos inputs siguen siendo
 deliberadamente raw y confiables: definiciones de tipo de
 `createTable`/`addTableColumns`, cláusulas de `alterTable`, `createIndex.where`,
@@ -905,6 +910,12 @@ strings de opciones transaccionales y el string completo de `executeRaw`.
 - `close()`/`end()` liberan recursos SQL; no detienen el servidor HTTP.
 - `dropTable()`, `dropColumn()`, `dropIndex()`, `alterTable()` y `delete()` sin
   filtro son operaciones destructivas aunque los identificadores se validen.
+- `update()` con filtro `{}` vacío tampoco lleva filtro y afecta todas las
+  filas. Este comportamiento se conserva intencionalmente; hacer explícita la
+  intención destructiva en código y tests de aplicación.
+- Schemas de tabla, objetos de data para insert/update y arrays de proyección
+  vacíos no se normalizan a formas SQL alternativas. Pueden producir SQL
+  inválido para el motor; validar estas colecciones antes de llamar al wrapper.
 - `selectPaginate()` ejecuta dos sentencias separadas.
 - La introspección de schema está normalizada y es deliberadamente incompleta.
 - Los métodos estructurados parametrizados actualmente traducen los

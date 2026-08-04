@@ -52,6 +52,13 @@ fuera del mapa de rutas nativas de Bun.
 El callback del constructor se agrega mediante `use()`, por lo que llamadas
 posteriores a `use()` corren antes.
 
+El body de error actual incluye `String(error)` y el path del controller
+(`Internal Server Error: ... into <path>`). Tratarlo como output potencialmente
+sensible y capturar/sanitizar fallas esperadas de aplicación antes de que
+lleguen a esta frontera genérica. El middleware no recibe un argumento `next`
+explícito; el avance se controla solamente retornando un Web `Response` u otro
+valor.
+
 ## Ejemplo
 
 ```ts
@@ -104,3 +111,7 @@ El loader envuelve esta metadata en un `Controller`. El campo opcional
 ```
 
 Los pares método/path se deduplican y ordenan por path y método.
+El registro conserva referencias a los objetos controller, por lo que cambios
+posteriores con `setPath()` o helpers de método se reflejan al leer las
+estadísticas. Es local al proceso y no tiene cleanup automático cuando un
+controller deja de usarse.

@@ -23,6 +23,10 @@ const cluster = new Cluster({
 - `watchMode?: boolean`
 - `args?: string[]` (se insertan como argumentos Bun antes de `--watch` y el archivo)
 
+Pasar un entero positivo en `maxCPU`. Omitirlo o usar el valor falsy `0`
+selecciona todos los CPUs disponibles; el constructor no valida valores
+negativos, fraccionales o no finitos antes de usarlos como longitud de array.
+
 ## API
 
 - `start(file, fallback): void`
@@ -77,6 +81,8 @@ Límites actuales:
 - no coordina readiness ni health;
 - no ofrece rolling restart;
 - stdout/stderr/stdin de workers heredan los del padre.
+- los broadcasts solamente comprueban que exista el array de workers; no
+  filtran procesos finalizados ni capturan fallas de `Subprocess.send()`.
 
 Agregar supervisión externa, readiness checks y política de load balancer para
 alta disponibilidad en producción.

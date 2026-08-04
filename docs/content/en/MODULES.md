@@ -30,6 +30,11 @@ export default {
 `dependencies` is metadata only. The loader does not resolve, order, or enforce
 dependency versions.
 
+The manifest is parsed with the exported Zod `Module` schema. Defaults are
+applied during parsing and unknown properties are stripped from the normalized
+manifest stored by the loader and statistics registry. Import failures and Zod
+validation failures reject `load()`.
+
 ## Module types and load order
 
 Enabled modules load in this order:
@@ -51,6 +56,14 @@ Requires `mws/index.ts` with:
 Hooks may call `next(req, res)` directly. A compatibility form that returns a
 second hook function is also supported. The loader auto-advances if the hook
 does not call `next()`.
+
+Middleware modules are keyed by manifest `name`; a later enabled `mws` module
+with the same name replaces the earlier entry used for controller resolution.
+Middleware attached to a controller receives the controller's normalized
+request and `Res` object through the current compatibility casts. A returned
+`Response` does not short-circuit this middleware pipeline. Thrown before,
+handler, or after errors reach the controller metadata `handleError`, when it
+exists.
 
 ### `share`
 
@@ -109,14 +122,31 @@ Unknown names log a warning and are skipped. Duplicate references are removed.
 The handler context currently exposes `events.emit()`. The module name is
 prefixed before event normalization.
 
+The `ControllerType` contract types this helper as fire-and-forget. Its runtime
+implementation returns the optional `EventsDomain.emit()` promise, but module
+handlers should not depend on awaiting it through this compatibility surface.
+Inject and use `EventsDomain` directly when publish completion is part of the
+application flow.
+
 ## Event files
 
 When an `EventsDomain` is configured:
 
-- non-function named exports in `events/emit.ts` register emitters;
-- function exports in other files register listeners;
-- `EVENTS` can map handler names to `eventName`/`events` and `multiple`;
-- named functions fall back to their export name when no mapping exists.
+- `events/emit.ts` registers every non-function named export except `default`,
+  `EVENTS`, and names ending in `$Multiple`; the exported value itself is not
+  used;
+- a default listener function in another event file is registered only when an
+  `EVENTS` configuration supplies its event name;
+- named listener functions fall back to their export name when no mapping
+  exists;
+- `EVENTS` may be a string/array for a default handler, a global object with
+  `eventName` or `events`, or a map keyed by handler name;
+- `multiple` can live in the handler's `EVENTS` entry; named handlers also
+  support a companion `<handlerName>$Multiple` truthy export.
+
+Every discovered event name is prefixed with the module manifest name before
+`EventsDomain` normalization. Non-function exports in listener files and
+function exports in `emit.ts` are ignored.
 
 Prefer explicit `EVENTS` mappings for stable contracts.
 
@@ -146,6 +176,13 @@ Prefer explicit `EVENTS` mappings for stable contracts.
   empty collections or `undefined`.
 - A missing `controllers/` or `events/` directory is allowed for `full`.
 - A missing or invalid `mws/index.ts` contract throws and stops `load()`.
+- `setEventsDomain()` must be called before `load()` to register event files.
+  Setting it afterwards does not retroactively scan skipped events.
+- `load()` has no idempotency guard or rollback. Calling it again can append
+  duplicate controllers and run initialization again; a failure can leave
+  components loaded earlier in that invocation registered.
+- Discovery, import, and initialization failures reject immediately. The
+  loader does not continue with the remaining modules.
 
 ## Statistics
 

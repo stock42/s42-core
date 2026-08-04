@@ -48,7 +48,12 @@ Sin `RouteControllers`, todos los requests reciben un `404` en texto plano.
 1. Construye el callback fallback con `RouteControllers.getCallback(hooks)`.
 2. Construye el mapa de rutas nativas con `RouteControllers.getRoutes(hooks)`.
 3. Inicia `Bun.serve` con `routes` y `fetch`.
-4. Con `awaitForCluster`, espera hasta recibir `start` desde el proceso padre.
+4. Con `awaitForCluster`, crea primero el listener y luego mantiene pendiente la
+   promise de `start()` hasta recibir `start` desde el proceso padre.
+
+Sin espera de cluster, `start()` resuelve después de que `Bun.serve` crea el
+listener. Repetir `start()` sobre el mismo wrapper no tiene guard: sobrescribe
+el handle almacenado sin detener el server Bun anterior.
 
 ## Helpers públicos
 
@@ -88,5 +93,10 @@ console.info(server.getURL())
   separado.
 - `development` se reenvía a Bun; no reemplaza una política de errores segura.
 - El wrapper no expone actualmente un método público `stop()`.
+- Como el wrapper no expone el handle nativo del server, la aplicación no puede
+  drenarlo ni detenerlo mediante S42-Core. Mantener una superficie Bun separada
+  cuando sea obligatorio un shutdown ordenado del listener.
+- El constructor instala un listener `message` sobre el proceso y no expone un
+  método para removerlo.
 - Un server worker en cluster debe usar `clustering: true` para habilitar
   `reusePort` en Bun.

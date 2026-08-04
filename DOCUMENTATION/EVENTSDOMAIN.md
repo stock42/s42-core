@@ -86,6 +86,24 @@ completed according to that adapter; it is not an end-to-end acknowledgement.
 
 Once an entry becomes multiple, later single registrations do not downgrade it.
 
+## Delivery guarantees
+
+The registry provides routing and process discovery. It does not provide
+durability, acknowledgements, retries, ordering, persistence, deduplication, or
+a dead-letter queue by itself. An event emitted while its selected consumer is
+unavailable can be lost. Use a transactional outbox or an explicitly designed
+queue workflow when event delivery is a business invariant.
+
+Adapter behavior changes what `emit() === true` proves:
+
+- with the bundled Redis adapter, `RedisClient.publish()` is fire-and-forget;
+  `emit()` can resolve before Redis has accepted the publication, and publish
+  errors are logged rather than returned to the caller;
+- with the bundled SQS adapter, the send call is awaited, but this still proves
+  only that SQS accepted the message, not that a handler processed it;
+- local handler failures are logged and are not propagated back to the
+  original emitter.
+
 ## Adapters
 
 `RedisEventsAdapter` publishes and subscribes through `RedisClient`.
@@ -104,6 +122,14 @@ Once an entry becomes multiple, later single registrations do not downgrade it.
 Queue topology, IAM, dead-letter policy, and FIFO configuration are owned by the
 consumer.
 
+The current SQS polling adapter calls subscribed handlers synchronously but
+does not await a promise returned by a handler. It then deletes the received
+message even when no local handler exists or a handler throws/rejects. Therefore
+it must not be treated as an at-least-once processing/acknowledgement layer for
+critical work without an application-owned adapter or additional controls.
+`unsubscribe()` removes handlers but does not stop the polling loop; `close()`
+requests that the loop stop after its current receive/sleep cycle.
+
 ## Liveness and shutdown
 
 Every five seconds, an instance re-announces its listeners and emitters. Remote
@@ -114,9 +140,15 @@ by its own registry.
 Call `close()` during shutdown to stop the heartbeat, announce listener removal,
 and close the active adapter.
 
+`close()` itself returns `void` and does not await an asynchronous adapter
+close. Heartbeat eviction removes stale listener instances; emitter registry
+entries do not carry per-instance liveness and are not evicted.
+
 ## Notes
 
 - Payloads must be JSON-serializable for the bundled adapters.
 - Keep event contracts stable and explicitly owned by their first segment.
 - Adapter replacement calls `setAdapter()` and re-subscribes local channels; it
   does not change the singleton identity.
+- `setAdapter()` does not unsubscribe or close the previous adapter. Perform
+  any required old-adapter cleanup explicitly before replacement.

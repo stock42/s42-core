@@ -52,6 +52,13 @@ from the Bun native route map.
 The constructor callback is added through `use()`, so later calls to `use()` run
 before it.
 
+The current callback error body includes `String(error)` and the controller
+path (`Internal Server Error: ... into <path>`). Treat that as potentially
+sensitive output and catch/sanitize expected application failures before they
+reach the generic controller boundary. Middleware receives no explicit `next`
+argument; advancing is controlled only by returning a Web `Response` or another
+value.
+
 ## Example
 
 ```ts
@@ -104,3 +111,6 @@ The loader wraps this metadata in a `Controller`. The optional controller-level
 ```
 
 Endpoint pairs are de-duplicated and sorted by path and method.
+The registry stores controller object references, so later `setPath()` and
+method-helper calls are reflected when statistics are read. It is process-local
+and has no automatic disposal when a controller is no longer used.

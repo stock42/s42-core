@@ -33,6 +33,12 @@ const memory = new SQLite({ type: 'memory' })
 The class does not expose `count`, `selectPaginate`, `updateById`, or
 `deleteById`.
 
+`bun:sqlite` executes synchronously. Several wrapper methods keep historical
+`async` signatures, but their database work still occurs synchronously before
+the returned promise resolves. This direct class is a separate implementation;
+the multi-engine `SQL({ type: 'sqlite' })` path uses Bun's asynchronous
+`Bun.SQL` adapter instead.
+
 ## Errors
 
 Query and schema driver failures use the same public `SQLError` and
@@ -90,6 +96,11 @@ engine-specific raw-query escape hatch is required.
 Schema type strings remain trusted DDL fragments and must not come from request
 input.
 
+Identifiers are validated but not quoted. Names that pass the allow-list can
+still collide with an engine-reserved word. Schema type fragments are converted
+to uppercase as a whole, including text inside quoted defaults; use
+engine-tested DDL and `SQL.executeRaw()` when exact raw schema syntax is needed.
+
 ## Example
 
 ```ts
@@ -116,5 +127,19 @@ const rows = await db.select<{ uuid: string; email: string }>(
 
 - `insert()` returns `void`; create/update/delete methods return native
   `bun:sqlite` change objects.
-- Validate numeric `limit` and `offset` at the request boundary.
-- Call `close()` during graceful shutdown.
+- `delete(tableName)` with no filter and `update(..., {})` with an empty filter
+  affect every row. This is intentional current behavior; make destructive
+  calls explicit in application code and tests.
+- Empty update data produces invalid `SET` SQL, and an empty projection produces
+  invalid `SELECT` SQL. Validate both before calling the wrapper.
+- `limit` and `offset` are rendered only when truthy and are interpolated as
+  numbers; `0` is omitted and negative values are not rejected. Validate finite
+  non-negative integers at the request boundary.
+- `addTableColumns()` runs one `ALTER TABLE` per column without a transaction or
+  `IF NOT EXISTS`; a later failure can leave earlier additions applied, and
+  concurrent schema startup can race.
+- The wrapper does not enable WAL mode or `PRAGMA foreign_keys`; configure the
+  required SQLite pragmas outside this abstraction. Use multi-engine `SQL` when
+  its WAL initialization, transactions, or raw-query API better fit the use
+  case.
+- `close()` logs and swallows driver close errors rather than rejecting.

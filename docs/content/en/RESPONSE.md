@@ -5,6 +5,11 @@
 `Res` is the response builder passed to controller callbacks. Every terminal
 method returns a Web `Response`.
 
+`RouteControllers` constructs it with the framework's default headers. Direct
+repository use requires `new Res({ headers?: Record<string, string> })`; the
+initial status is `200` and the constructor options type is not a named root
+export.
+
 ## API
 
 - `status(code): this`
@@ -36,6 +41,10 @@ const create = new Controller('POST', '/items', async (_req, res) => {
 
 Headers supplied by `RouteControllers` are copied into the generated response.
 `setHeader()` is not chainable.
+
+Each terminal call snapshots the current header map into a new Web `Response`.
+Later `setHeader()` or `status()` calls do not mutate a response that was
+already created.
 
 ## Notes
 

@@ -80,6 +80,15 @@ Un path manual no reconfigura la ruta singleton automática, que continúa siend
 - `getController(): Controller | null`
 - `getStats(): Promise<CoreStatsPayload>`
 
+Helpers internos usados por `RouteControllers` (no exportados desde la raíz):
+
+- `isCoreStatsEnabled(): boolean` lee `ENABLE_CORE_STATS` al llamarse;
+- `getCoreStatsPath(): string` devuelve la ruta automática `/core/stats`;
+- `getCoreStatsController(): Controller | null` devuelve y registra el
+  controller singleton lazy solamente con el flag de entorno habilitado.
+
+`getController()` memoiza un `Controller` por instancia `CoreStats`.
+
 ## Respuesta
 
 Incluye:
@@ -101,6 +110,9 @@ Comandos ejecutados:
 
 Un comando ausente no falla el endpoint. Su sección informa `ok: false` con el
 texto del error, mientras el payload superior continúa con `ok: true`.
+Los cinco comandos se ejecutan concurrentemente en cada `getStats()`. Comandos
+fallidos exponen stderr/stdout capturado o el mensaje lanzado bajo `raw`; tratar
+todo el payload como información operacional sensible.
 
 ## Comportamiento del registro
 

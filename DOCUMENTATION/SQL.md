@@ -872,6 +872,11 @@ identifiers before interpolation:
 - `*` is accepted only as a projection;
 - expressions and aliases such as `COUNT(*) AS total` are rejected.
 
+Identifiers are allow-listed but emitted unchanged, not quoted. A syntactically
+valid name that is reserved by the selected engine can still fail. Use
+engine-appropriate schema names or trusted `executeRaw()` SQL when quoting is
+required.
+
 Filter and write values are bound parameters. These inputs remain deliberately
 raw and trusted: `createTable`/`addTableColumns` type definitions,
 `alterTable` clauses, `createIndex.where`, transaction option strings, and the
@@ -884,6 +889,12 @@ entire `executeRaw` query string.
 - `close()`/`end()` release SQL resources only; they do not stop the HTTP server.
 - `dropTable()`, `dropColumn()`, `dropIndex()`, `alterTable()`, and unfiltered
   `delete()` are destructive operations even though identifiers are validated.
+- `update()` with an empty `{}` filter is also unfiltered and affects every row.
+  This behavior is intentionally preserved; make destructive intent explicit
+  in application code and tests.
+- Empty table schemas, insert/update data objects, and projection arrays are not
+  normalized into alternate SQL forms. They can produce invalid engine SQL;
+  validate these collection shapes before calling the wrapper.
 - `selectPaginate()` performs two separate statements.
 - Schema introspection is normalized and intentionally incomplete.
 - Parameterized structured methods currently translate generated `?`

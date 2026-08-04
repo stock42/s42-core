@@ -48,7 +48,12 @@ Without `RouteControllers`, every request receives a plain-text `404`.
 1. Builds the fallback callback with `RouteControllers.getCallback(hooks)`.
 2. Builds the Bun native route map with `RouteControllers.getRoutes(hooks)`.
 3. Starts `Bun.serve` with both `routes` and `fetch`.
-4. When `awaitForCluster` is enabled, waits until the parent sends `start`.
+4. When `awaitForCluster` is enabled, creates the listener first and then keeps
+   the `start()` promise pending until the parent sends `start`.
+
+Without cluster waiting, `start()` resolves after `Bun.serve` has created the
+listener. Calling `start()` again on the same wrapper is not guarded: it
+overwrites the stored handle without stopping the previous Bun server.
 
 ## Public helpers
 
@@ -89,5 +94,10 @@ console.info(server.getURL())
 - `development` is forwarded to Bun; it is not a substitute for a sanitized
   production error policy.
 - There is currently no public `stop()` method on the wrapper.
+- Because the wrapper does not expose the native server handle, applications
+  cannot drain or stop it through S42-Core. Keep a separate Bun server surface
+  when graceful listener shutdown is mandatory.
+- The constructor installs a process `message` listener and does not expose a
+  method to remove it.
 - A clustered worker server must use `clustering: true` so Bun enables
   `reusePort`.

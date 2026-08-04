@@ -87,6 +87,23 @@ las publicaciones según el adaptador; no es un acuse end-to-end.
 Una vez que una entrada se vuelve multiple, registros single posteriores no la
 degradan.
 
+## Garantías de entrega
+
+El registro provee routing y descubrimiento de procesos. Por sí solo no provee
+durabilidad, acknowledgements, retries, orden, persistencia, deduplicación ni
+dead-letter queue. Un evento emitido mientras el consumidor elegido no está
+disponible puede perderse. Usar un outbox transaccional o un flujo de colas
+diseñado explícitamente cuando la entrega sea una invariante de negocio.
+
+El adaptador cambia qué demuestra `emit() === true`:
+
+- con el adaptador Redis incluido, `RedisClient.publish()` es fire-and-forget;
+  `emit()` puede resolver antes de que Redis acepte la publicación y los
+  errores se registran en logs en vez de volver al caller;
+- con el adaptador SQS incluido, el envío se espera, pero solamente demuestra
+  que SQS aceptó el mensaje, no que un handler lo procesó;
+- fallas de handlers locales se registran y no se propagan al emisor original.
+
 ## Adaptadores
 
 `RedisEventsAdapter` publica y suscribe mediante `RedisClient`.
@@ -105,6 +122,14 @@ degradan.
 La topología de colas, IAM, dead-letter policy y configuración FIFO pertenecen
 al consumidor.
 
+El polling SQS actual llama handlers suscriptos de forma sincrónica pero no
+espera una promise retornada por un handler. Luego elimina el mensaje recibido
+aunque no exista un handler local o un handler lance/rechace. Por eso no debe
+tratarse como una capa de procesamiento/acuse at-least-once para trabajo crítico
+sin un adaptador propio o controles adicionales. `unsubscribe()` elimina
+handlers pero no detiene el polling; `close()` solicita detener el loop después
+del receive/sleep en curso.
+
 ## Liveness y cierre
 
 Cada cinco segundos, una instancia reanuncia listeners y emisores. Las
@@ -115,9 +140,15 @@ elimina por su propio registro.
 Llamar a `close()` durante el cierre para detener el heartbeat, anunciar la
 remoción del listener y cerrar el adaptador activo.
 
+`close()` devuelve `void` y no espera un cierre asíncrono del adaptador. La
+evicción por heartbeat elimina instancias listener vencidas; las entradas de
+emisores no tienen liveness por instancia y no se eliminan.
+
 ## Notas
 
 - Los payloads deben ser serializables a JSON para los adaptadores incluidos.
 - Mantener contratos estables y ownership explícito en el primer segmento.
 - `setAdapter()` reemplaza el adaptador y vuelve a suscribir canales locales,
   sin cambiar la identidad del singleton.
+- `setAdapter()` no desuscribe ni cierra el adaptador anterior. Limpiar
+  explícitamente el adaptador previo antes de reemplazarlo cuando corresponda.

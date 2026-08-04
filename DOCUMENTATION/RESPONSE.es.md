@@ -5,6 +5,11 @@
 `Res` es el builder de respuestas que reciben los callbacks de los
 controladores. Cada método terminal devuelve un `Response` Web.
 
+`RouteControllers` lo construye con los headers default del framework. El uso
+directo dentro del repositorio requiere
+`new Res({ headers?: Record<string, string> })`; el status inicial es `200` y el
+tipo de opciones del constructor no es un export nombrado de la raíz.
+
 ## API
 
 - `status(code): this`
@@ -36,6 +41,10 @@ const create = new Controller('POST', '/items', async (_req, res) => {
 
 Los headers provistos por `RouteControllers` se copian a la respuesta generada.
 `setHeader()` no es encadenable.
+
+Cada llamada terminal toma un snapshot del mapa de headers actual en un nuevo
+Web `Response`. Llamadas posteriores a `setHeader()` o `status()` no mutan una
+respuesta ya creada.
 
 ## Notas
 

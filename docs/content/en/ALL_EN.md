@@ -1,11 +1,16 @@
 # S42-Core Master Documentation (ALL_EN)
 
-Last reviewed: 2026-07-27
+Last reviewed against all `src/` files: 2026-08-03
 Package baseline: `s42-core@3.0.10`
 Runtime requirement: Bun `>=1.3.0`
 
 This document is the primary technical overview of the repository. It describes
 the behavior implemented by `src/`, not an aspirational API.
+
+Audit scope: all 46 TypeScript source/test files under `src/`, the root package
+exports, every component guide in `DOCUMENTATION/`, and the website mirrors.
+Repository-only helpers are documented explicitly as internal rather than
+presented as supported deep imports.
 
 ## 1. Framework Scope
 
@@ -1303,7 +1308,93 @@ only. They do not have supported package imports.
 `ViewTemplates` does not HTML-escape interpolated values. Never render
 untrusted content without an approved escaping strategy.
 
-## 10. Production Review Checklist
+## 10. Source-Audited Runtime Boundaries
+
+These details are easy to miss from method signatures and are part of the
+current implementation contract.
+
+### 10.1 Modules and controllers
+
+- `Modules.load()` is not idempotent and has no rollback. A repeated load can
+  append duplicate controllers and rerun initialization; a failed load can
+  leave earlier components from that invocation registered.
+- Configure `EventsDomain` before loading modules. A later
+  `setEventsDomain()` does not retroactively scan event files.
+- Module manifests are Zod-parsed with defaults and stripped unknown keys.
+  Controller metadata is currently cast, not parsed by the exported
+  `Controllers` schema.
+- Controller middleware and global hooks auto-advance. A returned `Response`
+  only terminates the local `Controller.use()` chain; it does not short-circuit
+  the module-middleware or global-hook pipelines.
+- The generic controller error response includes the thrown value and route
+  path. Catch and sanitize expected failures before that boundary.
+
+### 10.2 HTTP request and server lifecycle
+
+- Global route hooks receive the raw Web `Request`; controller callbacks receive
+  the normalized request object. The hook `res` argument is a runtime `Res`
+  builder despite the current `TypeHook` Web `Response` annotation.
+- Every non-GET, non-form body is attempted as JSON regardless of content type.
+  Invalid JSON becomes `{}`. Query values are decoded but query keys are not;
+  malformed percent escapes become a fallback `500`.
+- A route wildcard consumes the remaining suffix from its first `*` segment.
+- `Server.start({ awaitForCluster: true })` creates the Bun listener before
+  waiting for the parent signal. Repeated `start()` calls are not guarded and
+  the wrapper exposes neither the native handle nor `stop()`.
+
+### 10.3 Event delivery
+
+- `EventsDomain` supplies distributed routing, not durable delivery. It has no
+  processing acknowledgement, retry, ordering, persistence, deduplication, or
+  dead-letter guarantee by itself.
+- Redis publish is fire-and-forget through the bundled wrapper, so
+  `emit() === true` can precede Redis acceptance. SQS publish is awaited but
+  proves only queue acceptance.
+- The current SQS poller does not await promises returned by handlers and
+  deletes received messages even when no local handler exists or processing
+  fails. Critical work requires an application-owned delivery design.
+- `EventsDomain.close()` is synchronous and does not await async adapter close.
+  `setAdapter()` does not clean up the previous adapter.
+
+### 10.4 MongoDB and Redis clients
+
+- MongoDB pagination fetch and count are independent snapshots. `close()`
+  swallows/logs close failures and retains the stored `Db` handle.
+- Internal `MongoDBStorage` supports nested and flat insert shapes, but its
+  `_search` contract targets the nested shape; `_update` uses `updateMany`, adds
+  `updatedAt`, increments `_n`, and discards the native result.
+- Redis pub/sub methods return `void` and log asynchronous failures. `close()`
+  does not await unsubscribe operations.
+- Redis `counter()` uses `EXISTS` + optional `SET 0` + `INCR`; exact first-use
+  concurrency requires native `INCR` or another atomic application strategy.
+
+### 10.5 SQL and direct SQLite
+
+- Structured SQL identifiers are validated but not quoted; reserved engine
+  words can still fail. Empty schema/data/projection collections can produce
+  invalid SQL and must be validated by callers.
+- Unfiltered `delete()` and `update()` with `{}` intentionally affect all rows.
+  `select()` intentionally defaults to `limit: 100`; these contracts remain
+  unchanged and are documented rather than silently altered.
+- Direct `SQLite` uses synchronous `bun:sqlite`, does not enable WAL or foreign
+  keys, and has no raw-query or transaction surface. Its schema type strings are
+  uppercased as a whole and `addTableColumns()` is sequential/non-transactional.
+- Multi-engine `SQL({ type: 'sqlite' })` is a separate asynchronous Bun.SQL
+  implementation with WAL initialization and the full transaction/raw API.
+
+### 10.6 Operational utilities
+
+- `CoreStats` executes five host commands concurrently per request and exposes
+  raw command/error output. It has no authentication.
+- `Cluster.maxCPU` should be a positive integer; `0` selects every available
+  CPU and invalid array-length inputs are not normalized. Broadcast failures
+  are not caught.
+- `SSE` requires the raw Web request to observe aborts; the normalized
+  controller request does not carry `signal`.
+- `Res` snapshots headers/status into each newly created Web `Response`; later
+  mutations do not change an already returned response.
+
+## 11. Production Review Checklist
 
 - Provide a sanitized `Server.error` handler.
 - Enforce an explicit CORS policy outside the current fixed router headers.
@@ -1312,13 +1403,15 @@ untrusted content without an approved escaping strategy.
 - Validate pagination limits and avoid unbounded database reads.
 - Register event emitters before emitting and call `EventsDomain.close()` on
   shutdown.
+- Treat event publication as routing, not processing acknowledgement; use an
+  outbox/queue contract for durable business events.
 - Treat singleton configuration as immutable after first initialization.
 - Close MongoDB, Redis, SQLite, event, and worker resources explicitly.
 - Use the logger sink for protected structured diagnostics.
 - Test PostgreSQL, MySQL, SQS, and external-service behavior against the actual
   deployment environment; unit tests do not prove provider connectivity.
 
-## 11. Known Current Behaviors
+## 12. Known Current Behaviors
 
 - Global hooks auto-advance and cannot return a replacement response.
 - After hooks cannot alter the controller response.
@@ -1339,7 +1432,7 @@ untrusted content without an approved escaping strategy.
 - `Cluster` has no public stop/restart/readiness API.
 - Mailgun, ViewTemplates, and MongoDBStorage are internal.
 
-## 12. Validation and Documentation Map
+## 13. Validation and Documentation Map
 
 Repository validation:
 
@@ -1355,6 +1448,7 @@ The main typecheck, lint, and tests pass in the current checkout.
 
 Component documents:
 
+- [GETTING STARTED](./GETTING_STARTED.md)
 - [SERVER](./SERVER.md)
 - [ROUTECONTROLLERS](./ROUTECONTROLLERS.md)
 - [CONTROLLER](./CONTROLLER.md)

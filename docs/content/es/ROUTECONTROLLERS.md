@@ -29,7 +29,12 @@ del mapa nativo.
 ### `getCallback(hooks)`
 
 Devuelve el callback `fetch` fallback. Soporta segmentos exactos, `:params`,
-wildcard terminal y método `*`.
+wildcards y método `*`. El primer segmento `*` detiene la comparación y consume
+el sufijo restante; no se verifican segmentos escritos después del wildcard.
+
+Rutas sin match devuelven `404 Not Found` en texto plano. Excepciones del
+matching fallback, parseo o dispatch se registran y se convierten en
+`500 Internal Server Error` de texto plano.
 
 ## Request normalizado
 
@@ -50,12 +55,14 @@ Los callbacks reciben un objeto del framework, no el `Request` Web crudo:
 
 Detalles de parseo:
 
-- Los bodies JSON de requests no GET se parsean; JSON inválido se convierte en
-  `{}`.
+- Todo body no GET y no-form se lee y parsea como JSON sin importar el content
+  type declarado; un body vacío o JSON inválido se convierte en `{}`.
 - Formularios multipart y URL-encoded se parsean una vez y se exponen mediante
   `formData()`.
+- Una falla al parsear form produce un `FormData` vacío.
 - Los valores de query conservan `=`, decodifican percent escapes y, ante claves
-  repetidas, prevalece el último valor.
+  repetidas, prevalece el último valor. Las keys de query no se decodifican. Un
+  percent escape inválido lanza y se convierte en el response fallback `500`.
 - `realIp` confía primero en `x-forwarded-for`, luego en `cf-connecting-ip` y
   finalmente usa `::1`.
 - No se incluyen el request crudo ni `Request.signal`.
@@ -74,6 +81,10 @@ Orden:
 
 Semántica actual:
 
+- Los hooks globales reciben el `Request` Web crudo, mientras los callbacks de
+  controller reciben el objeto normalizado anterior. El argumento `res` del
+  hook es el builder S42-Core `Res` en runtime aunque el contrato público actual
+  `TypeHook` lo tipa como Web `Response`.
 - El pipeline avanza automáticamente aunque un hook no llame a `next()`.
 - Retornar un `Response` no corta ni reemplaza la respuesta de la ruta.
 - Un error lanzado en `before` devuelve JSON con status `401` si su mensaje
@@ -89,6 +100,9 @@ Cada ruta despachada recibe headers no-cache fijos, CSP y:
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Credentials: true
 Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE
+Access-Control-Allow-Headers: Accept, Authorization, Content-Type, X-Requested-With, Range, apikey, x-access-token
+Access-Control-Expose-Headers: Content-Length
+Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self';
 ```
 
 No existe hoy una opción pública para configurar CORS. La combinación de

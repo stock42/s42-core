@@ -32,6 +32,12 @@ const memory = new SQLite({ type: 'memory' })
 
 La clase no expone `count`, `selectPaginate`, `updateById` ni `deleteById`.
 
+`bun:sqlite` ejecuta en forma sincrónica. Varios métodos del wrapper conservan
+firmas históricas `async`, pero su trabajo de base ocurre sincrónicamente antes
+de que resuelva la promise. Esta clase directa es una implementación separada;
+el path multi-engine `SQL({ type: 'sqlite' })` usa el adaptador asíncrono
+`Bun.SQL`.
+
 ## Errores
 
 Los fallos de query y schema del driver usan el mismo contrato público
@@ -90,6 +96,12 @@ clase directa `SQLite` no expone `SQL.executeRaw()`; usar la clase multi-motor
 Los strings de tipos del schema son fragmentos DDL confiables y no deben
 provenir de input de requests.
 
+Los identificadores se validan pero no se quotean. Nombres válidos para el
+allow-list todavía pueden coincidir con palabras reservadas del motor. Los
+fragmentos de tipo se convierten completos a uppercase, incluso texto dentro de
+defaults entre comillas; usar DDL probado contra el motor y `SQL.executeRaw()`
+cuando se necesite sintaxis raw exacta.
+
 ## Ejemplo
 
 ```ts
@@ -116,5 +128,18 @@ const rows = await db.select<{ uuid: string; email: string }>(
 
 - `insert()` devuelve `void`; create/update/delete devuelven objetos de cambios
   nativos de `bun:sqlite`.
-- Validar `limit` y `offset` numéricos en la frontera HTTP.
-- Llamar a `close()` durante shutdown ordenado.
+- `delete(tableName)` sin filtro y `update(..., {})` con filtro vacío afectan
+  todas las filas. Es el comportamiento actual intencional; hacer explícitas
+  las operaciones destructivas en código y tests de la aplicación.
+- Data vacío en update genera un `SET` inválido y una proyección vacía genera un
+  `SELECT` inválido. Validar ambos antes de llamar al wrapper.
+- `limit` y `offset` se renderizan solamente cuando son truthy y se interpolan
+  como números; `0` se omite y valores negativos no se rechazan. Validar enteros
+  finitos no negativos en la frontera HTTP.
+- `addTableColumns()` ejecuta un `ALTER TABLE` por columna sin transacción ni
+  `IF NOT EXISTS`; una falla posterior puede dejar cambios anteriores aplicados
+  y startups de schema concurrentes pueden competir.
+- El wrapper no habilita WAL ni `PRAGMA foreign_keys`; configurar los pragmas
+  SQLite necesarios fuera de esta abstracción. Usar `SQL` multi-engine cuando
+  su inicialización WAL, transacciones o API raw sean más adecuadas.
+- `close()` registra y absorbe errores del driver en vez de rechazar.
