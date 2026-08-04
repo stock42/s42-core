@@ -2,722 +2,1346 @@
 
 const CONTENT_BASE = './content'
 const REPOSITORY_BLOB_BASE = 'https://github.com/stock42/s42-core/blob/main'
+const REPOSITORY_RAW_BASE = 'https://raw.githubusercontent.com/stock42/s42-core/main'
+const DEFAULT_DOCUMENT = 'GETTING_STARTED'
+
+const categoryOrder = [
+	'start',
+	'examples',
+	'http',
+	'events',
+	'data',
+	'operations',
+	'reference',
+]
 
 const docsCatalog = [
 	{
+		id: 'GETTING_STARTED',
+		category: 'start',
+		file: 'GETTING_STARTED.md',
+		title: { en: 'Start here', es: 'Empieza aquí' },
+		description: {
+			en: 'Install, run a route, create a module, write an atomic transaction, and emit an event.',
+			es: 'Instala, ejecuta una ruta, crea un módulo, escribe una transacción atómica y emite un evento.',
+		},
+	},
+	{
 		id: 'FRAMEWORK',
-		category: 'platform',
+		category: 'start',
 		file: 'FRAMEWORK.md',
-		title: {
-			en: 'Framework Overview',
-			es: 'Resumen del Framework',
-		},
-	},
-	{
-		id: 'ALL_EN',
-		category: 'platform',
-		file: 'ALL_EN.md',
-		title: {
-			en: 'Master Technical Reference',
-			es: 'Referencia Tecnica Maestra (EN)',
-		},
-	},
-	{
-		id: 'MODULES',
-		category: 'modules',
-		file: 'MODULES.md',
-		title: {
-			en: 'Modules Loader',
-			es: 'Cargador de Modulos',
+		title: { en: 'Framework overview', es: 'Resumen del framework' },
+		description: {
+			en: 'Architecture, package scope, installation, and the complete framework map.',
+			es: 'Arquitectura, alcance del paquete, instalación y mapa completo del framework.',
 		},
 	},
 	{
 		id: 'MODULE_AUTH',
-		category: 'modules',
+		category: 'examples',
 		file: 'MODULE_AUTH.md',
-		title: {
-			en: 'Auth Module (mws)',
-			es: 'Modulo Auth (mws)',
+		title: { en: 'Auth middleware module', es: 'Módulo middleware Auth' },
+		description: {
+			en: 'A complete mws module with before/after request behavior.',
+			es: 'Un módulo mws completo con comportamiento before/after request.',
 		},
 	},
 	{
 		id: 'MODULE_OPERATORS',
-		category: 'modules',
+		category: 'examples',
 		file: 'MODULE_OPERATORS.md',
-		title: {
-			en: 'Operators Module (full)',
-			es: 'Modulo Operators (full)',
+		title: { en: 'Operators domain module', es: 'Módulo de dominio Operators' },
+		description: {
+			en: 'A full module with controllers, events, middleware requirements, and initialization.',
+			es: 'Un módulo full con controllers, eventos, middleware e inicialización.',
 		},
 	},
 	{
 		id: 'MODULE_SHARE',
-		category: 'modules',
+		category: 'examples',
 		file: 'MODULE_SHARE.md',
-		title: {
-			en: 'Share Module',
-			es: 'Modulo Share',
+		title: { en: 'Shared module', es: 'Módulo Share' },
+		description: {
+			en: 'Reusable module metadata and the boundaries of share loading.',
+			es: 'Metadata reutilizable y límites de carga de módulos share.',
+		},
+	},
+	{
+		id: 'MODULES',
+		category: 'http',
+		file: 'MODULES.md',
+		title: { en: 'Modules', es: 'Modules' },
+		description: {
+			en: 'Discovery, manifests, load order, controller metadata, middleware, and event conventions.',
+			es: 'Discovery, manifests, orden de carga, metadata, middleware y convenciones de eventos.',
 		},
 	},
 	{
 		id: 'SERVER',
-		category: 'runtime',
+		category: 'http',
 		file: 'SERVER.md',
-		title: {
-			en: 'Server',
-			es: 'Server',
+		title: { en: 'Server', es: 'Server' },
+		description: {
+			en: 'Bun.serve bootstrap, options, cluster waiting, helpers, and lifecycle boundaries.',
+			es: 'Bootstrap Bun.serve, opciones, espera de cluster, helpers y ciclo de vida.',
 		},
 	},
 	{
 		id: 'ROUTECONTROLLERS',
-		category: 'runtime',
+		category: 'http',
 		file: 'ROUTECONTROLLERS.md',
-		title: {
-			en: 'RouteControllers',
-			es: 'RouteControllers',
+		title: { en: 'RouteControllers', es: 'RouteControllers' },
+		description: {
+			en: 'Native routes, fallback matching, request parsing, global hooks, headers, and CORS.',
+			es: 'Rutas nativas, matching fallback, parseo, hooks globales, headers y CORS.',
 		},
 	},
 	{
 		id: 'CONTROLLER',
-		category: 'runtime',
+		category: 'http',
 		file: 'CONTROLLER.md',
-		title: {
-			en: 'Controller',
-			es: 'Controller',
+		title: { en: 'Controller', es: 'Controller' },
+		description: {
+			en: 'Paths, HTTP methods, local middleware ordering, module metadata, and statistics.',
+			es: 'Paths, métodos HTTP, orden de middleware, metadata y estadísticas.',
 		},
 	},
 	{
 		id: 'RESPONSE',
-		category: 'runtime',
+		category: 'http',
 		file: 'RESPONSE.md',
-		title: {
-			en: 'Response (Res)',
-			es: 'Response (Res)',
-		},
-	},
-	{
-		id: 'CLUSTER',
-		category: 'runtime',
-		file: 'CLUSTER.md',
-		title: {
-			en: 'Cluster',
-			es: 'Cluster',
+		title: { en: 'Response builder', es: 'Response builder' },
+		description: {
+			en: 'Status, headers, JSON, text, HTML, redirects, and response snapshots.',
+			es: 'Status, headers, JSON, texto, HTML, redirects y snapshots de response.',
 		},
 	},
 	{
 		id: 'EVENTSDOMAIN',
 		category: 'events',
 		file: 'EVENTSDOMAIN.md',
-		title: {
-			en: 'EventsDomain',
-			es: 'EventsDomain',
-		},
-	},
-	{
-		id: 'REDISDB',
-		category: 'data',
-		file: 'REDISDB.md',
-		title: {
-			en: 'RedisDB',
-			es: 'RedisDB',
-		},
-	},
-	{
-		id: 'MONGODB',
-		category: 'data',
-		file: 'MONGODB.md',
-		title: {
-			en: 'MongoDB',
-			es: 'MongoDB',
+		title: { en: 'EventsDomain', es: 'EventsDomain' },
+		description: {
+			en: 'Distributed event routing, delivery modes, Redis/SQS adapters, liveness, and guarantees.',
+			es: 'Routing distribuido, modos de entrega, Redis/SQS, liveness y garantías.',
 		},
 	},
 	{
 		id: 'SQL',
 		category: 'data',
 		file: 'SQL.md',
-		title: {
-			en: 'SQL',
-			es: 'SQL',
+		title: { en: 'SQL', es: 'SQL' },
+		description: {
+			en: 'PostgreSQL, MySQL, and SQLite CRUD, filters, transactions, indexes, errors, and raw SQL.',
+			es: 'CRUD PostgreSQL, MySQL y SQLite, filtros, transacciones, índices, errores y SQL raw.',
 		},
 	},
 	{
 		id: 'SQLITE',
 		category: 'data',
 		file: 'SQLITE.md',
-		title: {
-			en: 'SQLite',
-			es: 'SQLite',
+		title: { en: 'Direct SQLite', es: 'SQLite directo' },
+		description: {
+			en: 'The synchronous bun:sqlite wrapper, schema helpers, filters, results, and current limits.',
+			es: 'El wrapper sincrónico bun:sqlite, schema, filtros, resultados y límites actuales.',
 		},
 	},
 	{
-		id: 'SSE',
-		category: 'utilities',
-		file: 'SSE.md',
-		title: {
-			en: 'SSE',
-			es: 'SSE',
+		id: 'MONGODB',
+		category: 'data',
+		file: 'MONGODB.md',
+		title: { en: 'MongoDB', es: 'MongoDB' },
+		description: {
+			en: 'Singleton connection, collections, ObjectId, pagination, and internal storage helpers.',
+			es: 'Conexión singleton, colecciones, ObjectId, paginación y storage interno.',
 		},
 	},
 	{
-		id: 'CORESTATS',
-		category: 'utilities',
-		file: 'CORESTATS.md',
-		title: {
-			en: 'CoreStats',
-			es: 'CoreStats',
+		id: 'REDISDB',
+		category: 'data',
+		file: 'REDISDB.md',
+		title: { en: 'Redis / Valkey', es: 'Redis / Valkey' },
+		description: {
+			en: 'Connections, cache, hashes, counters, pub/sub, serialization, and shutdown.',
+			es: 'Conexiones, cache, hashes, contadores, pub/sub, serialización y cierre.',
 		},
 	},
 	{
 		id: 'DEPENDENCIES',
-		category: 'utilities',
+		category: 'data',
 		file: 'DEPENDENCIES.md',
-		title: {
-			en: 'Dependencies',
-			es: 'Dependencies',
+		title: { en: 'Dependencies', es: 'Dependencies' },
+		description: {
+			en: 'The process-local static dependency registry and resource ownership.',
+			es: 'El registro estático de dependencias por proceso y ownership de recursos.',
 		},
 	},
 	{
-		id: 'MAILGUN',
-		category: 'internal',
-		file: 'MAILGUN.md',
-		title: {
-			en: 'Mailgun (internal)',
-			es: 'Mailgun (interno)',
+		id: 'CLUSTER',
+		category: 'operations',
+		file: 'CLUSTER.md',
+		title: { en: 'Cluster', es: 'Cluster' },
+		description: {
+			en: 'Bun worker spawning, IPC, broadcasts, signals, and supervision boundaries.',
+			es: 'Workers Bun, IPC, broadcasts, señales y límites de supervisión.',
 		},
 	},
 	{
-		id: 'VIEWTEMPLATE',
-		category: 'internal',
-		file: 'VIEWTEMPLATE.md',
-		title: {
-			en: 'ViewTemplate (internal)',
-			es: 'ViewTemplate (interno)',
+		id: 'SSE',
+		category: 'operations',
+		file: 'SSE.md',
+		title: { en: 'Server-sent events', es: 'Server-sent events' },
+		description: {
+			en: 'Direct streams, event formatting, abort handling, and routing integration.',
+			es: 'Streams directos, formato de eventos, abort y routing.',
+		},
+	},
+	{
+		id: 'CORESTATS',
+		category: 'operations',
+		file: 'CORESTATS.md',
+		title: { en: 'CoreStats', es: 'CoreStats' },
+		description: {
+			en: 'Optional runtime inventory and host metrics endpoint, including its security boundary.',
+			es: 'Endpoint opcional de inventario y métricas, incluida su frontera de seguridad.',
+		},
+	},
+	{
+		id: 'LOGGER',
+		category: 'operations',
+		file: 'LOGGER.md',
+		title: { en: 'Logger', es: 'Logger' },
+		description: {
+			en: 'Levels, environment configuration, runtime controls, and custom sinks.',
+			es: 'Niveles, configuración de entorno, controles de runtime y sinks.',
 		},
 	},
 	{
 		id: 'TEST',
-		category: 'utilities',
+		category: 'operations',
 		file: 'TEST.md',
-		title: {
-			en: 'Test Helpers',
-			es: 'Helpers de Test',
+		title: { en: 'Test helpers', es: 'Helpers de test' },
+		description: {
+			en: 'Console-oriented smoke-test output helpers.',
+			es: 'Helpers de output para smoke tests orientados a consola.',
+		},
+	},
+	{
+		id: 'ALL_EN',
+		category: 'reference',
+		file: 'ALL_EN.md',
+		localized: false,
+		title: { en: 'Master technical reference', es: 'Referencia técnica maestra (EN)' },
+		description: {
+			en: 'The complete source-audited framework contract in one document.',
+			es: 'El contrato completo del framework, auditado contra source, en un documento.',
+		},
+	},
+	{
+		id: 'MAILGUN',
+		category: 'reference',
+		file: 'MAILGUN.md',
+		title: { en: 'Mailgun (internal)', es: 'Mailgun (interno)' },
+		description: {
+			en: 'Repository-only email helper and security behavior.',
+			es: 'Helper interno de email y su comportamiento de seguridad.',
+		},
+	},
+	{
+		id: 'VIEWTEMPLATE',
+		category: 'reference',
+		file: 'VIEWTEMPLATE.md',
+		title: { en: 'ViewTemplates (internal)', es: 'ViewTemplates (interno)' },
+		description: {
+			en: 'Repository-only interpolation helper and escaping boundary.',
+			es: 'Helper interno de interpolación y frontera de escaping.',
 		},
 	},
 ]
 
 const i18n = {
 	en: {
-		'nav.architecture': 'Architecture',
-		'nav.modules': 'Modules',
-		'nav.examples': 'Examples',
-		'nav.documentation': 'Documentation',
-
-		'hero.badge': 'Bun-First · Module-Oriented',
-		'hero.title': 'Build autonomous backend modules with production-grade velocity.',
-		'hero.subtitle':
-			'S42-Core 3.0.10 combines HTTP routing, convention-based modules, distributed events and persistence helpers on Bun.',
-		'hero.ctaDocs': 'Explore Documentation',
-		'hero.ctaExamples': 'View Examples',
-		'hero.stock42': 'Built by Stock42 LLC',
-		'hero.metricVersion': 'Current Version',
-		'hero.metricModuleTypes': 'Module Types',
-		'hero.metricRuntime': 'Native Runtime',
-		'hero.metricLang': 'Documentation',
-		'hero.diagramTitle': 'Module Runtime Lifecycle',
-		'hero.terminalTitle': 'Quickstart Terminal',
-		'hero.flow1': 'Load mws modules first',
-		'hero.flow2': 'Register share modules',
-		'hero.flow3': 'Load full controllers and events',
-		'hero.flow4': 'Run optional initialize hooks',
-
-		'architecture.eyebrow': 'Platform Design',
-		'architecture.title': 'Corporate-grade backend architecture on Bun',
-		'architecture.subtitle':
-			'S42-Core combines routing, modular loading, events, storage adapters and clustering in a cohesive developer experience.',
-		'architecture.http': '`Bun.serve`, native routes and hook pipeline.',
-		'architecture.modules': '`full`, `mws`, `share` with convention-based loading.',
-		'architecture.events': 'Distributed registry with Redis/SQS adapters.',
-		'architecture.data': 'Redis, MongoDB, SQL and SQLite integration utilities.',
-
-		'modules.eyebrow': 'Module Strategy',
-		'modules.title': 'One framework, autonomous modules',
-		'modules.full':
-			'Domain modules with controllers, events and optional initialize hooks.',
-		'modules.mws':
-			'Middleware modules with default, beforeRequest and afterRequest contracts.',
-		'modules.share':
-			'Reusable code and contracts registered as module metadata, without automatic routes or events.',
-
-		'examples.eyebrow': 'Implementation Examples',
-		'examples.title': 'Production-ready usage patterns',
-
-		'docs.eyebrow': 'Documentation Center',
-		'docs.title': 'Complete technical docs in English and Spanish',
-		'docs.subtitle':
-			'Browse every component reference, architecture note and module contract directly from the site.',
-		'docs.viewSource': 'View source',
-
-		'footer.line1': 'S42-Core 3.0.10 · Bun-first modular backend framework.',
-		'footer.line2': 'Developed by Cesar Casas, CEO & Head of Engineering at Stock42 LLC.',
-
-		searchPlaceholder: 'Search docs...',
-		docUnavailable: 'Document unavailable for this language. Falling back to English...',
+		'search.trigger': 'Search documentation',
+		'search.placeholder': 'Search examples, methods, concepts…',
+		'search.loading': 'Indexing documentation…',
+		'search.ready': 'Type to search every guide and code example.',
+		'search.results': count => `${count} ${count === 1 ? 'result' : 'results'}`,
+		'search.noResults': 'No matching documentation',
+		'search.noResultsHint':
+			'Try a method name such as transaction, emit, select, or start.',
+		'search.navigate': 'Navigate',
+		'search.open': 'Open',
+		'sidebar.eyebrow': 'Documentation',
+		'sidebar.description':
+			'Practical examples first. Exact contracts when you need them.',
+		'sidebar.feedback': 'Documentation feedback',
+		'sidebar.navigation': 'Documentation navigation',
+		'language.label': 'Documentation language',
+		'toc.title': 'On this page',
+		'toc.empty': 'No sections',
+		'footer.source': 'Documentation generated from repository Markdown.',
+		'footer.edit': 'View source on GitHub',
+		'fallback.notice': 'This guide is currently available in English only.',
+		'pagination.previous': 'Previous',
+		'pagination.next': 'Next',
+		'copy.label': 'Copy',
+		'copy.done': 'Copied',
+		'copy.status': 'Code copied to clipboard.',
+		'heading.link': title => `Link to ${title}`,
+		'document.errorTitle': 'Documentation could not be loaded',
+		'document.errorBody':
+			'Check the connection and try again, or open the source on GitHub.',
+		skip: 'Skip to documentation',
+		'menu.open': 'Open documentation menu',
+		'menu.close': 'Close documentation menu',
+		'theme.light': 'Use light theme',
+		'theme.dark': 'Use dark theme',
+		'search.close': 'Close search',
+		categories: {
+			start: 'Start',
+			examples: 'Complete examples',
+			http: 'Framework core',
+			events: 'Events',
+			data: 'Data',
+			operations: 'Operations',
+			reference: 'Reference',
+		},
 	},
 	es: {
-		'nav.architecture': 'Arquitectura',
-		'nav.modules': 'Modulos',
-		'nav.examples': 'Ejemplos',
-		'nav.documentation': 'Documentacion',
-
-		'hero.badge': 'Bun-First · Module-Oriented',
-		'hero.title': 'Construye modulos backend autonomos con velocidad de produccion.',
-		'hero.subtitle':
-			'S42-Core 3.0.10 combina routing HTTP, modulos por convencion, eventos distribuidos y helpers de persistencia sobre Bun.',
-		'hero.ctaDocs': 'Explorar Documentacion',
-		'hero.ctaExamples': 'Ver Ejemplos',
-		'hero.stock42': 'Desarrollado por Stock42 LLC',
-		'hero.metricVersion': 'Version Actual',
-		'hero.metricModuleTypes': 'Tipos de Modulo',
-		'hero.metricRuntime': 'Runtime Nativo',
-		'hero.metricLang': 'Documentacion',
-		'hero.diagramTitle': 'Ciclo de Vida de Modulos',
-		'hero.terminalTitle': 'Terminal de Inicio Rapido',
-		'hero.flow1': 'Cargar primero los modulos mws',
-		'hero.flow2': 'Registrar modulos share',
-		'hero.flow3': 'Cargar controllers y eventos full',
-		'hero.flow4': 'Ejecutar hooks initialize opcionales',
-
-		'architecture.eyebrow': 'Diseno de Plataforma',
-		'architecture.title': 'Arquitectura backend corporativa sobre Bun',
-		'architecture.subtitle':
-			'S42-Core integra enrutado, carga modular, eventos, adaptadores de datos y cluster en una experiencia coherente.',
-		'architecture.http': '`Bun.serve`, rutas nativas y pipeline de hooks.',
-		'architecture.modules': '`full`, `mws`, `share` con carga por convencion.',
-		'architecture.events': 'Registro distribuido con adaptadores Redis/SQS.',
-		'architecture.data': 'Utilidades para Redis, MongoDB, SQL y SQLite.',
-
-		'modules.eyebrow': 'Estrategia Modular',
-		'modules.title': 'Un framework, modulos autonomos',
-		'modules.full':
-			'Modulos de dominio con controllers, eventos y hooks initialize opcionales.',
-		'modules.mws':
-			'Modulos middleware con contratos default, beforeRequest y afterRequest.',
-		'modules.share':
-			'Codigo y contratos reutilizables registrados como metadata, sin rutas ni eventos automaticos.',
-
-		'examples.eyebrow': 'Ejemplos de Implementacion',
-		'examples.title': 'Patrones listos para produccion',
-
-		'docs.eyebrow': 'Centro de Documentacion',
-		'docs.title': 'Documentacion tecnica completa en ingles y espanol',
-		'docs.subtitle':
-			'Navega referencias de componentes, notas de arquitectura y contratos de modulos desde el sitio.',
-		'docs.viewSource': 'Ver fuente',
-
-		'footer.line1': 'S42-Core 3.0.10 · Framework backend modular Bun-first.',
-		'footer.line2':
-			'Desarrollado por Cesar Casas, CEO y Jefe de Ingenieria de Stock42 LLC.',
-
-		searchPlaceholder: 'Buscar documentacion...',
-		docUnavailable:
-			'Documento no disponible en este idioma. Mostrando version en ingles...',
+		'search.trigger': 'Buscar en la documentación',
+		'search.placeholder': 'Buscar ejemplos, métodos, conceptos…',
+		'search.loading': 'Indexando documentación…',
+		'search.ready': 'Escribe para buscar en todas las guías y ejemplos.',
+		'search.results': count => `${count} ${count === 1 ? 'resultado' : 'resultados'}`,
+		'search.noResults': 'No encontramos documentación',
+		'search.noResultsHint': 'Prueba un método como transaction, emit, select o start.',
+		'search.navigate': 'Navegar',
+		'search.open': 'Abrir',
+		'sidebar.eyebrow': 'Documentación',
+		'sidebar.description':
+			'Primero ejemplos prácticos. Contratos exactos cuando los necesites.',
+		'sidebar.feedback': 'Feedback de documentación',
+		'sidebar.navigation': 'Navegación de documentación',
+		'language.label': 'Idioma de la documentación',
+		'toc.title': 'En esta página',
+		'toc.empty': 'Sin secciones',
+		'footer.source': 'Documentación generada desde Markdown del repositorio.',
+		'footer.edit': 'Ver source en GitHub',
+		'fallback.notice': 'Esta guía está disponible solamente en inglés.',
+		'pagination.previous': 'Anterior',
+		'pagination.next': 'Siguiente',
+		'copy.label': 'Copiar',
+		'copy.done': 'Copiado',
+		'copy.status': 'Código copiado al clipboard.',
+		'heading.link': title => `Enlace a ${title}`,
+		'document.errorTitle': 'No se pudo cargar la documentación',
+		'document.errorBody':
+			'Revisa la conexión e intenta otra vez, o abre el source en GitHub.',
+		skip: 'Saltar a la documentación',
+		'menu.open': 'Abrir menú de documentación',
+		'menu.close': 'Cerrar menú de documentación',
+		'theme.light': 'Usar tema claro',
+		'theme.dark': 'Usar tema oscuro',
+		'search.close': 'Cerrar búsqueda',
+		categories: {
+			start: 'Comenzar',
+			examples: 'Ejemplos completos',
+			http: 'Core del framework',
+			events: 'Eventos',
+			data: 'Datos',
+			operations: 'Operaciones',
+			reference: 'Referencia',
+		},
 	},
 }
 
-const exampleSets = {
-	en: [
-		{
-			id: 'bootstrap',
-			label: 'Bootstrap',
-			code: `import { Modules, RouteControllers, Server } from 's42-core'\n\nconst modules = new Modules('./modules')\nawait modules.load()\n\nconst server = new Server()\nawait server.start({\n  port: 5678,\n  RouteControllers: new RouteControllers(modules.getControllers()),\n  hooks: modules.getHooks(),\n})`,
-		},
-		{
-			id: 'mws',
-			label: 'mws module',
-			code: `// modules/auth/mws/index.ts\nexport default async () => {\n  // one-time init\n}\n\nexport async function beforeRequest(req, res, next) {\n  if (!req.headers.get('authorization')) {\n    throw new Error('Token required')\n  }\n  next(req, res)\n}\n\nexport function afterRequest(req, res, next) {\n  next(req, res)\n}`,
-		},
-		{
-			id: 'module',
-			label: 'module manifest',
-			code: `// modules/operators/__module__.ts\nexport default {\n  name: 'operators',\n  version: '1.0.0',\n  type: 'full',\n  enabled: true,\n  dependencies: [{ module: 'auth', version: 1 }],\n  initialize: async () => {\n    console.info('operators module ready')\n  },\n}`,
-		},
-		{
-			id: 'full',
-			label: 'full controller',
-			code: `export default {\n  name: 'operatorList',\n  version: '1.0.0',\n  method: 'GET',\n  path: '/operators/list',\n  requireBefore: ['auth'],\n  handler: async (req, res, { events }) => {\n    events.emit('Operator$List$Completed', { ok: true })\n    return res.json({ ok: true, docs: [] })\n  },\n  handleError: async (req, res, err) => {\n    return res.status(500).json({ ok: false, error: String(err) })\n  },\n}`,
-		},
-		{
-			id: 'events',
-			label: 'events',
-			code: `import { EventsDomain, RedisClient } from 's42-core'\n\nconst redis = RedisClient.getInstance('redis://localhost:6379')\nawait redis.connect()\n\nconst events = EventsDomain.getInstance(redis)\nevents.registerEmitter('OPERATORS.OPERATOR.CREATED', 'OPERATORS')\n\nevents.listen(\n  { eventName: 'OPERATORS.OPERATOR.CREATED' },\n  async (event) => console.info(event.payload),\n  'NOTIFICATIONS',\n)`,
-		},
-	],
-	es: [
-		{
-			id: 'bootstrap',
-			label: 'Bootstrap',
-			code: `import { Modules, RouteControllers, Server } from 's42-core'\n\nconst modules = new Modules('./modules')\nawait modules.load()\n\nconst server = new Server()\nawait server.start({\n  port: 5678,\n  RouteControllers: new RouteControllers(modules.getControllers()),\n  hooks: modules.getHooks(),\n})`,
-		},
-		{
-			id: 'mws',
-			label: 'Modulo mws',
-			code: `// modules/auth/mws/index.ts\nexport default async () => {\n  // inicializacion unica\n}\n\nexport async function beforeRequest(req, res, next) {\n  if (!req.headers.get('authorization')) {\n    throw new Error('Token requerido')\n  }\n  next(req, res)\n}\n\nexport function afterRequest(req, res, next) {\n  next(req, res)\n}`,
-		},
-		{
-			id: 'module',
-			label: 'Manifest modulo',
-			code: `// modules/operators/__module__.ts\nexport default {\n  name: 'operators',\n  version: '1.0.0',\n  type: 'full',\n  enabled: true,\n  dependencies: [{ module: 'auth', version: 1 }],\n  initialize: async () => {\n    console.info('operators module ready')\n  },\n}`,
-		},
-		{
-			id: 'full',
-			label: 'Controller full',
-			code: `export default {\n  name: 'operatorList',\n  version: '1.0.0',\n  method: 'GET',\n  path: '/operators/list',\n  requireBefore: ['auth'],\n  handler: async (req, res, { events }) => {\n    events.emit('Operator$List$Completed', { ok: true })\n    return res.json({ ok: true, docs: [] })\n  },\n  handleError: async (req, res, err) => {\n    return res.status(500).json({ ok: false, error: String(err) })\n  },\n}`,
-		},
-		{
-			id: 'events',
-			label: 'Eventos',
-			code: `import { EventsDomain, RedisClient } from 's42-core'\n\nconst redis = RedisClient.getInstance('redis://localhost:6379')\nawait redis.connect()\n\nconst events = EventsDomain.getInstance(redis)\nevents.registerEmitter('OPERATORS.OPERATOR.CREATED', 'OPERATORS')\n\nevents.listen(\n  { eventName: 'OPERATORS.OPERATOR.CREATED' },\n  async (event) => console.info(event.payload),\n  'NOTIFICATIONS',\n)`,
-		},
-	],
-}
+const docsById = new Map(docsCatalog.map(document => [document.id, document]))
 
-const categoryOrder = [
-	'platform',
-	'modules',
-	'runtime',
-	'events',
-	'data',
-	'utilities',
-	'internal',
-]
-const categoryLabels = {
-	en: {
-		platform: 'Platform',
-		modules: 'Modules',
-		runtime: 'Runtime',
-		events: 'Events',
-		data: 'Data',
-		utilities: 'Utilities',
-		internal: 'Internal repository utilities',
-	},
-	es: {
-		platform: 'Plataforma',
-		modules: 'Modulos',
-		runtime: 'Runtime',
-		events: 'Eventos',
-		data: 'Datos',
-		utilities: 'Utilidades',
-		internal: 'Utilidades internas del repositorio',
-	},
+const elements = {
+	body: document.body,
+	navigation: document.querySelector('#docs-navigation'),
+	content: document.querySelector('#document-content'),
+	toc: document.querySelector('#table-of-contents'),
+	categoryBreadcrumb: document.querySelector('#breadcrumb-category'),
+	documentBreadcrumb: document.querySelector('#breadcrumb-document'),
+	fallbackNotice: document.querySelector('#fallback-notice'),
+	pagination: document.querySelector('#document-pagination'),
+	editLink: document.querySelector('#edit-link'),
+	menuToggle: document.querySelector('#menu-toggle'),
+	sidebarBackdrop: document.querySelector('#sidebar-backdrop'),
+	themeToggle: document.querySelector('#theme-toggle'),
+	searchTrigger: document.querySelector('#search-trigger'),
+	searchDialog: document.querySelector('#search-dialog'),
+	searchInput: document.querySelector('#search-input'),
+	searchClose: document.querySelector('#search-close'),
+	searchStatus: document.querySelector('#search-status'),
+	searchResults: document.querySelector('#search-results'),
+	copyStatus: document.querySelector('#copy-status'),
+	metaThemeColor: document.querySelector('meta[name="theme-color"]'),
 }
 
 const state = {
 	lang: 'en',
-	activeDocId: 'FRAMEWORK',
-	search: '',
-	activeExampleId: 'bootstrap',
+	documentId: DEFAULT_DOCUMENT,
+	markdownCache: new Map(),
+	searchIndexes: new Map(),
+	searchResults: [],
+	selectedSearchResult: -1,
+	headingObserver: null,
+	requestVersion: 0,
 }
 
-const fileToDocId = new Map(docsCatalog.map(doc => [doc.file.toLowerCase(), doc.id]))
-const terminalCommands = ['bun init', 'bun add s42-core', 'bun run typecheck', 'bun test']
+function t(key, value) {
+	const translated = i18n[state.lang][key]
+	return typeof translated === 'function' ? translated(value) : (translated ?? key)
+}
 
-function getInitialLang() {
+function categoryTitle(category) {
+	return i18n[state.lang].categories[category] ?? category
+}
+
+function getDocumentTitle(documentDefinition) {
+	return documentDefinition.title[state.lang] ?? documentDefinition.title.en
+}
+
+function getDocumentDescription(documentDefinition) {
+	return documentDefinition.description[state.lang] ?? documentDefinition.description.en
+}
+
+function buildDocumentURL(documentId, anchor = '') {
 	const url = new URL(window.location.href)
-	const byQuery = url.searchParams.get('lang')
-	if (byQuery === 'en' || byQuery === 'es') {
-		return byQuery
-	}
-
-	const path = window.location.pathname.toLowerCase()
-	if (path.startsWith('/es/')) {
-		return 'es'
-	}
-	if (path.startsWith('/en/')) {
-		return 'en'
-	}
-
-	const cached = window.localStorage.getItem('s42-lang')
-	return cached === 'es' ? 'es' : 'en'
+	url.search = ''
+	url.searchParams.set('lang', state.lang)
+	url.searchParams.set('doc', documentId)
+	url.hash = anchor ? `#${anchor}` : ''
+	return `${url.pathname}${url.search}${url.hash}`
 }
 
-function setLanguage(lang, pushQuery = true) {
-	state.lang = lang
-	window.localStorage.setItem('s42-lang', lang)
-
-	if (pushQuery) {
-		const url = new URL(window.location.href)
-		url.searchParams.set('lang', lang)
-		history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
-	}
-
-	document.documentElement.lang = lang
-	document.title =
-		lang === 'es' ?
-			'S42-Core | Framework Backend Bun-first orientado a modulos'
-		:	'S42-Core | Bun-First Modular Backend Framework'
-
-	const dict = i18n[lang]
-	document.querySelectorAll('[data-i18n]').forEach(el => {
-		const key = el.getAttribute('data-i18n')
-		if (key && dict[key]) {
-			el.textContent = dict[key]
-		}
-	})
-
-	const searchInput = document.getElementById('doc-search')
-	if (searchInput) {
-		searchInput.setAttribute('placeholder', dict.searchPlaceholder)
-	}
-
-	document.getElementById('lang-en')?.classList.toggle('active', lang === 'en')
-	document.getElementById('lang-es')?.classList.toggle('active', lang === 'es')
-
-	renderExamples()
-	renderDocList()
-	void renderDocContent()
+function setLocation(documentId, anchor, replace = false) {
+	const url = buildDocumentURL(documentId, anchor)
+	window.history[replace ? 'replaceState' : 'pushState'](
+		{ documentId, lang: state.lang },
+		'',
+		url,
+	)
 }
 
-function getFilteredDocs() {
-	const term = state.search.trim().toLowerCase()
-	if (!term) {
-		return docsCatalog
-	}
-
-	return docsCatalog.filter(doc => {
-		const title = doc.title[state.lang] || doc.title.en
-		return title.toLowerCase().includes(term) || doc.id.toLowerCase().includes(term)
-	})
-}
-
-function renderDocList() {
-	const host = document.getElementById('doc-list')
-	if (!host) return
-
-	const docs = getFilteredDocs()
-	const grouped = new Map()
-
-	for (const category of categoryOrder) {
-		grouped.set(category, [])
-	}
-
-	for (const doc of docs) {
-		if (!grouped.has(doc.category)) {
-			grouped.set(doc.category, [])
-		}
-		grouped.get(doc.category).push(doc)
-	}
-
-	host.innerHTML = ''
-
-	for (const category of categoryOrder) {
-		const items = grouped.get(category) || []
-		if (!items.length) continue
-
-		const title = document.createElement('p')
-		title.className =
-			'text-[11px] uppercase tracking-[0.15em] text-cyan-200/80 px-2 mt-3 mb-1'
-		title.textContent = categoryLabels[state.lang][category]
-		host.appendChild(title)
-
-		for (const doc of items) {
-			const btn = document.createElement('button')
-			btn.type = 'button'
-			btn.className = 'doc-item'
-			btn.textContent = doc.title[state.lang] || doc.title.en
-			btn.dataset.docId = doc.id
-			btn.classList.toggle('active', doc.id === state.activeDocId)
-			btn.addEventListener('click', () => {
-				state.activeDocId = doc.id
-				renderDocList()
-				void renderDocContent()
-			})
-			host.appendChild(btn)
-		}
-	}
-}
-
-function getActiveDoc() {
-	return docsCatalog.find(doc => doc.id === state.activeDocId) || docsCatalog[0]
-}
-
-async function fetchDoc(lang, filename) {
-	const response = await fetch(`${CONTENT_BASE}/${lang}/${filename}`)
-	if (!response.ok) {
-		throw new Error(`Failed to load ${filename} (${lang})`)
-	}
-	return response.text()
-}
-
-async function renderDocContent() {
-	const doc = getActiveDoc()
-	if (!doc) return
-
-	const titleEl = document.getElementById('doc-title')
-	const sourceEl = document.getElementById('doc-source')
-	const renderEl = document.getElementById('doc-render')
-	if (!titleEl || !sourceEl || !renderEl) return
-
-	titleEl.textContent = doc.title[state.lang] || doc.title.en
-	sourceEl.href = `${CONTENT_BASE}/${state.lang}/${doc.file}`
-
-	let markdown = ''
+function readPreference(key) {
 	try {
-		markdown = await fetchDoc(state.lang, doc.file)
+		return window.localStorage.getItem(key)
 	} catch {
-		markdown = `${i18n[state.lang].docUnavailable}\n\n`
-		markdown += await fetchDoc('en', doc.file)
-		sourceEl.href = `${CONTENT_BASE}/en/${doc.file}`
+		return null
 	}
-
-	renderEl.innerHTML = parseMarkdown(markdown)
-	bindDocJumpLinks(renderEl)
 }
 
-function parseMarkdown(markdown) {
-	const renderer = new marked.Renderer()
-	const defaultLink = renderer.link.bind(renderer)
-
-	renderer.link = (href, title, text) => {
-		const raw = String(href || '')
-		const match = raw.match(/(?:DOCUMENTATION\/|^\.\/)([A-Z_]+)(?:\.es)?\.md$/i)
-
-		if (match && match[1]) {
-			const file = `${match[1].toUpperCase()}.md`
-			const docId = fileToDocId.get(file.toLowerCase())
-			if (docId) {
-				return `<a href=\"#\" class=\"doc-jump\" data-doc-id=\"${docId}\">${text}</a>`
-			}
-		}
-
-		if (raw === './README.md' || raw === './README.es.md') {
-			const targetLang = raw.endsWith('.es.md') ? 'es' : 'en'
-			return `<a href=\"?lang=${targetLang}\">${text}</a>`
-		}
-
-		if (raw.startsWith('./')) {
-			const repositoryPath = raw.slice(2)
-			return defaultLink(`${REPOSITORY_BLOB_BASE}/${repositoryPath}`, title, text)
-		}
-
-		return defaultLink(href, title, text)
+function writePreference(key, value) {
+	try {
+		window.localStorage.setItem(key, value)
+	} catch {
+		// Preferences are optional; navigation remains functional without storage.
 	}
-
-	const cleaned = markdown.replace(/!\[[^\]]*\]\(\.\/DOCUMENTATION\/assets\/[^)]+\)/g, '')
-	return marked.parse(cleaned, { renderer })
 }
 
-function bindDocJumpLinks(scope) {
-	scope.querySelectorAll('.doc-jump').forEach(anchor => {
-		anchor.addEventListener('click', event => {
-			event.preventDefault()
-			const target = event.currentTarget
-			const docId = target?.dataset?.docId
-			if (!docId) return
+function resolveInitialState() {
+	const params = new URLSearchParams(window.location.search)
+	const requestedLanguage = params.get('lang')
+	const storedLanguage = readPreference('s42-docs-language')
+	const defaultLanguage = document.documentElement.dataset.defaultLang ?? 'en'
+	state.lang =
+		['en', 'es'].includes(requestedLanguage) ? requestedLanguage
+		: ['en', 'es'].includes(storedLanguage) ? storedLanguage
+		: defaultLanguage
 
-			state.activeDocId = docId
-			renderDocList()
-			void renderDocContent()
-			document.getElementById('documentation')?.scrollIntoView({ behavior: 'smooth' })
-		})
+	const requestedDocument = (params.get('doc') ?? '').toUpperCase()
+	state.documentId =
+		docsById.has(requestedDocument) ? requestedDocument : DEFAULT_DOCUMENT
+}
+
+function applyTranslations() {
+	document.documentElement.lang = state.lang
+	document.querySelectorAll('[data-i18n]').forEach(element => {
+		const key = element.dataset.i18n
+		if (key) element.textContent = t(key)
 	})
-}
 
-function renderExamples() {
-	const tabHost = document.getElementById('example-tabs')
-	const codeHost = document.getElementById('example-code')
-	if (!tabHost || !codeHost) return
-
-	const list = exampleSets[state.lang]
-	tabHost.innerHTML = ''
-
-	for (const sample of list) {
-		const btn = document.createElement('button')
-		btn.textContent = sample.label
-		btn.classList.toggle('active', sample.id === state.activeExampleId)
-		btn.addEventListener('click', () => {
-			state.activeExampleId = sample.id
-			renderExamples()
-		})
-		tabHost.appendChild(btn)
-	}
-
-	const active = list.find(it => it.id === state.activeExampleId) || list[0]
-	codeHost.textContent = active.code
-}
-
-function bindEvents() {
-	document.getElementById('lang-en')?.addEventListener('click', () => setLanguage('en'))
-	document.getElementById('lang-es')?.addEventListener('click', () => setLanguage('es'))
-
-	document.getElementById('doc-search')?.addEventListener('input', event => {
-		const target = event.target
-		state.search = target.value || ''
-		renderDocList()
-	})
-}
-
-function initRevealAnimations() {
-	const revealNodes = document.querySelectorAll('.reveal')
-	const observer = new IntersectionObserver(
-		entries => {
-			for (const entry of entries) {
-				if (entry.isIntersecting) {
-					entry.target.classList.add('visible')
-					observer.unobserve(entry.target)
-				}
-			}
-		},
-		{ threshold: 0.12 },
+	document.querySelector('.skip-link').textContent = t('skip')
+	document
+		.querySelector('#docs-sidebar')
+		.setAttribute('aria-label', t('sidebar.navigation'))
+	document
+		.querySelector('.language-switch')
+		.setAttribute('aria-label', t('language.label'))
+	document.querySelector('.toc').setAttribute('aria-label', t('toc.title'))
+	document.querySelector('#search-title').textContent = t('search.trigger')
+	elements.searchInput.placeholder = t('search.placeholder')
+	elements.searchClose.setAttribute('aria-label', t('search.close'))
+	elements.menuToggle.setAttribute(
+		'aria-label',
+		elements.body.classList.contains('sidebar-open') ? t('menu.close') : t('menu.open'),
 	)
 
-	revealNodes.forEach(node => observer.observe(node))
+	document.querySelectorAll('[data-lang]').forEach(button => {
+		button.setAttribute('aria-pressed', String(button.dataset.lang === state.lang))
+	})
+
+	updateThemeButtonLabel()
 }
 
-function initHeroTypewriter() {
-	const historyEl = document.getElementById('hero-terminal-history')
-	const textEl = document.getElementById('hero-terminal-text')
-	if (!historyEl || !textEl) return
+function renderNavigation() {
+	elements.navigation.replaceChildren()
 
-	const history = []
-	let commandIndex = 0
-	let charIndex = 0
+	for (const category of categoryOrder) {
+		const documents = docsCatalog.filter(document => document.category === category)
+		if (!documents.length) continue
 
-	const typeDelay = 44
-	const lineDelay = 650
-	const loopDelay = 1000
+		const section = document.createElement('section')
+		section.className = 'nav-group'
+		const heading = document.createElement('h2')
+		heading.className = 'nav-group__title'
+		heading.textContent = categoryTitle(category)
+		section.append(heading)
 
-	const run = () => {
-		const command = terminalCommands[commandIndex]
-		charIndex += 1
-		textEl.textContent = command.slice(0, charIndex)
+		const list = document.createElement('ul')
+		for (const documentDefinition of documents) {
+			const item = document.createElement('li')
+			const link = document.createElement('a')
+			link.className = 'doc-nav-link'
+			link.href = buildDocumentURL(documentDefinition.id)
+			link.dataset.documentId = documentDefinition.id
+			link.textContent = getDocumentTitle(documentDefinition)
+			if (documentDefinition.id === state.documentId) {
+				link.classList.add('is-active')
+				link.setAttribute('aria-current', 'page')
+			}
+			link.addEventListener('click', event => {
+				event.preventDefault()
+				void renderDocument(documentDefinition.id, { push: true })
+			})
+			item.append(link)
+			list.append(item)
+		}
 
-		if (charIndex < command.length) {
-			setTimeout(run, typeDelay)
+		section.append(list)
+		elements.navigation.append(section)
+	}
+}
+
+function updateActiveNavigation() {
+	document.querySelectorAll('.doc-nav-link').forEach(link => {
+		const active = link.dataset.documentId === state.documentId
+		link.classList.toggle('is-active', active)
+		if (active) link.setAttribute('aria-current', 'page')
+		else link.removeAttribute('aria-current')
+	})
+}
+
+async function fetchDocument(documentDefinition, language = state.lang) {
+	const requestedLanguage = documentDefinition.localized === false ? 'en' : language
+	const cacheKey = `${requestedLanguage}:${documentDefinition.id}`
+	if (state.markdownCache.has(cacheKey)) return state.markdownCache.get(cacheKey)
+
+	const fetchLanguage = async candidateLanguage => {
+		const response = await fetch(
+			`${CONTENT_BASE}/${candidateLanguage}/${documentDefinition.file}`,
+		)
+		if (!response.ok) throw new Error(`HTTP ${response.status}`)
+		return response.text()
+	}
+
+	let resolvedLanguage = requestedLanguage
+	let markdown
+	try {
+		markdown = await fetchLanguage(requestedLanguage)
+	} catch (error) {
+		if (requestedLanguage === 'en') throw error
+		resolvedLanguage = 'en'
+		markdown = await fetchLanguage('en')
+	}
+
+	const result = {
+		markdown,
+		language: resolvedLanguage,
+		fallback: resolvedLanguage !== language,
+	}
+	state.markdownCache.set(cacheKey, result)
+	return result
+}
+
+function renderLoading() {
+	elements.content.innerHTML = `
+		<div class="document-loading" role="status">
+			<span class="sr-only">Loading documentation</span>
+			<span class="loading-bar"></span>
+			<span class="loading-bar loading-bar--short"></span>
+			<span class="loading-block"></span>
+		</div>`
+}
+
+function renderError() {
+	const wrapper = document.createElement('div')
+	wrapper.className = 'document-error'
+	const heading = document.createElement('h1')
+	heading.textContent = t('document.errorTitle')
+	const body = document.createElement('p')
+	body.textContent = t('document.errorBody')
+	wrapper.append(heading, body)
+	elements.content.replaceChildren(wrapper)
+	elements.toc.replaceChildren()
+}
+
+async function renderDocument(documentId, options = {}) {
+	const documentDefinition = docsById.get(documentId) ?? docsById.get(DEFAULT_DOCUMENT)
+	const requestVersion = ++state.requestVersion
+	state.documentId = documentDefinition.id
+	updateActiveNavigation()
+	closeSidebar()
+	renderLoading()
+	elements.fallbackNotice.hidden = true
+	elements.categoryBreadcrumb.textContent = categoryTitle(documentDefinition.category)
+	elements.documentBreadcrumb.textContent = getDocumentTitle(documentDefinition)
+
+	const anchor = options.anchor ?? ''
+	if (options.push) setLocation(documentDefinition.id, anchor)
+
+	try {
+		const result = await fetchDocument(documentDefinition)
+		if (requestVersion !== state.requestVersion) return
+		if (!window.marked?.parse) throw new Error('Markdown renderer unavailable')
+
+		elements.content.innerHTML = window.marked.parse(result.markdown, {
+			gfm: true,
+			breaks: false,
+		})
+		enhanceArticle()
+		renderPagination()
+		updateSourceLink(documentDefinition, result.language)
+		updateDocumentMetadata(documentDefinition)
+
+		elements.fallbackNotice.hidden = !result.fallback
+		elements.fallbackNotice.textContent = result.fallback ? t('fallback.notice') : ''
+
+		window.requestAnimationFrame(() => {
+			const requestedAnchor = anchor || safeDecode(window.location.hash.slice(1))
+			if (requestedAnchor) {
+				const target = document.getElementById(requestedAnchor)
+				target?.scrollIntoView({ block: 'start' })
+				if (options.push && target) {
+					target.tabIndex = -1
+					target.focus({ preventScroll: true })
+				}
+			} else {
+				window.scrollTo({ top: 0, behavior: 'auto' })
+				const title = elements.content.querySelector('h1')
+				if (options.push && title) {
+					title.tabIndex = -1
+					title.focus({ preventScroll: true })
+				}
+			}
+		})
+	} catch (error) {
+		console.error('Unable to load documentation:', error)
+		if (requestVersion === state.requestVersion) renderError()
+	}
+}
+
+function updateDocumentMetadata(documentDefinition) {
+	const title = getDocumentTitle(documentDefinition)
+	const description = getDocumentDescription(documentDefinition)
+	const canonicalURL = new URL(
+		buildDocumentURL(documentDefinition.id),
+		window.location.origin,
+	).href
+	document.title = `${title} · S42-Core Docs`
+	document.querySelector('meta[name="description"]')?.setAttribute('content', description)
+	document.querySelector('link[rel="canonical"]')?.setAttribute('href', canonicalURL)
+	document
+		.querySelector('meta[property="og:title"]')
+		?.setAttribute('content', document.title)
+	document
+		.querySelector('meta[property="og:description"]')
+		?.setAttribute('content', description)
+	document.querySelector('meta[property="og:url"]')?.setAttribute('content', canonicalURL)
+}
+
+function updateSourceLink(documentDefinition, resolvedLanguage) {
+	const sourceFile =
+		resolvedLanguage === 'es' ?
+			`DOCUMENTATION/${documentDefinition.file.replace(/\.md$/, '.es.md')}`
+		:	`DOCUMENTATION/${documentDefinition.file}`
+	elements.editLink.href = `${REPOSITORY_BLOB_BASE}/${sourceFile}`
+}
+
+function slugify(value) {
+	return value
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+}
+
+function safeDecode(value) {
+	try {
+		return decodeURIComponent(value)
+	} catch {
+		return value
+	}
+}
+
+function assignHeadingIds() {
+	const counts = new Map()
+	const headings = Array.from(elements.content.querySelectorAll('h1, h2, h3'))
+	for (const heading of headings) {
+		if (heading.tagName === 'H1') {
+			heading.id = 'document-title'
+			continue
+		}
+		const base = slugify(heading.textContent) || 'section'
+		const count = counts.get(base) ?? 0
+		counts.set(base, count + 1)
+		heading.id = count === 0 ? base : `${base}-${count + 1}`
+
+		const anchor = document.createElement('a')
+		anchor.className = 'heading-anchor'
+		anchor.href = `#${heading.id}`
+		anchor.setAttribute('aria-label', t('heading.link', heading.textContent))
+		anchor.textContent = '#'
+		heading.prepend(anchor)
+	}
+	return headings
+}
+
+function renderTableOfContents(headings) {
+	state.headingObserver?.disconnect()
+	elements.toc.replaceChildren()
+	const sections = headings.filter(
+		heading => heading.tagName === 'H2' || heading.tagName === 'H3',
+	)
+	if (!sections.length) {
+		const empty = document.createElement('span')
+		empty.textContent = t('toc.empty')
+		empty.className = 'search-result__document'
+		elements.toc.append(empty)
+		return
+	}
+
+	const list = document.createElement('ul')
+	for (const heading of sections) {
+		const item = document.createElement('li')
+		const link = document.createElement('a')
+		link.href = `#${heading.id}`
+		link.dataset.headingId = heading.id
+		link.dataset.level = heading.tagName.slice(1)
+		link.textContent = heading.textContent.replace(/^#/, '')
+		link.addEventListener('click', event => {
+			event.preventDefault()
+			heading.scrollIntoView({ behavior: 'smooth', block: 'start' })
+			setLocation(state.documentId, heading.id, true)
+		})
+		item.append(link)
+		list.append(item)
+	}
+	elements.toc.append(list)
+
+	state.headingObserver = new IntersectionObserver(
+		entries => {
+			const visible = entries
+				.filter(entry => entry.isIntersecting)
+				.sort(
+					(left, right) => left.boundingClientRect.top - right.boundingClientRect.top,
+				)[0]
+			if (!visible) return
+			elements.toc.querySelectorAll('a').forEach(link => {
+				link.classList.toggle('is-active', link.dataset.headingId === visible.target.id)
+			})
+		},
+		{ rootMargin: '-15% 0px -72% 0px', threshold: [0, 1] },
+	)
+	sections.forEach(heading => state.headingObserver.observe(heading))
+}
+
+function resolveDocumentFromMarkdownLink(href) {
+	if (!href || /^(https?:|mailto:|tel:)/i.test(href)) return null
+	const [path, rawAnchor = ''] = href.split('#')
+	if (!path.toLowerCase().endsWith('.md')) return null
+
+	const filename = safeDecode(path.split('/').pop() ?? '')
+	const normalized = filename.replace(/\.es\.md$/i, '.md').toUpperCase()
+	if (normalized === 'README.MD' || normalized === 'README.ES.MD') {
+		return { documentId: 'FRAMEWORK', anchor: rawAnchor }
+	}
+	const definition = docsCatalog.find(
+		document => document.file.toUpperCase() === normalized,
+	)
+	return definition ? { documentId: definition.id, anchor: rawAnchor } : null
+}
+
+function enhanceLinks() {
+	elements.content.querySelectorAll('a[href]').forEach(link => {
+		const href = link.getAttribute('href')
+		const internal = resolveDocumentFromMarkdownLink(href)
+		if (internal) {
+			link.href = buildDocumentURL(internal.documentId, internal.anchor)
+			link.addEventListener('click', event => {
+				event.preventDefault()
+				void renderDocument(internal.documentId, {
+					push: true,
+					anchor: internal.anchor,
+				})
+			})
 			return
 		}
 
-		history.push(`$ ${command}`)
-		while (history.length > 4) {
-			history.shift()
+		if (href?.startsWith('#')) {
+			link.addEventListener('click', () => {
+				setLocation(state.documentId, href.slice(1), true)
+			})
+			return
 		}
-		historyEl.textContent = history.join('\n')
 
-		textEl.textContent = ''
-		charIndex = 0
-		commandIndex = (commandIndex + 1) % terminalCommands.length
+		if (href && href.split('#')[0].toLowerCase().endsWith('.md')) {
+			const [rawPath, rawAnchor = ''] = href.split('#')
+			const repositoryPath = rawPath.replace(/^\.\//, '').replace(/^\.\.\//, '')
+			link.href = `${REPOSITORY_BLOB_BASE}/${repositoryPath}${rawAnchor ? `#${rawAnchor}` : ''}`
+			link.target = '_blank'
+			link.rel = 'noreferrer'
+			return
+		}
 
-		setTimeout(run, commandIndex === 0 ? loopDelay : lineDelay)
+		if (/^https?:/i.test(href ?? '')) {
+			link.target = '_blank'
+			link.rel = 'noreferrer'
+		}
+	})
+}
+
+function enhanceImages() {
+	elements.content.querySelectorAll('img[src]').forEach(image => {
+		const source = image.getAttribute('src') ?? ''
+		const assetMatch = source.match(
+			/(?:DOCUMENTATION\/assets|\.\.\/assets|\.\/assets)\/(.+)$/,
+		)
+		if (assetMatch)
+			image.src = `${REPOSITORY_RAW_BASE}/DOCUMENTATION/assets/${assetMatch[1]}`
+		image.loading = 'lazy'
+		image.decoding = 'async'
+	})
+}
+
+async function copyText(value) {
+	if (navigator.clipboard?.writeText) {
+		await navigator.clipboard.writeText(value)
+		return
+	}
+	const textarea = document.createElement('textarea')
+	textarea.value = value
+	textarea.style.position = 'fixed'
+	textarea.style.opacity = '0'
+	document.body.append(textarea)
+	textarea.select()
+	document.execCommand('copy')
+	textarea.remove()
+}
+
+function enhanceCodeBlocks() {
+	elements.content.querySelectorAll('pre').forEach(pre => {
+		if (pre.parentElement?.classList.contains('code-block')) return
+		const code = pre.querySelector('code')
+		const languageClass = Array.from(code?.classList ?? []).find(name =>
+			name.startsWith('language-'),
+		)
+		const language = languageClass?.replace('language-', '') ?? 'text'
+
+		const wrapper = document.createElement('div')
+		wrapper.className = 'code-block'
+		const toolbar = document.createElement('div')
+		toolbar.className = 'code-block__toolbar'
+		const label = document.createElement('span')
+		label.className = 'code-block__language'
+		label.textContent = language
+		const copyButton = document.createElement('button')
+		copyButton.className = 'copy-button'
+		copyButton.type = 'button'
+		copyButton.textContent = t('copy.label')
+		copyButton.addEventListener('click', async () => {
+			try {
+				await copyText(code?.textContent ?? pre.textContent ?? '')
+				copyButton.textContent = t('copy.done')
+				elements.copyStatus.textContent = t('copy.status')
+				window.setTimeout(() => {
+					copyButton.textContent = t('copy.label')
+				}, 1_600)
+			} catch (error) {
+				console.error('Unable to copy code:', error)
+			}
+		})
+
+		toolbar.append(label, copyButton)
+		pre.replaceWith(wrapper)
+		wrapper.append(toolbar, pre)
+	})
+}
+
+function enhanceArticle() {
+	const headings = assignHeadingIds()
+	enhanceLinks()
+	enhanceImages()
+	enhanceCodeBlocks()
+	renderTableOfContents(headings)
+}
+
+function renderPagination() {
+	elements.pagination.replaceChildren()
+	const index = docsCatalog.findIndex(document => document.id === state.documentId)
+	const previous = docsCatalog[index - 1]
+	const next = docsCatalog[index + 1]
+
+	if (previous) elements.pagination.append(createPaginationLink(previous, 'previous'))
+	else elements.pagination.append(document.createElement('span'))
+	if (next) elements.pagination.append(createPaginationLink(next, 'next'))
+}
+
+function createPaginationLink(documentDefinition, direction) {
+	const link = document.createElement('a')
+	link.className = `pagination-link pagination-link--${direction}`
+	link.href = buildDocumentURL(documentDefinition.id)
+	const label = document.createElement('span')
+	label.className = 'pagination-link__direction'
+	label.textContent = t(`pagination.${direction}`)
+	const title = document.createElement('span')
+	title.className = 'pagination-link__title'
+	title.textContent = getDocumentTitle(documentDefinition)
+	link.append(label, title)
+	link.addEventListener('click', event => {
+		event.preventDefault()
+		void renderDocument(documentDefinition.id, { push: true })
+	})
+	return link
+}
+
+function openSidebar() {
+	elements.body.classList.add('sidebar-open')
+	elements.sidebarBackdrop.hidden = false
+	elements.menuToggle.setAttribute('aria-expanded', 'true')
+	elements.menuToggle.setAttribute('aria-label', t('menu.close'))
+}
+
+function closeSidebar() {
+	elements.body.classList.remove('sidebar-open')
+	elements.sidebarBackdrop.hidden = true
+	elements.menuToggle.setAttribute('aria-expanded', 'false')
+	elements.menuToggle.setAttribute('aria-label', t('menu.open'))
+}
+
+function setLanguage(language) {
+	if (!['en', 'es'].includes(language) || language === state.lang) return
+	state.lang = language
+	writePreference('s42-docs-language', language)
+	applyTranslations()
+	renderNavigation()
+	setLocation(state.documentId, '', true)
+	void renderDocument(state.documentId)
+	if (elements.searchDialog.open) void prepareSearch()
+}
+
+function resolveTheme() {
+	const stored = readPreference('s42-docs-theme')
+	if (stored === 'light' || stored === 'dark') return stored
+	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function applyTheme(theme) {
+	document.documentElement.dataset.theme = theme
+	elements.metaThemeColor?.setAttribute(
+		'content',
+		theme === 'dark' ? '#0d1119' : '#f7f8fb',
+	)
+	updateThemeButtonLabel()
+}
+
+function updateThemeButtonLabel() {
+	const current = document.documentElement.dataset.theme
+	elements.themeToggle.setAttribute(
+		'aria-label',
+		t(current === 'dark' ? 'theme.light' : 'theme.dark'),
+	)
+}
+
+function toggleTheme() {
+	const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
+	writePreference('s42-docs-theme', next)
+	applyTheme(next)
+}
+
+function stripMarkdown(markdown) {
+	return markdown
+		.replace(/```[^\n]*\n?/g, ' ')
+		.replace(/`([^`]+)`/g, '$1')
+		.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+		.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/[*_>#|~-]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim()
+}
+
+function normalizeSearch(value) {
+	return value
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.trim()
+}
+
+function sectionsFromMarkdown(documentDefinition, markdown) {
+	const lines = markdown.split('\n')
+	const sections = []
+	const counts = new Map()
+	let current = {
+		heading: getDocumentTitle(documentDefinition),
+		anchor: '',
+		lines: [],
 	}
 
-	setTimeout(run, 420)
+	const pushCurrent = () => {
+		const content = stripMarkdown(current.lines.join('\n'))
+		if (content || !sections.length) {
+			sections.push({
+				documentId: documentDefinition.id,
+				documentTitle: getDocumentTitle(documentDefinition),
+				category: documentDefinition.category,
+				heading: stripMarkdown(current.heading),
+				anchor: current.anchor,
+				content,
+				description: getDocumentDescription(documentDefinition),
+			})
+		}
+	}
+
+	for (const line of lines) {
+		const headingMatch = line.match(/^(#{2,3})\s+(.+)$/)
+		if (!headingMatch) {
+			current.lines.push(line)
+			continue
+		}
+
+		pushCurrent()
+		const headingText = stripMarkdown(headingMatch[2])
+		const base = slugify(headingText) || 'section'
+		const count = counts.get(base) ?? 0
+		counts.set(base, count + 1)
+		current = {
+			heading: headingText,
+			anchor: count === 0 ? base : `${base}-${count + 1}`,
+			lines: [],
+		}
+	}
+	pushCurrent()
+	return sections
 }
 
-async function init() {
-	const initialLang = getInitialLang()
-	state.lang = initialLang
+async function buildSearchIndex() {
+	if (state.searchIndexes.has(state.lang)) return state.searchIndexes.get(state.lang)
+
+	const sections = (
+		await Promise.all(
+			docsCatalog.map(async documentDefinition => {
+				try {
+					const result = await fetchDocument(documentDefinition, state.lang)
+					return sectionsFromMarkdown(documentDefinition, result.markdown)
+				} catch (error) {
+					console.error(`Unable to index ${documentDefinition.id}:`, error)
+					return []
+				}
+			}),
+		)
+	).flat()
+
+	state.searchIndexes.set(state.lang, sections)
+	return sections
+}
+
+function scoreSearchEntry(entry, tokens) {
+	const documentTitle = normalizeSearch(entry.documentTitle)
+	const heading = normalizeSearch(entry.heading)
+	const description = normalizeSearch(entry.description)
+	const content = normalizeSearch(entry.content)
+	let score = 0
+
+	for (const token of tokens) {
+		const present =
+			documentTitle.includes(token) ||
+			heading.includes(token) ||
+			description.includes(token) ||
+			content.includes(token)
+		if (!present) return 0
+
+		if (documentTitle === token) score += 18
+		else if (documentTitle.startsWith(token)) score += 12
+		else if (documentTitle.includes(token)) score += 8
+		if (heading === token) score += 14
+		else if (heading.startsWith(token)) score += 9
+		else if (heading.includes(token)) score += 6
+		if (description.includes(token)) score += 3
+		if (content.includes(token)) score += 1
+	}
+	return score
+}
+
+function createSnippet(content, token) {
+	if (!content) return ''
+	const normalized = normalizeSearch(content)
+	const index = normalized.indexOf(token)
+	const start = Math.max(0, index < 0 ? 0 : index - 55)
+	const end = Math.min(content.length, start + 150)
+	return `${start > 0 ? '…' : ''}${content.slice(start, end).trim()}${end < content.length ? '…' : ''}`
+}
+
+function searchIndex(index, query) {
+	const normalizedQuery = normalizeSearch(query)
+	if (!normalizedQuery) return []
+	const tokens = normalizedQuery.split(/\s+/).filter(Boolean)
+	return index
+		.map(entry => ({
+			...entry,
+			score: scoreSearchEntry(entry, tokens),
+			snippet: createSnippet(entry.content || entry.description, tokens[0]),
+		}))
+		.filter(entry => entry.score > 0)
+		.sort(
+			(left, right) =>
+				right.score - left.score || left.documentTitle.localeCompare(right.documentTitle),
+		)
+		.slice(0, 12)
+}
+
+function recommendedSearchResults() {
+	return ['GETTING_STARTED', 'MODULES', 'SQL', 'EVENTSDOMAIN', 'SERVER'].map(
+		documentId => {
+			const documentDefinition = docsById.get(documentId)
+			return {
+				documentId,
+				documentTitle: getDocumentTitle(documentDefinition),
+				category: documentDefinition.category,
+				heading: getDocumentTitle(documentDefinition),
+				anchor: '',
+				snippet: getDocumentDescription(documentDefinition),
+			}
+		},
+	)
+}
+
+function renderSearchResults(results) {
+	state.searchResults = results
+	state.selectedSearchResult = results.length ? 0 : -1
+	elements.searchResults.replaceChildren()
+
+	if (!results.length) {
+		const empty = document.createElement('div')
+		empty.className = 'search-empty'
+		const content = document.createElement('p')
+		const title = document.createElement('strong')
+		title.textContent = t('search.noResults')
+		const hint = document.createElement('span')
+		hint.textContent = t('search.noResultsHint')
+		content.append(title, hint)
+		empty.append(content)
+		elements.searchResults.append(empty)
+		return
+	}
+
+	results.forEach((result, index) => {
+		const button = document.createElement('button')
+		button.type = 'button'
+		button.className = `search-result${index === 0 ? ' is-selected' : ''}`
+		button.setAttribute('role', 'option')
+		button.setAttribute('aria-selected', String(index === 0))
+		button.dataset.resultIndex = String(index)
+
+		const icon = document.createElement('span')
+		icon.className = 'search-result__icon'
+		icon.textContent = result.documentId.slice(0, 1)
+		const content = document.createElement('span')
+		content.className = 'search-result__content'
+		const title = document.createElement('span')
+		title.className = 'search-result__title'
+		title.textContent = result.heading
+		content.append(title)
+		if (result.heading !== result.documentTitle) {
+			const documentName = document.createElement('span')
+			documentName.className = 'search-result__document'
+			documentName.textContent = result.documentTitle
+			content.append(documentName)
+		}
+		const snippet = document.createElement('span')
+		snippet.className = 'search-result__snippet'
+		snippet.textContent = result.snippet
+		content.append(snippet)
+		const category = document.createElement('span')
+		category.className = 'search-result__category'
+		category.textContent = categoryTitle(result.category)
+
+		button.append(icon, content, category)
+		button.addEventListener('mouseenter', () => selectSearchResult(index))
+		button.addEventListener('click', () => openSearchResult(index))
+		elements.searchResults.append(button)
+	})
+}
+
+function selectSearchResult(index) {
+	if (!state.searchResults.length) return
+	const normalized = (index + state.searchResults.length) % state.searchResults.length
+	state.selectedSearchResult = normalized
+	elements.searchResults
+		.querySelectorAll('.search-result')
+		.forEach((result, resultIndex) => {
+			const selected = resultIndex === normalized
+			result.classList.toggle('is-selected', selected)
+			result.setAttribute('aria-selected', String(selected))
+			if (selected) result.scrollIntoView({ block: 'nearest' })
+		})
+}
+
+function openSearchResult(index = state.selectedSearchResult) {
+	const result = state.searchResults[index]
+	if (!result) return
+	elements.searchDialog.close()
+	void renderDocument(result.documentId, {
+		push: true,
+		anchor: result.anchor,
+	})
+}
+
+async function prepareSearch() {
+	elements.searchStatus.textContent = t('search.loading')
+	renderSearchResults(recommendedSearchResults())
+	const index = await buildSearchIndex()
+	if (!elements.searchDialog.open) return
+	const query = elements.searchInput.value
+	if (query.trim()) {
+		const results = searchIndex(index, query)
+		elements.searchStatus.textContent = t('search.results', results.length)
+		renderSearchResults(results)
+	} else {
+		elements.searchStatus.textContent = t('search.ready')
+		renderSearchResults(recommendedSearchResults())
+	}
+}
+
+function openSearch() {
+	if (!elements.searchDialog.open) elements.searchDialog.showModal()
+	elements.searchInput.value = ''
+	elements.searchStatus.textContent = t('search.loading')
+	renderSearchResults(recommendedSearchResults())
+	window.requestAnimationFrame(() => elements.searchInput.focus())
+	void prepareSearch()
+}
+
+function bindEvents() {
+	elements.menuToggle.addEventListener('click', () => {
+		if (elements.body.classList.contains('sidebar-open')) closeSidebar()
+		else openSidebar()
+	})
+	elements.sidebarBackdrop.addEventListener('click', closeSidebar)
+	elements.themeToggle.addEventListener('click', toggleTheme)
+	elements.searchTrigger.addEventListener('click', openSearch)
+	elements.searchClose.addEventListener('click', () => elements.searchDialog.close())
+
+	document.querySelectorAll('[data-lang]').forEach(button => {
+		button.addEventListener('click', () => setLanguage(button.dataset.lang))
+	})
+
+	document.querySelectorAll('[data-doc-link]').forEach(link => {
+		link.addEventListener('click', event => {
+			event.preventDefault()
+			void renderDocument(link.dataset.docLink, { push: true })
+		})
+	})
+
+	elements.searchInput.addEventListener('input', async () => {
+		const index = await buildSearchIndex()
+		const query = elements.searchInput.value
+		if (!query.trim()) {
+			elements.searchStatus.textContent = t('search.ready')
+			renderSearchResults(recommendedSearchResults())
+			return
+		}
+		const results = searchIndex(index, query)
+		elements.searchStatus.textContent = t('search.results', results.length)
+		renderSearchResults(results)
+	})
+
+	elements.searchInput.addEventListener('keydown', event => {
+		if (event.key === 'ArrowDown') {
+			event.preventDefault()
+			selectSearchResult(state.selectedSearchResult + 1)
+		} else if (event.key === 'ArrowUp') {
+			event.preventDefault()
+			selectSearchResult(state.selectedSearchResult - 1)
+		} else if (event.key === 'Enter') {
+			event.preventDefault()
+			openSearchResult()
+		}
+	})
+
+	elements.searchDialog.addEventListener('click', event => {
+		if (event.target !== elements.searchDialog) return
+		const rect = elements.searchDialog.getBoundingClientRect()
+		const inside =
+			event.clientX >= rect.left &&
+			event.clientX <= rect.right &&
+			event.clientY >= rect.top &&
+			event.clientY <= rect.bottom
+		if (!inside) elements.searchDialog.close()
+	})
+
+	document.addEventListener('keydown', event => {
+		const target = event.target
+		const isTyping =
+			target instanceof HTMLInputElement ||
+			target instanceof HTMLTextAreaElement ||
+			target?.isContentEditable
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+			event.preventDefault()
+			openSearch()
+		} else if (event.key === '/' && !isTyping && !elements.searchDialog.open) {
+			event.preventDefault()
+			openSearch()
+		} else if (
+			event.key === 'Escape' &&
+			elements.body.classList.contains('sidebar-open')
+		) {
+			closeSidebar()
+			elements.menuToggle.focus()
+		}
+	})
+
+	window.addEventListener('popstate', () => {
+		resolveInitialState()
+		applyTranslations()
+		renderNavigation()
+		void renderDocument(state.documentId, {
+			anchor: safeDecode(window.location.hash.slice(1)),
+		})
+	})
+
+	window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+		if (!readPreference('s42-docs-theme')) applyTheme(event.matches ? 'dark' : 'light')
+	})
+}
+
+function initialize() {
+	resolveInitialState()
+	applyTheme(resolveTheme())
+	applyTranslations()
+	renderNavigation()
 	bindEvents()
-	initRevealAnimations()
-	initHeroTypewriter()
-	setLanguage(initialLang, true)
+	document.querySelector('.platform-key').textContent =
+		/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
+	setLocation(state.documentId, safeDecode(window.location.hash.slice(1)), true)
+	void renderDocument(state.documentId, {
+		anchor: safeDecode(window.location.hash.slice(1)),
+	})
 }
 
-void init()
+initialize()

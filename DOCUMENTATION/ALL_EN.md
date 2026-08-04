@@ -1446,6 +1446,30 @@ bun test
 The main typecheck, lint, and tests pass in the current checkout.
 `typecheck:modules` reports the known missing fixture listed above.
 
+### Website publication model
+
+`DOCUMENTATION/` is canonical. The static website keeps byte-identical content
+mirrors under `docs/content/en/` and `docs/content/es/`; English files keep their
+name, while `NAME.es.md` maps to `docs/content/es/NAME.md`. The English and
+Spanish root READMEs are mirrored as each language's `FRAMEWORK.md`.
+
+`docs/index.html` is a semantic shell. `docs/app.js` loads only files declared
+in its fixed catalog, renders trusted repository Markdown with Marked, and adds
+navigation, heading links, full-text search, code-copy controls, generated
+tables of contents, language fallback, and adjacent-document links. Raw HTML in
+Markdown is therefore trusted repository content, not user input.
+
+Shareable website state uses:
+
+```text
+/?lang=en&doc=SQL#transactions
+/?lang=es&doc=SQL#transacciones
+```
+
+When a component guide changes, update the canonical EN/ES files and both
+mirrors in the same commit. When a new guide is added, also register it in the
+website catalog.
+
 Component documents:
 
 - [GETTING STARTED](./GETTING_STARTED.md)

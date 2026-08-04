@@ -1,13 +1,26 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="refresh" content="0; url=/?lang=en" />
-    <title>Redirecting...</title>
-    <script>
-      window.location.replace('/?lang=en')
-    </script>
-  </head>
-  <body></body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0"
+		/>
+		<meta
+			http-equiv="refresh"
+			content="0; url=../?lang=en"
+		/>
+		<title>Opening S42-Core documentation…</title>
+		<script>
+			const target = new URL('../', window.location.href)
+			const current = new URL(window.location.href)
+			for (const [key, value] of current.searchParams) target.searchParams.set(key, value)
+			target.searchParams.set('lang', 'en')
+			target.hash = current.hash
+			window.location.replace(target)
+		</script>
+	</head>
+	<body>
+		<a href="../?lang=en">Open the English documentation</a>
+	</body>
 </html>

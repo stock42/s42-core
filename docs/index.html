@@ -2,6 +2,7 @@
 <html
 	lang="en"
 	data-default-lang="en"
+	data-theme="light"
 >
 	<head>
 		<meta charset="UTF-8" />
@@ -9,10 +10,18 @@
 			name="viewport"
 			content="width=device-width, initial-scale=1.0"
 		/>
-		<title>S42-Core | Bun-First Modular Backend Framework</title>
+		<meta
+			name="theme-color"
+			content="#f7f8fb"
+		/>
+		<title>S42-Core Documentation</title>
 		<meta
 			name="description"
-			content="S42-Core 3.0.10 is a Bun-first TypeScript backend framework for HTTP APIs, modular services, distributed events and persistence."
+			content="Example-first documentation for S42-Core, the Bun-first modular backend framework."
+		/>
+		<link
+			rel="canonical"
+			href="https://s42core.com/"
 		/>
 
 		<link
@@ -43,19 +52,27 @@
 
 		<meta
 			property="og:title"
-			content="S42-Core Framework"
+			content="S42-Core Documentation"
 		/>
 		<meta
 			property="og:description"
-			content="S42-Core 3.0.10: a Bun-first TypeScript framework for modular backend services."
+			content="Build modular Bun backends through practical examples and source-aligned API references."
 		/>
 		<meta
 			property="og:image"
-			content="./logo.png"
+			content="https://s42core.com/logo.png"
 		/>
 		<meta
 			property="og:type"
 			content="website"
+		/>
+		<meta
+			property="og:url"
+			content="https://s42core.com/"
+		/>
+		<meta
+			name="twitter:card"
+			content="summary"
 		/>
 
 		<link
@@ -68,492 +85,369 @@
 			crossorigin
 		/>
 		<link
-			href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+			href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
 			rel="stylesheet"
 		/>
-
-		<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-		<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+		<script>
+			try {
+				const storedTheme = window.localStorage.getItem('s42-docs-theme')
+				document.documentElement.dataset.theme =
+					storedTheme === 'light' || storedTheme === 'dark' ? storedTheme
+					: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark'
+					: 'light'
+			} catch {
+				document.documentElement.dataset.theme = 'light'
+			}
+		</script>
 		<link
 			rel="stylesheet"
 			href="./styles.css"
 		/>
+		<script
+			defer
+			src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+		></script>
+		<script
+			defer
+			src="./app.js"
+		></script>
 	</head>
-	<body class="text-slate-100">
-		<div class="bg-mesh"></div>
-		<div class="noise"></div>
-
-		<header
-			class="sticky top-0 z-40 backdrop-blur-xl bg-slate-950/55 border-b border-cyan-300/15"
+	<body>
+		<a
+			class="skip-link"
+			href="#main-content"
+			>Skip to documentation</a
 		>
-			<nav
-				class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between"
-			>
+
+		<header class="topbar">
+			<div class="topbar__inner">
+				<button
+					id="menu-toggle"
+					class="icon-button mobile-only"
+					type="button"
+					aria-label="Open documentation menu"
+					aria-controls="docs-sidebar"
+					aria-expanded="false"
+				>
+					<svg
+						aria-hidden="true"
+						viewBox="0 0 24 24"
+					>
+						<path d="M4 7h16M4 12h16M4 17h16" />
+					</svg>
+				</button>
+
 				<a
-					href="#home"
-					class="flex items-center gap-3"
+					class="brand"
+					href="./?doc=GETTING_STARTED"
+					data-doc-link="GETTING_STARTED"
 				>
 					<img
 						src="./logo.png"
-						alt="S42-Core logo"
-						class="w-9 h-9 rounded-full ring-2 ring-cyan-300/35"
+						alt=""
+						width="34"
+						height="34"
 					/>
-					<span class="text-lg font-semibold tracking-wide">S42-Core</span>
+					<span class="brand__name">S42-Core</span>
+					<span class="version-badge">v3.0.10</span>
 				</a>
 
-				<div class="hidden md:flex items-center gap-6 text-sm">
+				<button
+					id="search-trigger"
+					class="search-trigger"
+					type="button"
+				>
+					<svg
+						aria-hidden="true"
+						viewBox="0 0 24 24"
+					>
+						<circle
+							cx="11"
+							cy="11"
+							r="7"
+						/>
+						<path d="m16.2 16.2 4 4" />
+					</svg>
+					<span data-i18n="search.trigger">Search documentation</span>
+					<kbd><span class="platform-key">Ctrl</span> K</kbd>
+				</button>
+
+				<div class="topbar__actions">
 					<a
-						href="#architecture"
-						class="nav-link"
-						data-i18n="nav.architecture"
-						>Architecture</a
-					>
-					<a
-						href="#modules"
-						class="nav-link"
-						data-i18n="nav.modules"
-						>Modules</a
-					>
-					<a
-						href="#examples"
-						class="nav-link"
-						data-i18n="nav.examples"
-						>Examples</a
-					>
-					<a
-						href="#documentation"
-						class="nav-link"
-						data-i18n="nav.documentation"
-						>Documentation</a
-					>
-				</div>
-
-				<div class="flex items-center gap-3">
-					<div class="hidden lg:flex items-center gap-3 text-xs">
-						<a
-							href="https://github.com/stock42/s42-core"
-							target="_blank"
-							rel="noreferrer"
-							class="nav-link"
-							>GitHub</a
-						>
-						<a
-							href="https://twitter.com/stock42ok"
-							target="_blank"
-							rel="noreferrer"
-							class="nav-link"
-							>X</a
-						>
-						<a
-							href="https://www.linkedin.com/company/stock42/"
-							target="_blank"
-							rel="noreferrer"
-							class="nav-link"
-							>LinkedIn</a
-						>
-					</div>
-					<button
-						id="lang-en"
-						class="lang-btn"
-					>
-						EN
-					</button>
-					<button
-						id="lang-es"
-						class="lang-btn"
-					>
-						ES
-					</button>
-				</div>
-			</nav>
-		</header>
-
-		<main>
-			<section
-				id="home"
-				class="relative overflow-hidden"
-			>
-				<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 pb-20 md:pt-24 md:pb-28">
-					<div class="grid lg:grid-cols-2 gap-10 items-center">
-						<div class="space-y-7 reveal">
-							<span
-								class="inline-flex items-center rounded-full border border-cyan-300/35 bg-cyan-400/10 px-3 py-1 text-xs tracking-wide uppercase text-cyan-200"
-								data-i18n="hero.badge"
-							>
-								Bun-First · Module-Oriented
-							</span>
-
-							<h1
-								class="text-4xl sm:text-5xl lg:text-6xl font-semibold leading-tight"
-								data-i18n="hero.title"
-							>
-								Build autonomous backend modules with production-grade velocity.
-							</h1>
-
-							<p
-								class="text-slate-300 text-lg max-w-2xl"
-								data-i18n="hero.subtitle"
-							>
-								S42-Core 3.0.10 combines HTTP routing, convention-based modules,
-								distributed events and persistence helpers on Bun.
-							</p>
-
-							<div class="flex flex-wrap gap-3">
-								<a
-									href="#documentation"
-									class="btn-primary"
-									data-i18n="hero.ctaDocs"
-									>Explore Documentation</a
-								>
-								<a
-									href="#examples"
-									class="btn-secondary"
-									data-i18n="hero.ctaExamples"
-									>View Examples</a
-								>
-							</div>
-
-							<a
-								href="https://stock42.com"
-								target="_blank"
-								rel="noreferrer"
-								class="inline-flex items-center gap-3 rounded-xl border border-cyan-300/25 bg-slate-900/60 px-3 py-2 w-fit hover:bg-slate-900/85 transition"
-							>
-								<img
-									src="./stock42-logo.png"
-									alt="Stock42 logo"
-									class="h-7 w-auto"
-								/>
-								<span
-									class="text-sm text-cyan-100"
-									data-i18n="hero.stock42"
-									>Built by Stock42 LLC</span
-								>
-							</a>
-
-							<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-								<article class="metric-card">
-									<p class="metric-value">v3.0.10</p>
-									<p
-										class="metric-label"
-										data-i18n="hero.metricVersion"
-									>
-										Current Version
-									</p>
-								</article>
-								<article class="metric-card">
-									<p class="metric-value">3</p>
-									<p
-										class="metric-label"
-										data-i18n="hero.metricModuleTypes"
-									>
-										Module Types
-									</p>
-								</article>
-								<article class="metric-card">
-									<p class="metric-value">Bun</p>
-									<p
-										class="metric-label"
-										data-i18n="hero.metricRuntime"
-									>
-										Native Runtime
-									</p>
-								</article>
-								<article class="metric-card">
-									<p class="metric-value">EN/ES</p>
-									<p
-										class="metric-label"
-										data-i18n="hero.metricLang"
-									>
-										Documentation
-									</p>
-								</article>
-							</div>
-						</div>
-
-						<div class="relative reveal delay-1">
-							<div class="hero-frame">
-								<div class="orb orb-a"></div>
-								<div class="orb orb-b"></div>
-								<div class="orb orb-c"></div>
-								<div
-									class="rounded-2xl border border-cyan-300/25 bg-slate-900/70 p-4 md:p-6 shadow-2xl shadow-cyan-900/35"
-								>
-									<p
-										class="text-xs uppercase tracking-[0.2em] text-cyan-200/90 mb-3"
-										data-i18n="hero.diagramTitle"
-									>
-										Module Runtime Lifecycle
-									</p>
-									<div class="space-y-3 text-sm">
-										<div class="flow-step">
-											<span>1</span>
-											<p data-i18n="hero.flow1">Load <code>mws</code> modules first</p>
-										</div>
-										<div class="flow-step">
-											<span>2</span>
-											<p data-i18n="hero.flow2">Register <code>share</code> modules</p>
-										</div>
-										<div class="flow-step">
-											<span>3</span>
-											<p data-i18n="hero.flow3">
-												Load <code>full</code> controllers and events
-											</p>
-										</div>
-										<div class="flow-step">
-											<span>4</span>
-											<p data-i18n="hero.flow4">
-												Run optional <code>initialize</code> hooks
-											</p>
-										</div>
-									</div>
-
-									<div class="terminal-box mt-4">
-										<p
-											class="terminal-title"
-											data-i18n="hero.terminalTitle"
-										>
-											Quickstart Terminal
-										</p>
-										<div
-											id="hero-terminal-screen"
-											class="terminal-screen"
-											aria-live="polite"
-										>
-											<pre
-												id="hero-terminal-history"
-												class="terminal-history"
-											></pre>
-											<div class="terminal-current-line">
-												<span class="terminal-prompt">$</span>
-												<span id="hero-terminal-text"></span>
-												<span class="terminal-cursor"></span>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<section
-				id="architecture"
-				class="section-shell"
-			>
-				<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-					<div class="section-title reveal">
-						<p
-							class="eyebrow"
-							data-i18n="architecture.eyebrow"
-						>
-							Platform Design
-						</p>
-						<h2 data-i18n="architecture.title">
-							Corporate-grade backend architecture on Bun
-						</h2>
-						<p data-i18n="architecture.subtitle">
-							S42-Core combines routing, modular loading, events, storage adapters and
-							clustering in a cohesive developer experience.
-						</p>
-					</div>
-
-					<div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-8">
-						<article class="feature-card reveal">
-							<h3>HTTP</h3>
-							<p data-i18n="architecture.http">
-								`Bun.serve`, native routes and hook pipeline.
-							</p>
-						</article>
-						<article class="feature-card reveal delay-1">
-							<h3>Modules</h3>
-							<p data-i18n="architecture.modules">
-								`full`, `mws`, `share` with convention-based loading.
-							</p>
-						</article>
-						<article class="feature-card reveal delay-2">
-							<h3>Events</h3>
-							<p data-i18n="architecture.events">
-								Distributed registry with Redis/SQS adapters.
-							</p>
-						</article>
-						<article class="feature-card reveal delay-3">
-							<h3>Data</h3>
-							<p data-i18n="architecture.data">
-								Redis, MongoDB, SQL and SQLite integration utilities.
-							</p>
-						</article>
-					</div>
-				</div>
-			</section>
-
-			<section
-				id="modules"
-				class="section-shell"
-			>
-				<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-					<div class="section-title reveal">
-						<p
-							class="eyebrow"
-							data-i18n="modules.eyebrow"
-						>
-							Module Strategy
-						</p>
-						<h2 data-i18n="modules.title">One framework, autonomous modules</h2>
-					</div>
-
-					<div class="grid lg:grid-cols-3 gap-5 mt-8">
-						<article class="module-card reveal">
-							<h3>full</h3>
-							<p data-i18n="modules.full">
-								Domain modules with controllers, events and optional initialize hooks.
-							</p>
-							<code>__module__.ts · controllers/ · events/</code>
-						</article>
-						<article class="module-card reveal delay-1">
-							<h3>mws</h3>
-							<p data-i18n="modules.mws">
-								Middleware modules with `default`, `beforeRequest` and `afterRequest`
-								contracts.
-							</p>
-							<code>mws/index.ts</code>
-						</article>
-						<article class="module-card reveal delay-2">
-							<h3>share</h3>
-							<p data-i18n="modules.share">
-								Reusable code and contracts registered as module metadata, without
-								automatic routes or events.
-							</p>
-							<code>types/ · utils/ · services/</code>
-						</article>
-					</div>
-				</div>
-			</section>
-
-			<section
-				id="examples"
-				class="section-shell"
-			>
-				<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-					<div class="section-title reveal">
-						<p
-							class="eyebrow"
-							data-i18n="examples.eyebrow"
-						>
-							Implementation Examples
-						</p>
-						<h2 data-i18n="examples.title">Production-ready usage patterns</h2>
-					</div>
-
-					<div
-						class="mt-8 border border-cyan-200/20 rounded-2xl bg-slate-900/60 overflow-hidden reveal"
-					>
-						<div
-							id="example-tabs"
-							class="flex flex-wrap border-b border-cyan-200/15 p-2 gap-2"
-						></div>
-						<pre
-							class="m-0 p-5 overflow-x-auto"
-						><code id="example-code" class="language-ts text-sm"></code></pre>
-					</div>
-				</div>
-			</section>
-
-			<section
-				id="documentation"
-				class="section-shell pb-24"
-			>
-				<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-					<div class="section-title reveal">
-						<p
-							class="eyebrow"
-							data-i18n="docs.eyebrow"
-						>
-							Documentation Center
-						</p>
-						<h2 data-i18n="docs.title">Complete technical docs in English and Spanish</h2>
-						<p data-i18n="docs.subtitle">
-							Browse every component reference, architecture note and module contract
-							directly from the site.
-						</p>
-					</div>
-
-					<div class="mt-8 grid lg:grid-cols-[320px,1fr] gap-5 items-start">
-						<aside class="doc-sidebar reveal">
-							<input
-								id="doc-search"
-								type="search"
-								placeholder="Search docs..."
-								class="w-full rounded-xl bg-slate-950/80 border border-cyan-200/20 px-3 py-2 outline-none focus:border-cyan-300 text-sm"
-							/>
-							<div
-								id="doc-list"
-								class="mt-3 space-y-1 max-h-[60vh] overflow-auto pr-1"
-							></div>
-						</aside>
-
-						<article class="doc-content reveal delay-1">
-							<div class="doc-content-head">
-								<h3 id="doc-title"></h3>
-								<a
-									id="doc-source"
-									href="#"
-									target="_blank"
-									rel="noreferrer"
-									class="source-link"
-									data-i18n="docs.viewSource"
-									>View source</a
-								>
-							</div>
-							<div
-								id="doc-render"
-								class="prose-shell"
-							></div>
-						</article>
-					</div>
-				</div>
-			</section>
-		</main>
-
-		<footer class="border-t border-cyan-200/15 bg-slate-950/70">
-			<div
-				class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 text-sm text-slate-300"
-			>
-				<div class="space-y-1">
-					<p data-i18n="footer.line1">
-						S42-Core 3.0.10 · Bun-first modular backend framework.
-					</p>
-					<p data-i18n="footer.line2">
-						Developed by Cesar Casas, CEO & Head of Engineering at Stock42 LLC.
-					</p>
-				</div>
-				<div class="flex items-center gap-4 text-cyan-200">
-					<a
+						class="header-link desktop-only"
 						href="https://github.com/stock42/s42-core"
 						target="_blank"
 						rel="noreferrer"
-						class="hover:text-cyan-100"
-						>GitHub</a
 					>
-					<a
-						href="https://twitter.com/stock42ok"
-						target="_blank"
-						rel="noreferrer"
-						class="hover:text-cyan-100"
-						>X</a
+						GitHub
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+						>
+							<path d="M7 17 17 7M8 7h9v9" />
+						</svg>
+					</a>
+
+					<div
+						class="language-switch"
+						role="group"
+						aria-label="Documentation language"
 					>
-					<a
-						href="https://www.linkedin.com/company/stock42/"
-						target="_blank"
-						rel="noreferrer"
-						class="hover:text-cyan-100"
-						>LinkedIn</a
+						<button
+							id="lang-en"
+							type="button"
+							data-lang="en"
+						>
+							EN
+						</button>
+						<button
+							id="lang-es"
+							type="button"
+							data-lang="es"
+						>
+							ES
+						</button>
+					</div>
+
+					<button
+						id="theme-toggle"
+						class="icon-button"
+						type="button"
+						aria-label="Switch color theme"
 					>
+						<svg
+							class="theme-icon theme-icon--sun"
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+						>
+							<circle
+								cx="12"
+								cy="12"
+								r="4"
+							/>
+							<path
+								d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+							/>
+						</svg>
+						<svg
+							class="theme-icon theme-icon--moon"
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+						>
+							<path d="M20 15.7A8.5 8.5 0 0 1 8.3 4 8.5 8.5 0 1 0 20 15.7Z" />
+						</svg>
+					</button>
 				</div>
 			</div>
-		</footer>
+		</header>
 
-		<script src="./app.js"></script>
+		<div
+			id="sidebar-backdrop"
+			class="sidebar-backdrop"
+			hidden
+		></div>
+
+		<div class="docs-layout">
+			<aside
+				id="docs-sidebar"
+				class="sidebar"
+				aria-label="Documentation navigation"
+			>
+				<div class="sidebar__intro">
+					<p
+						class="eyebrow"
+						data-i18n="sidebar.eyebrow"
+					>
+						Documentation
+					</p>
+					<p data-i18n="sidebar.description">
+						Practical examples first. Exact contracts when you need them.
+					</p>
+				</div>
+				<nav id="docs-navigation"></nav>
+				<div class="sidebar__footer">
+					<a
+						href="https://github.com/stock42/s42-core/issues"
+						target="_blank"
+						rel="noreferrer"
+					>
+						<span data-i18n="sidebar.feedback">Documentation feedback</span>
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+						>
+							<path d="M7 17 17 7M8 7h9v9" />
+						</svg>
+					</a>
+				</div>
+			</aside>
+
+			<main
+				id="main-content"
+				class="main-content"
+				tabindex="-1"
+			>
+				<div class="article-shell">
+					<nav
+						class="breadcrumbs"
+						aria-label="Breadcrumb"
+					>
+						<a
+							href="./?doc=GETTING_STARTED"
+							data-doc-link="GETTING_STARTED"
+							>Docs</a
+						>
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+						>
+							<path d="m9 18 6-6-6-6" />
+						</svg>
+						<span id="breadcrumb-category"></span>
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+						>
+							<path d="m9 18 6-6-6-6" />
+						</svg>
+						<span
+							id="breadcrumb-document"
+							aria-current="page"
+						></span>
+					</nav>
+
+					<div
+						id="fallback-notice"
+						class="notice"
+						role="status"
+						hidden
+					></div>
+
+					<article
+						id="document-content"
+						class="markdown-body"
+						aria-live="polite"
+					>
+						<div
+							class="document-loading"
+							role="status"
+						>
+							<span class="loading-bar"></span>
+							<span class="loading-bar loading-bar--short"></span>
+							<span class="loading-block"></span>
+						</div>
+					</article>
+
+					<nav
+						id="document-pagination"
+						class="document-pagination"
+						aria-label="Adjacent documentation"
+					></nav>
+
+					<footer class="article-footer">
+						<p data-i18n="footer.source">
+							Documentation generated from repository Markdown.
+						</p>
+						<a
+							id="edit-link"
+							target="_blank"
+							rel="noreferrer"
+						>
+							<span data-i18n="footer.edit">View source on GitHub</span>
+							<svg
+								aria-hidden="true"
+								viewBox="0 0 24 24"
+							>
+								<path d="M7 17 17 7M8 7h9v9" />
+							</svg>
+						</a>
+					</footer>
+				</div>
+			</main>
+
+			<aside
+				class="toc"
+				aria-label="On this page"
+			>
+				<p
+					class="toc__title"
+					data-i18n="toc.title"
+				>
+					On this page
+				</p>
+				<nav id="table-of-contents"></nav>
+			</aside>
+		</div>
+
+		<dialog
+			id="search-dialog"
+			class="search-dialog"
+			aria-labelledby="search-title"
+		>
+			<div class="search-panel">
+				<div class="search-panel__header">
+					<svg
+						aria-hidden="true"
+						viewBox="0 0 24 24"
+					>
+						<circle
+							cx="11"
+							cy="11"
+							r="7"
+						/>
+						<path d="m16.2 16.2 4 4" />
+					</svg>
+					<label
+						id="search-title"
+						class="sr-only"
+						for="search-input"
+						>Search documentation</label
+					>
+					<input
+						id="search-input"
+						type="search"
+						autocomplete="off"
+						spellcheck="false"
+						placeholder="Search examples, methods, concepts…"
+					/>
+					<button
+						id="search-close"
+						class="search-close"
+						type="button"
+						aria-label="Close search"
+					>
+						<kbd>Esc</kbd>
+					</button>
+				</div>
+				<p
+					id="search-status"
+					class="search-status"
+					aria-live="polite"
+				></p>
+				<div
+					id="search-results"
+					class="search-results"
+					role="listbox"
+				></div>
+				<div class="search-panel__footer">
+					<span
+						><kbd>↑</kbd><kbd>↓</kbd>
+						<span data-i18n="search.navigate">Navigate</span></span
+					>
+					<span><kbd>↵</kbd> <span data-i18n="search.open">Open</span></span>
+				</div>
+			</div>
+		</dialog>
+
+		<div
+			id="copy-status"
+			class="sr-only"
+			aria-live="polite"
+		></div>
+		<noscript>
+			<div class="noscript">
+				This documentation viewer requires JavaScript to render local Markdown files.
+			</div>
+		</noscript>
 	</body>
 </html>

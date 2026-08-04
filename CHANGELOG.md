@@ -83,6 +83,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Documentation website:** replaced the marketing-first page with a focused,
+  example-first Markdown reader. The new static site adds categorized navigation,
+  shareable document/heading URLs, full-text search, generated tables of contents,
+  copyable code examples, adjacent-guide navigation, EN/ES switching, accessible
+  mobile navigation, reduced-motion support, and light/dark themes while keeping
+  `DOCUMENTATION/` as the canonical content source.
 - **Source-aligned documentation audit:** reviewed every TypeScript file under
   `src/` against the English/Spanish component guides and expanded the contracts
   for module loading, request/hook behavior, event delivery, database lifecycle,
