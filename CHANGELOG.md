@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.0.14] - 2026-09-14
+
 ### Fixed
 
 - **Module loading on Windows:** replaced POSIX-only path manipulation with

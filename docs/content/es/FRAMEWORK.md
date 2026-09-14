@@ -4,7 +4,7 @@
 
 [English](./README.md) · [Documentación](./DOCUMENTATION/ALL_EN.md) · [Sitio web](https://s42core.com)
 
-S42-Core `3.0.13` es un framework backend TypeScript, Bun-first, para APIs HTTP,
+S42-Core `3.0.14` es un framework backend TypeScript, Bun-first, para APIs HTTP,
 WebSockets nativos, servicios orientados a módulos y assets estáticos, eventos
 de dominio distribuidos y persistencia de uso común.
 
