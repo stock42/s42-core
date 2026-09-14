@@ -118,7 +118,21 @@ security boundaries.
 const modules = new Modules('./modules', eventsDomain?)
 ```
 
-The path is normalized relative to `process.cwd()` unless it is absolute.
+The constructor accepts a filesystem path, resolved relative to `process.cwd()`
+at load time unless it is absolute. Path normalization, directory joins, and
+event filenames use the host platform's `node:path` implementation in Bun.
+Windows drive paths and backslash separators are therefore handled on Windows,
+while POSIX paths retain their normal behavior on Linux and macOS.
+
+```ts
+const portable = new Modules('./modules')
+const windows = new Modules(String.raw`C:\projects\my-api\modules`) // On Windows
+```
+
+All dynamic imports use `Bun.pathToFileURL()` so spaces, Unicode, `#`, and `%`
+in filesystem names are encoded correctly. This applies to manifests,
+middleware, controllers, WebSocket definitions, and events, including nested
+`events/**/emit.ts` files. Pass a filesystem path, not a `file://` URL.
 
 ## Controller metadata
 

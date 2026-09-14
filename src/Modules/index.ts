@@ -1,4 +1,5 @@
 import { Glob } from 'bun'
+import { basename, dirname, join, normalize, resolve } from 'node:path'
 import { z } from 'zod'
 import { logger } from '../Logger'
 import { Controller } from '../Controller'
@@ -173,7 +174,7 @@ export class Modules {
 
 	private readonly path: string = './'
 	constructor(path: string, eventsDomain?: EventsDomain) {
-		this.path = this.normalizePath(path)
+		this.path = normalize(path.trim() || '.')
 		this.eventsDomain = eventsDomain
 	}
 
@@ -231,11 +232,11 @@ export class Modules {
 		registerModuleStats(module)
 		this.trackModule(this.sharedModules, module)
 
-		const moduleDir = this.dirname(moduleFilePath)
+		const moduleDir = dirname(moduleFilePath)
 		const unsupportedShareDirs = ['controllers', 'events', 'mws', 'websockets']
 
 		for (const dirName of unsupportedShareDirs) {
-			const fullDirPath = this.joinPath(moduleDir, dirName)
+			const fullDirPath = join(moduleDir, dirName)
 			if (await this.directoryExists(fullDirPath)) {
 				logger.warn(
 					`⭕️ Share module ${module.name}@${module.version} ignores "${dirName}" directory (${fullDirPath}).`,
@@ -248,8 +249,8 @@ export class Modules {
 		module: StaticModuleType,
 		moduleFilePath: string,
 	): Promise<void> {
-		const moduleDir = this.dirname(moduleFilePath)
-		const publicDirectory = this.joinPath(moduleDir, 'public')
+		const moduleDir = dirname(moduleFilePath)
+		const publicDirectory = join(moduleDir, 'public')
 
 		await this.staticRoutes.addModule({
 			name: module.name,
@@ -262,7 +263,7 @@ export class Modules {
 		this.trackModule(this.staticModules, module)
 
 		for (const dirName of ['controllers', 'events', 'mws', 'websockets']) {
-			const fullDirPath = this.joinPath(moduleDir, dirName)
+			const fullDirPath = join(moduleDir, dirName)
 			if (await this.directoryExists(fullDirPath)) {
 				logger.warn(
 					`⭕️ Static module ${module.name}@${module.version} ignores "${dirName}" directory (${fullDirPath}).`,
@@ -281,7 +282,7 @@ export class Modules {
 			}
 
 			logger.debug('📦 Loading module:', file)
-			const moduleFilePath = this.toAbsolutePath(this.joinPath(this.path, file))
+			const moduleFilePath = resolve(this.path, file)
 			const completedPath = this.toFileImportURL(moduleFilePath)
 			const loadedModule = await import(completedPath)
 			const module = Module.parse(loadedModule.default)
@@ -300,7 +301,7 @@ export class Modules {
 		moduleFilePath: string,
 	): Promise<void> {
 		registerModuleStats(module)
-		const middlewarePath = this.joinPath(this.dirname(moduleFilePath), 'mws', 'index.ts')
+		const middlewarePath = join(dirname(moduleFilePath), 'mws', 'index.ts')
 
 		if (!(await this.fileExists(middlewarePath))) {
 			throw new Error(
@@ -373,11 +374,11 @@ export class Modules {
 		)
 		const glob = new Glob('**/*.ts')
 
-		const controllersDir = this.joinPath(this.dirname(moduleFilePath), 'controllers')
+		const controllersDir = join(dirname(moduleFilePath), 'controllers')
 		try {
 			for await (const file of glob.scan(controllersDir)) {
 				logger.debug('🧩 Loading controller:', file)
-				const controllerPath = this.joinPath(controllersDir, file)
+				const controllerPath = join(controllersDir, file)
 				const completedPath = this.toFileImportURL(controllerPath)
 				const controllerModule = await import(completedPath)
 				const controller = controllerModule.default as ControllerType &
@@ -444,7 +445,7 @@ export class Modules {
 		module: ModuleType,
 		moduleFilePath: string,
 	): Promise<void> {
-		const webSocketsDir = this.joinPath(this.dirname(moduleFilePath), 'websockets')
+		const webSocketsDir = join(dirname(moduleFilePath), 'websockets')
 		if (!(await this.directoryExists(webSocketsDir))) {
 			return
 		}
@@ -452,7 +453,7 @@ export class Modules {
 		const glob = new Glob('**/*.ts')
 
 		for await (const file of glob.scan(webSocketsDir)) {
-			const definitionPath = this.joinPath(webSocketsDir, file)
+			const definitionPath = join(webSocketsDir, file)
 			logger.debug('🔌 Loading WebSocket controller:', definitionPath)
 
 			try {
@@ -613,66 +614,8 @@ export class Modules {
 		return value.filter((item): item is string => typeof item === 'string')
 	}
 
-	private normalizePath(inputPath: string): string {
-		const trimmed = inputPath.trim()
-		if (!trimmed) {
-			return '.'
-		}
-		if (trimmed === '/') {
-			return '/'
-		}
-		return trimmed.replace(/\/+$/, '')
-	}
-
-	private joinPath(...segments: string[]): string {
-		if (!segments.length) {
-			return ''
-		}
-
-		const [first, ...rest] = segments
-		let joined = first
-		if (joined !== '/') {
-			joined = joined.replace(/\/+$/, '')
-		}
-
-		for (const segment of rest) {
-			const cleanedSegment = segment.replace(/^\/+|\/+$/g, '')
-			if (!cleanedSegment) {
-				continue
-			}
-
-			if (!joined || joined === '/') {
-				joined = joined === '/' ? `/${cleanedSegment}` : cleanedSegment
-			} else {
-				joined = `${joined}/${cleanedSegment}`
-			}
-		}
-
-		return joined
-	}
-
-	private dirname(filePath: string): string {
-		const normalized = filePath.replace(/\/+$/, '')
-		const lastSlashIndex = normalized.lastIndexOf('/')
-		if (lastSlashIndex <= 0) {
-			return '.'
-		}
-		return normalized.slice(0, lastSlashIndex)
-	}
-
-	private toAbsolutePath(filePath: string): string {
-		if (filePath.startsWith('/')) {
-			return filePath
-		}
-
-		const cwd = process.cwd().replace(/\/+$/, '')
-		const relative = filePath.replace(/^\.?\//, '')
-		return `${cwd}/${relative}`
-	}
-
 	private toFileImportURL(filePath: string): string {
-		const absolutePath = this.toAbsolutePath(filePath)
-		return new URL(absolutePath, 'file://').href
+		return Bun.pathToFileURL(resolve(filePath)).href
 	}
 
 	private async fileExists(filePath: string): Promise<boolean> {
@@ -714,14 +657,14 @@ export class Modules {
 			return
 		}
 
-		const eventsDir = this.joinPath(this.dirname(moduleFilePath), 'events')
+		const eventsDir = join(dirname(moduleFilePath), 'events')
 		const glob = new Glob('**/*.ts')
 		try {
 			for await (const file of glob.scan(eventsDir)) {
-				const eventFilePath = this.joinPath(eventsDir, file)
+				const eventFilePath = join(eventsDir, file)
 				const completedPath = this.toFileImportURL(eventFilePath)
 				const eventModule = await import(completedPath)
-				const baseName = file.split('/').pop() ?? file
+				const baseName = basename(file)
 
 				if (baseName === 'emit.ts') {
 					this.registerEmitEvents(module, eventModule)

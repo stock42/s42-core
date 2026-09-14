@@ -164,6 +164,21 @@ Typical domain event:
 `Modules` scans `**/__module__.ts` below the configured path using `Bun.Glob`.
 Each default export is parsed with the public `Module` Zod schema.
 
+The constructor takes a filesystem path, not a `file://` URL. Relative paths
+resolve against `process.cwd()` at load time. Filesystem operations use Bun's
+platform-aware `node:path` implementation, including Windows drive paths and
+backslash separators on Windows.
+
+```ts
+const portable = new Modules('./modules')
+const windows = new Modules(String.raw`C:\projects\my-api\modules`) // On Windows
+```
+
+Dynamic imports use `Bun.pathToFileURL()` to preserve spaces, Unicode, `#`, and
+`%` in manifests, middleware, controllers, WebSocket definitions, and events.
+Nested `events/**/emit.ts` files are recognized using the native filename
+operation rather than splitting paths on `/`.
+
 ### 5.1 Manifest
 
 ```ts

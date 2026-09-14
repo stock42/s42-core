@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Module loading on Windows:** replaced POSIX-only path manipulation with
+  platform-aware `node:path` operations and `Bun.pathToFileURL()` for all dynamic
+  imports. Windows drive paths and separators are handled correctly, nested
+  event emitter files are recognized, and spaces, Unicode, `#`, and `%` in
+  filesystem names no longer corrupt import URLs. Added portable loader
+  regressions covering all module types, middleware execution, controller
+  responses, WebSocket discovery, event registration, and static file reads.
+
 ## [3.0.13] - 2026-08-07
 
 ### Added

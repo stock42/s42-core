@@ -119,7 +119,23 @@ seguridad.
 const modules = new Modules('./modules', eventsDomain?)
 ```
 
-El path se normaliza respecto de `process.cwd()`, salvo que sea absoluto.
+El constructor recibe una ruta del sistema de archivos, resuelta respecto de
+`process.cwd()` al cargar, salvo que sea absoluta. La normalización, la unión
+de directorios y los nombres de archivos de eventos usan la implementación de
+`node:path` de Bun para la plataforma actual. En Windows se reconocen las
+unidades y los separadores `\`; en Linux y macOS se mantiene el comportamiento
+habitual de las rutas POSIX.
+
+```ts
+const portable = new Modules('./modules')
+const windows = new Modules(String.raw`C:\projects\my-api\modules`) // En Windows
+```
+
+Todos los imports dinámicos usan `Bun.pathToFileURL()` para codificar
+correctamente espacios, Unicode, `#` y `%` en los nombres. Esto cubre
+manifiestos, middleware, controladores, definiciones WebSocket y eventos,
+incluidos los archivos anidados `events/**/emit.ts`. Pasar una ruta del sistema
+de archivos, no una URL `file://`.
 
 ## Metadata de controlador
 

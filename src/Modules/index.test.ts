@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { clearControllersStats } from '../Controller'
+import type { EventsDomain } from '../EventsDomain'
 import { setLogSink, type LogSink } from '../Logger'
+import { Res } from '../Response'
 import { clearStaticRoutesStats, getStaticRoutesStats } from '../StaticRoutes'
 import { clearWebSocketControllersStats } from '../WebSocketController'
 import { clearModulesStats, getModulesStats, Module, Modules } from './index'
@@ -112,6 +114,92 @@ describe('getModulesStats', () => {
 			'static',
 		])
 	})
+
+	test.each(['absolute', 'relative', 'parent segments', 'forward slashes'])(
+		'loads and executes modules using %s paths with spaces, Unicode, # and %%',
+		async pathStyle => {
+			const specialDir = `${fixtureDir} módulos #100%`
+			await rename(fixtureDir, specialDir)
+			fixtureDir = specialDir
+
+			await mkdir(join(fixtureDir, 'operators', 'events', 'nested'), {
+				recursive: true,
+			})
+			await mkdir(join(fixtureDir, 'operators', 'controllers', 'nested'), {
+				recursive: true,
+			})
+			await rename(
+				join(fixtureDir, 'operators', 'controllers', 'list.ts'),
+				join(fixtureDir, 'operators', 'controllers', 'nested', 'list #100%.ts'),
+			)
+			await writeFile(
+				join(fixtureDir, 'auth', 'mws', 'index.ts'),
+				`export default () => {}
+export const beforeRequest = (_req, res, next) => { res.setHeader('X-Before', 'loaded'); next(_req, res) }
+export const afterRequest = (_req, _res, next) => next(_req, _res)
+`,
+			)
+			await writeFile(
+				join(fixtureDir, 'operators', 'controllers', 'nested', 'list #100%.ts'),
+				`export default { name: 'operators.list', version: '1.0.0', method: 'GET', path: '/operators/list', requireBefore: ['auth'], handler: (_req, res) => res.json({ ok: true }) }\n`,
+			)
+			await rename(
+				join(fixtureDir, 'operators', 'websockets', 'stream.ts'),
+				join(fixtureDir, 'operators', 'websockets', 'stream #100%.ts'),
+			)
+			await writeFile(
+				join(fixtureDir, 'operators', 'events', 'nested', 'emit.ts'),
+				`export const Item$Created = {}\n`,
+			)
+			await writeFile(
+				join(fixtureDir, 'operators', 'events', 'nested', 'listen #100%.ts'),
+				`export const Item$Created = () => {}\n`,
+			)
+
+			const emitters: string[] = []
+			const listeners: string[] = []
+			const events = {
+				registerEmitter: (eventName, moduleName) => {
+					emitters.push(`${moduleName}.${eventName}`)
+				},
+				listen: (input, handler, moduleName) => {
+					expect(typeof handler).toBe('function')
+					listeners.push(`${moduleName}.${input.eventName}`)
+				},
+			} satisfies Pick<EventsDomain, 'registerEmitter' | 'listen'>
+
+			let modulePath = fixtureDir
+			if (pathStyle === 'relative') {
+				modulePath = relative(process.cwd(), fixtureDir)
+			} else if (pathStyle === 'parent segments') {
+				modulePath = `${fixtureDir}${sep}operators${sep}..${sep}`
+			} else if (pathStyle === 'forward slashes') {
+				modulePath = `${fixtureDir.replaceAll(sep, '/')}/`
+			}
+
+			const modules = new Modules(modulePath, events as EventsDomain)
+			await modules.load()
+
+			expect(modules.getLoadedModules()).toHaveLength(4)
+			expect(modules.getWebSocketControllers()).toHaveLength(1)
+			expect(emitters).toEqual(['operators.Item$Created'])
+			expect(listeners).toEqual(['operators.Item$Created'])
+			const controllers = modules.getControllers()
+			expect(controllers).toHaveLength(1)
+			const response = await controllers[0].getCallback()(
+				new Request('http://localhost/operators/list'),
+				new Res({}),
+			)
+			expect(response.status).toBe(200)
+			expect(response.headers.get('X-Before')).toBe('loaded')
+			expect(await response.json()).toEqual({ ok: true })
+			const staticRoutes = modules.getStaticRoutes().getRoutes()
+			const staticResponse = await staticRoutes['/site/index.html'].GET(
+				new Request('http://localhost/site/index.html'),
+			)
+			expect(await staticResponse.text()).toBe('<h1>Website</h1>')
+		},
+	)
 
 	test('runs module initialize hooks after each module is loaded', async () => {
 		const initializeEventsKey = '__s42CoreInitializeEvents'
